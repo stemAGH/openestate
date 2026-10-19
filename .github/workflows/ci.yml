@@ -1050,7 +1050,7 @@ jobs:
              UPDATE bookings SET interest_rule_id = '${ORPHAN_RULE}' WHERE id = '${ORPHAN_BOOKING}';
              ALTER TABLE bookings ADD CONSTRAINT bookings_interest_rule_id_fkey FOREIGN KEY (interest_rule_id) REFERENCES interest_rules(id) ON DELETE SET NULL ON UPDATE CASCADE NOT VALID;
              COMMIT;"
-          [ "$(q "SELECT confdeltype || convalidated::text FROM pg_constraint WHERE conname = 'bookings_interest_rule_id_fkey'")" = "nfalse" ] \
+          [ "$(q "SELECT confdeltype::text || convalidated::text FROM pg_constraint WHERE conname = 'bookings_interest_rule_id_fkey'")" = "nfalse" ] \
             || { echo "::error::the planted key is not ON DELETE SET NULL, NOT VALID"; exit 1; }
           echo "ORPHAN_BOOKING=${ORPHAN_BOOKING}" >> "$GITHUB_ENV"
           echo "ORPHAN_RULE=${ORPHAN_RULE}" >> "$GITHUB_ENV"
