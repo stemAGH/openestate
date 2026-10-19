@@ -166,6 +166,8 @@ docs/           Docusaurus site: install, admin, API, plugin dev
   e2e test happy path + one authz-failure test.
 - Money math only through the shared `Money` utility (paise BigInt).
 - Migrations are forward-only; never edit an applied migration.
+- Every new migration's folder name must sort after the newest migration on
+  master (dependency order = name order on a fresh install).
 - Conventional commits. Every phase ends with all tests green and
   `sudo ./deploy/native/install-native.sh` working from scratch.
 - Never add Co-Authored-By trailers or "Generated with Claude Code"

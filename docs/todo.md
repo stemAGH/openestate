@@ -12,15 +12,17 @@ The top item comes first; the rest are each written up in their own entry below
 1. **Delayed-payment interest can't be switched on for a booking** (next entry).
    Built on branch `v0.9-interest-rule`; waiting for the VM rehearsal from
    `v0.8.4-verified`.
-2. **"Log out everywhere" should also end other devices' access tokens at once.**
-3. **Which cookie the browser keeps after two overlapping refreshes.**
-4. **Indexes on the 70 unindexed foreign-key columns** (in "Deferred from v0.8.4
+2. **Wizard: a refused payment plan leaves a booking with no plan** (the entry
+   right after the top item's).
+3. **"Log out everywhere" should also end other devices' access tokens at once.**
+4. **Which cookie the browser keeps after two overlapping refreshes.**
+5. **Indexes on the 70 unindexed foreign-key columns** (in "Deferred from v0.8.4
    items A and G").
-5. **The erasure CLI hard-delete tool (item Q)** (in "Erasure").
-6. **Upgrades refresh the installed systemd unit.**
-7. **Lint the root `scripts/` folder.**
-8. **A fragile super_admin test.**
-9. **Upgrade audit rows list permission keys; the Roles screen's list ids.**
+6. **The erasure CLI hard-delete tool (item Q)** (in "Erasure").
+7. **Upgrades refresh the installed systemd unit.**
+8. **Lint the root `scripts/` folder.**
+9. **A fragile super_admin test.**
+10. **Upgrade audit rows list permission keys; the Roles screen's list ids.**
 
 ## v0.9 TOP ITEM: delayed-payment interest can't be switched on for a booking
 
@@ -57,6 +59,15 @@ rehearsal, then the release. Two notes for the release:
 - A user without the permission (a sales manager, by default) books without
   the interest choice; the wizard says Accounts sets it from the schedule.
 
+## v0.9: wizard: a refused payment plan leaves a booking with no plan
+
+Wizard: booking is created before the payment plan; if the plan is refused
+(e.g. installments not equal to the GST-inclusive total) the booking is left
+with no plan and holds its unit, and retries on that unit fail. Seen on the VM
+rehearsal 2026-10-19 (bookings 000006–000008). Also: the 400's reason isn't
+logged anywhere. Must be reproduced deterministically before fixing; the
+GST-inclusive cause is so far inferred.
+
 ## v0.9 follow-up: compounding waits for the CA
 
 In v0.9 only SIMPLE interest rules can be attached to a booking (attaching a
@@ -84,6 +95,24 @@ would call the same per-booking change for each, so each booking still
 settles up under its old rule, takes its own lock and gets its own audit row.
 Needs a screen, a permission decision and a test that a failure part-way
 leaves no booking half-moved.
+
+## CI: enforce that a new migration sorts after master's newest
+
+CLAUDE.md now says every new migration's folder name must sort after the
+newest migration on master, because Prisma applies migrations in name order on
+a fresh install, so name order must follow dependency order (v0.9's
+`20261101…` replaces a key that v0.8.4's `20261022…` adds; dated by its real
+creation day it would sort first and fail on a fresh install). Nothing enforces
+it: add a CI check that compares each migration the PR adds with master's
+newest migration folder and fails if it sorts before it.
+
+## CI: the previous-release assertions should print an ok line per check
+
+In the previous-release job, several checks in "Assert the upgrade outcome"
+(the orphan variant's NOT VALID RESTRICT key and unchanged orphan row, among
+others) print nothing when they pass, so confirming them from a log means
+reading the script and relying on `set -e` reaching the final line. Print one
+"ok: …" line per passed check.
 
 ## v0.9: upgrades never refresh the installed systemd unit
 

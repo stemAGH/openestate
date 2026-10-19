@@ -169,7 +169,8 @@ Snapshot 1                        2026-09-08 original install
 ```
 
 `v0.8.4-verified` is the clean base for the next release's rehearsal (the previous
-release is then v0.8.4). Before trusting any snapshot as a base, check the active
+release is then v0.8.4). The v0.8.4-verified checkout has no v0.8.4 tag (upgraded
+by sha before tagging); identify the base by HEAD 5891f99, not git describe. Before trusting any snapshot as a base, check the active
 build, the git tag and the migration count (`SELECT count(*) FROM
 _prisma_migrations`); never assume.
 
