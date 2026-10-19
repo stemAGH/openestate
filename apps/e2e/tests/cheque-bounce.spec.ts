@@ -81,6 +81,8 @@ test('book a unit → record a cheque receipt → bounce it → Collection Summa
   await page.getByRole('button', { name: 'Next' }).click(); // step 3 → 4
 
   // ── Step 4: confirm (no broker) ──
+  // v0.9: the wizard requires an explicit delay-interest choice.
+  await page.getByLabel('Delay interest').selectOption('NONE');
   await page.getByRole('button', { name: 'Confirm & Book' }).click();
   await page.waitForURL(/\/postsales\/bookings\/.+\/installments/);
 

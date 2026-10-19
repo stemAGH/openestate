@@ -114,6 +114,8 @@ test('assign a PLC and a GST-rated charge to a unit, book it, and confirm the to
   await expect(confirmDl).toContainText('Total (excl. GST)');
   await expect(confirmDl).toContainText(rupeesText(baseRupees + plcRupees + chargeRupees));
 
+  // v0.9: the wizard requires an explicit delay-interest choice.
+  await page.getByLabel('Delay interest').selectOption('NONE');
   const [bookingResponse] = await Promise.all([
     page.waitForResponse((r) => r.url().endsWith('/bookings') && r.request().method() === 'POST'),
     page.getByRole('button', { name: 'Confirm & Book' }).click(),

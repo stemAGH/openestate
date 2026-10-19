@@ -114,6 +114,8 @@ export class TransferService {
             placeOfSupplyStateCode: from.placeOfSupplyStateCode,
             paymentPlanTemplateId: from.paymentPlanTemplateId,
             interestRuleId: from.interestRuleId,
+            // Interest on the new booking runs from the transfer date (v0.9).
+            interestFromDate: from.interestRuleId ? now : null,
             bookingDate: now,
             createdById: actorId,
           },

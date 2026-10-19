@@ -143,6 +143,9 @@ export const PERMISSIONS = {
   POSTSALES_CHEQUE_VERIFY: 'postsales.cheque.verify',
   POSTSALES_EXTRA_CHARGE_CREATE: 'postsales.extra-charge.create',
   POSTSALES_INTEREST_WAIVE: 'postsales.interest.waive',
+  // Attach, change or remove a booking's delay-interest rule. Separate from
+  // WAIVE: attaching a rule raises what a customer owes, waiving lowers it.
+  POSTSALES_INTEREST_MANAGE: 'postsales.interest.manage',
   POSTSALES_TDS_READ: 'postsales.tds.read',
   POSTSALES_TDS_CERTIFICATE: 'postsales.tds.certificate',
   POSTSALES_TRANSFER_READ: 'postsales.transfer.read',

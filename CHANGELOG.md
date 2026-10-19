@@ -3,6 +3,53 @@
 All notable changes to OpenEstate are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+Draft for v0.9.0; release notes draft:
+[v0.9.0](docs/releases/v0.9.0-release-notes.md). Two migrations: one adds
+`bookings.interest_from_date`, and both switch the booking-to-interest-rule link
+to refuse deletes (added NOT VALID, then validated when no row points at a
+missing rule). No new environment variable.
+
+### Added
+
+- **Delayed-payment interest can be switched on for a booking.** Choose a rule
+  (or "No delay interest") in the booking wizard, or attach, change or remove one
+  later from the installment schedule's new "Delay interest" panel, which also
+  has "Accrue interest now". Interest runs only from the day the rule is
+  attached; changing or removing a rule charges interest up to that day under
+  the old rule first, and interest already charged is never recalculated. Only
+  simple-interest rules can be attached for now. A transfer carries the rule to
+  the new booking from the transfer date. API: `PUT /bookings/:id/interest-rule`.
+- **New permission `postsales.interest.manage`** (attach, change or remove a
+  rule), for Accounts and Company Admin. Manual accrue accepts it or the
+  existing waive permission.
+- **The upgrade prints how many active bookings have no interest rule.** None is
+  attached automatically.
+
+### Changed
+
+- **A rule attached to an active booking keeps its rate.** Changing its rate type
+  or rate in Masters is refused with a message; it can't be deleted while a
+  booking uses it (the database refuses, and the app says so). Renaming or
+  marking it inactive still works.
+
+### Fixed
+
+- Two accrual runs for one booking at the same moment could charge the same
+  period twice. Accrual now takes a per-booking lock.
+- The manual accrue action could charge interest on a cancelled or transferred
+  booking.
+- After an upgrade that adds permissions, some users could be signed out for up
+  to a minute.
+
+### Upgrade notes
+
+- `postsales.interest.manage` reaches existing Accounts and Company Admin roles
+  only on an install that has been on v0.8.4. From v0.8.3 or older it is listed
+  under "System roles that differ from their default permissions"; grant it in
+  Admin → Roles.
+
 ## [0.8.4] - 2026-10-15
 
 A hardening release: it protects upgrades and the database, and **it changes

@@ -78,11 +78,17 @@ describeIf('v0.8.4 Part A: upgrading a database that has an orphan row', () => {
   beforeAll(async () => {
     admin = new PrismaClient({ datasourceUrl: TEST_SUPER_URL });
     await admin.$executeRawUnsafe(`CREATE DATABASE ${SCRATCH}`);
-    // A copy of the schema and every migration except Part A.
+    // A copy of the schema and every migration before Part A, as a v0.8.3
+    // install has. (Not "every migration except Part A": a later migration may
+    // depend on Part A — v0.9's 20261101000000_booking_interest_rule replaces a
+    // foreign key Part A adds. The deploys below apply Part A and everything
+    // after it, in order, as a real upgrade does.)
     preADir = mkdtempSync(path.join(tmpdir(), 'fk-orphan-'));
     cpSync(path.join(DB_DIR, 'prisma/schema.prisma'), path.join(preADir, 'schema.prisma'));
     for (const m of readdirSync(MIGRATIONS)) {
-      if (!PART_A.includes(m)) cpSync(path.join(MIGRATIONS, m), path.join(preADir, 'migrations', m), { recursive: true });
+      if (m < PART_A[0] || m === 'migration_lock.toml') {
+        cpSync(path.join(MIGRATIONS, m), path.join(preADir, 'migrations', m), { recursive: true });
+      }
     }
     const pre = deploy(path.join(preADir, 'schema.prisma'), scratchUrl());
     if (!pre.ok) throw new Error(`pre-A deploy failed:\n${pre.out}`);

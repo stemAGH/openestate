@@ -28,7 +28,13 @@ export class SessionVersionGuard implements CanActivate {
     if (!user) return true;
     if (typeof user.av !== 'number') throw new UnauthorizedException(SESSION_ENDED_MESSAGE);
     const current = await this.versions.current(user.sub);
-    if (current === null || current !== user.av) throw new UnauthorizedException(SESSION_ENDED_MESSAGE);
-    return true;
+    if (current === null) throw new UnauthorizedException(SESSION_ENDED_MESSAGE);
+    if (user.av === current) return true;
+    // Versions only go up, so a token newer than the cache means the cache is
+    // behind (a bump made directly in the database, as the upgrade's
+    // permission sync does). Ask the database, and accept only an exact match.
+    // An older token is refused without a database read, as before.
+    if (user.av > current && (await this.versions.fromDatabase(user.sub)) === user.av) return true;
+    throw new UnauthorizedException(SESSION_ENDED_MESSAGE);
   }
 }

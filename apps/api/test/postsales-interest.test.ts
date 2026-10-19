@@ -126,6 +126,16 @@ describeIf('Interest accrual (fixed clock, hand-computed fixtures)', () => {
     expect(r2.postedPaise).toBe(simpleInterest(L(4_00_000), 18, 30));
   });
 
+  it('posts nothing on a cancelled booking, even through the manual accrue path', async () => {
+    const { booking } = await bookingWithOverdueInstallment(simpleRuleId, new Date('2026-07-02'), L(10_00_000));
+    await svc.cancellations.cancel(fx.companyId, booking.id, { cancellationType: 'CANCEL' }, fx.userId);
+    const balanceAfterCancel = await svc.ledger.balance(fx.companyId, booking.id);
+    const res = await svc.interest.accrueForBooking(fx.companyId, booking.id, new Date('2026-08-01'));
+    expect(res.postedPaise).toBe(0n);
+    expect(await systemPrisma.interestAccrual.count({ where: { bookingId: booking.id } })).toBe(0);
+    expect(await svc.ledger.balance(fx.companyId, booking.id)).toBe(balanceAfterCancel);
+  });
+
   it('waiver posts an audited credit that reduces the balance', async () => {
     const { booking } = await bookingWithOverdueInstallment(simpleRuleId, new Date('2026-07-02'), L(10_00_000));
     await svc.interest.accrueForBooking(fx.companyId, booking.id, new Date('2026-08-01'));

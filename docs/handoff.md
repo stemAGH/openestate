@@ -5,8 +5,10 @@ with whatever a new session needs to pick up work immediately; prune stale facts
 rather than layering history on top of them. For *why* a decision was made, see
 CLAUDE.md's Decisions log; this file is only *what's true right now*.
 
-**Last updated: 2026-10-15. v0.8.4 is released (commit `5891f99`). Nothing is in
-flight.**
+**Last updated: 2026-10-16. v0.8.4 is released (commit `5891f99`). Master CI run
+38723215452 on `cedcacd` (the v0.9 notes) was green. In flight: v0.9 item 1,
+delayed-payment interest, on branch `v0.9-interest-rule` (PR open, waiting for
+the VM rehearsal from `v0.8.4-verified`).**
 
 ## 1. How we work
 
@@ -41,6 +43,10 @@ flight.**
   top), publish the advisory straight away and request its CVE, then check a fresh
   clone (tag points at the commit, `package.json` version), delete the merged
   branches. The owner is present from the master push to the advisory.
+  Before the first PR run of a new release, review the previous-release CI
+  variants (clean, orphan, lock-timeout) for what that release changes. (They
+  are marked "REVIEW EACH RELEASE" in `.github/workflows/ci.yml`; v0.9's first
+  run failed on all three because they still described v0.8.4.)
 - **Only one Claude session may use the VM or one working directory at a time.**
 
 ## 2. Environment
@@ -56,7 +62,8 @@ flight.**
   `C:\Users\Ashis\AppData\Local\Programs\DockerDesktop\resources\bin`. They are
   provisioned by `scripts/test-setup.sh`, which needs a `psql` client; none is
   installed here (a small stand-in was used before), so the database is simply
-  kept migrated (42 migrations). They are still running and can be stopped.
+  kept migrated (44 migrations with the `v0.9-interest-rule` branch). They are
+  still running and can be stopped.
 - `.test-env` (git-ignored) holds `DATABASE_URL_TEST`, `DATABASE_URL_TEST_SYSTEM`
   and `REDIS_TEST_URL`. **It does not hold `DATABASE_URL_TEST_SUPER`**, which the
   suites that use `cleanupCompany` need for teardown (the append-only escape
@@ -77,7 +84,7 @@ flight.**
 - `openestate-partS` is a leftover local clone of the removed private fork and can
   be deleted. A PostgreSQL 17 and a Redis-on-Windows install were made by mistake
   earlier; their services are stopped and disabled and can be uninstalled.
-- Docs site: `pnpm --filter docs build`.
+- Docs site: `pnpm --filter @openestate/docs build`.
 
 ### CI
 
@@ -250,11 +257,12 @@ Release: https://github.com/stemAGH/openestate/releases/tag/v0.8.4. Advisory
 **v0.9, "pilot readiness".** Everything is written up in `docs/todo.md` (the
 "v0.9 'pilot readiness'" entry at the top lists it). In order:
 
-1. **The interest-rule gap is the top item.** Nothing writes
-   `Booking.interestRuleId`, so no interest is ever charged. It touches the frozen
-   financial core, so a written plan and the owner's approval come first (also:
-   may a rule be attached after booking, and may it change once interest has been
-   charged).
+1. **The interest-rule gap: built, waiting for the VM rehearsal.** Branch
+   `v0.9-interest-rule`, built to the owner's rulings (a)–(j) (see the
+   `docs/todo.md` entry). Next: the owner confirms no other session uses the VM
+   and puts the sudo rule in place, then the rehearsal from `v0.8.4-verified`
+   with the installed v0.8.4 `upgrade-native.sh`, upgrading by full commit sha.
+   CHANGELOG and release-notes drafts are in the branch.
 2. "Log out everywhere" should also bump the session version, so other devices'
    access tokens end at once rather than within 15 minutes.
 3. The cookie-ordering follow-up (which cookie the browser keeps after two

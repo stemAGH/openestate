@@ -9,8 +9,9 @@ they're expected to land. Each entry should say *what*, *why deferred*, and
 The top item comes first; the rest are each written up in their own entry below
 (search the heading) and are not ordered.
 
-1. **Delayed-payment interest can't be switched on for a booking** (next entry;
-   frozen core, so a written plan and owner approval first).
+1. **Delayed-payment interest can't be switched on for a booking** (next entry).
+   Built on branch `v0.9-interest-rule`; waiting for the VM rehearsal from
+   `v0.8.4-verified`.
 2. **"Log out everywhere" should also end other devices' access tokens at once.**
 3. **Which cookie the browser keeps after two overlapping refreshes.**
 4. **Indexes on the 70 unindexed foreign-key columns** (in "Deferred from v0.8.4
@@ -34,6 +35,55 @@ wizard, and how a rule change affects accruals already posted), so it needs a
 written plan and owner approval before any code. Decide with it: whether a rule
 may be attached after booking, and whether changing it is allowed once interest
 has been charged.
+
+**Built (branch `v0.9-interest-rule`, 2026-10-16), to the owner's rulings:** a
+rule can be attached at booking (the wizard requires a choice: a rule or "No
+delay interest") or later (`PUT /bookings/:id/interest-rule`, permission
+`postsales.interest.manage`); interest runs only from the attach date
+(`bookings.interest_from_date`); a change or removal settles up to today under
+the old rule first, and past interest is never recalculated; no rule is
+attached on upgrade (the upgrade prints how many active bookings have none); a
+rule in use can't be re-rated or deleted (`bookings_interest_rule_id_fkey` is
+now `ON DELETE RESTRICT`); a transfer copies the rule from the transfer date.
+Also fixed: two accrual runs at once double-posted a period, and the manual
+accrue action charged interest on a cancelled booking. Remaining: the VM
+rehearsal, then the release. Two notes for the release:
+
+- `postsales.interest.manage` reaches existing `accounts` and `company_admin`
+  roles only through the v0.8.4 seed baseline. An install that skips v0.8.4
+  (v0.8.3 or older straight to v0.9) records its first baseline instead, adds
+  nothing, and lists the key under "roles that differ from their defaults"; an
+  admin grants it in Roles. Say so in the release notes.
+- A user without the permission (a sales manager, by default) books without
+  the interest choice; the wizard says Accounts sets it from the schedule.
+
+## v0.9 follow-up: compounding waits for the CA
+
+In v0.9 only SIMPLE interest rules can be attached to a booking (attaching a
+COMPOUND rule is refused with a 409). `InterestRule.frequency` (DAILY,
+MONTHLY, YEARLY) is stored but the accrual never reads it: a COMPOUND rule
+would compound every time the daily job runs, which is not what any rule
+says. Unblock with the CA's answers (compounding period, day count, whether
+GST applies to interest, grace days, any RERA-prescribed rate such as SBI
+MCLR + 2%), then make accrual honour `frequency` and lift the refusal in
+`BookingInterestRuleService`, with tests against hand-computed figures.
+
+## Follow-up: bookings created without the manage permission have no interest rule
+
+Bookings created without the manage permission have no interest rule and
+nothing flags them: add a visible 'No interest rule' marker or filter for
+Accounts.
+
+## Follow-up: bulk move bookings between interest rules
+
+Not built (owner ruling j). A rule in use can't be re-rated, so a rate change
+(an MCLR change, for example) means creating a new rule and moving each
+booking to it with `PUT /bookings/:id/interest-rule`, one booking at a time.
+A bulk action ("move every active booking on rule A to rule B from today")
+would call the same per-booking change for each, so each booking still
+settles up under its old rule, takes its own lock and gets its own audit row.
+Needs a screen, a permission decision and a test that a failure part-way
+leaves no booking half-moved.
 
 ## v0.9: upgrades never refresh the installed systemd unit
 
@@ -155,6 +205,17 @@ shared test database. Likely fix: a scope parameter, as done for
 
 The upgrade's `ROLE_PERMS_CHANGED` audit rows list permission keys, while the
 Roles screen's rows list permission ids. Make them consistent.
+
+## Direct database bumps of `users.authz_version` don't clear the session-version cache
+
+Direct database bumps of `users.authz_version` (the upgrade sync,
+`packages/db/prisma/sync-permissions.ts`) don't clear the Redis
+session-version cache, so an old token can be accepted for up to 60s. Harmless
+while the sync only adds permissions; any future step that removes access this
+way must clear the cache. (The other direction was fixed in v0.9: a token newer
+than the cache is checked against the database, so a refreshed session is no
+longer signed out; found by PR #78's CI. `e2e-session-authz-version.test.ts`
+pins both, the old-token window as a "known window" test.)
 
 ## v0.9: which cookie the browser keeps after two overlapping refreshes
 

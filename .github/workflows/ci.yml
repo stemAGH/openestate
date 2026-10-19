@@ -1031,55 +1031,82 @@ jobs:
       - name: Add data and open one staff and one portal session (over HTTP)
         run: node scripts/ci/upgrade-scenario.mjs seed
 
-      - name: "Variant orphan: plant a row whose pointer will not resolve"
+      # Release-specific: REVIEW EACH RELEASE (docs/handoff.md, release
+      # procedure). v0.9: bookings_interest_rule_id_fkey is replaced (SET NULL
+      # -> RESTRICT). Plant the state v0.8.4 leaves an orphan in: the key NOT
+      # VALID and one booking pointing at a rule that doesn't exist. The
+      # upgrade must keep the new key NOT VALID, leave the row alone, report it,
+      # and count the booking as having no interest rule.
+      - name: "Variant orphan: a booking whose interest rule does not exist"
         if: matrix.variant == 'orphan'
         run: |
-          # On the previous release this foreign key does not exist yet, so a
-          # webhook endpoint "created by" a user that never existed is accepted.
-          (cd / && sudo -u postgres psql -d openestate -v ON_ERROR_STOP=1 -c \
-            "INSERT INTO webhook_endpoints (id, company_id, name, url, secret_ciphertext, secret_key_version, event_types, created_by_id, updated_at)
-             VALUES (gen_random_uuid(), (SELECT id FROM companies ORDER BY created_at LIMIT 1), 'Orphan hook', 'https://example.invalid/hook', 'x', 1, '{}', gen_random_uuid(), now())")
+          set -euo pipefail
+          q() { (cd / && sudo -u postgres psql -d openestate -AtX -v ON_ERROR_STOP=1 -c "$1"); }
+          ORPHAN_BOOKING="$(q "SELECT id FROM bookings ORDER BY created_at LIMIT 1")"
+          ORPHAN_RULE="$(q "SELECT gen_random_uuid()")"
+          [ -n "$ORPHAN_BOOKING" ] || { echo "::error::no booking to plant the orphan on"; exit 1; }
+          q "BEGIN;
+             ALTER TABLE bookings DROP CONSTRAINT bookings_interest_rule_id_fkey;
+             UPDATE bookings SET interest_rule_id = '${ORPHAN_RULE}' WHERE id = '${ORPHAN_BOOKING}';
+             ALTER TABLE bookings ADD CONSTRAINT bookings_interest_rule_id_fkey FOREIGN KEY (interest_rule_id) REFERENCES interest_rules(id) ON DELETE SET NULL ON UPDATE CASCADE NOT VALID;
+             COMMIT;"
+          [ "$(q "SELECT confdeltype::text || convalidated::text FROM pg_constraint WHERE conname = 'bookings_interest_rule_id_fkey'")" = "nfalse" ] \
+            || { echo "::error::the planted key is not ON DELETE SET NULL, NOT VALID"; exit 1; }
+          echo "ORPHAN_BOOKING=${ORPHAN_BOOKING}" >> "$GITHUB_ENV"
+          echo "ORPHAN_RULE=${ORPHAN_RULE}" >> "$GITHUB_ENV"
 
-      - name: "Variant lock-timeout: upgrade with the previous script while users is locked"
+      - name: "Variant lock-timeout: upgrade with the previous script while a table it migrates is locked"
         if: matrix.variant == 'lock-timeout'
         run: |
           set -uo pipefail
-          # Hold ROW EXCLUSIVE on users: ordinary writes still work, but the
-          # foreign-key file's SHARE ROW EXCLUSIVE lock on users must wait,
-          # and with a 3 s lock_timeout the file fails cleanly.
+          # ── REVIEW EACH RELEASE (docs/handoff.md, release procedure) ──
+          # LOCK_TABLE must be a table this release's first migration needs an
+          # exclusive lock on, and the checks below name that migration and
+          # what it would change. v0.9: 20261101000000_booking_interest_rule
+          # adds bookings.interest_from_date and replaces
+          # bookings_interest_rule_id_fkey (SET NULL -> RESTRICT).
+          LOCK_TABLE=bookings
+          FIRST_MIGRATION=20261101000000_booking_interest_rule
+          # Hold ROW EXCLUSIVE on it: ordinary writes still work, but the
+          # migration's ALTER TABLE needs ACCESS EXCLUSIVE and must wait, and
+          # with a 3 s lock_timeout the file fails cleanly.
           (cd / && sudo -u postgres env PGAPPNAME=o-lock-holder psql -d openestate -c \
-            "BEGIN; LOCK TABLE users IN ROW EXCLUSIVE MODE; SELECT pg_sleep(900);" >/dev/null 2>&1) &
+            "BEGIN; LOCK TABLE ${LOCK_TABLE} IN ROW EXCLUSIVE MODE; SELECT pg_sleep(900);" >/dev/null 2>&1) &
           HELD=0
           for i in $(seq 1 30); do
-            HELD="$(cd / && sudo -u postgres psql -d openestate -AtX -c "SELECT count(*) FROM pg_locks l JOIN pg_stat_activity a ON a.pid = l.pid WHERE a.application_name = 'o-lock-holder' AND l.relation = 'users'::regclass AND l.granted")"
+            HELD="$(cd / && sudo -u postgres psql -d openestate -AtX -c "SELECT count(*) FROM pg_locks l JOIN pg_stat_activity a ON a.pid = l.pid WHERE a.application_name = 'o-lock-holder' AND l.relation = '${LOCK_TABLE}'::regclass AND l.granted")"
             [ "$HELD" = "1" ] && break; sleep 1
           done
-          [ "$HELD" = "1" ] || { echo "::error::could not take the lock on users"; exit 1; }
+          [ "$HELD" = "1" ] || { echo "::error::could not take the lock on ${LOCK_TABLE}"; exit 1; }
           cd "$SRC/deploy/native"
           set +e   # the step runs under bash -e; this command is expected to fail
           sudo MIGRATION_LOCK_TIMEOUT=3s ./upgrade-native.sh --no-backup --ref "$HEAD_SHA" 2>&1 | tee /tmp/upgrade-attempt1.log
           RC=${PIPESTATUS[0]}
           set -e
-          [ "$RC" -ne 0 ] || { echo "::error::the upgrade succeeded although users was locked; the variant proves nothing"; exit 1; }
+          [ "$RC" -ne 0 ] || { echo "::error::the upgrade succeeded although ${LOCK_TABLE} was locked; the variant proves nothing"; exit 1; }
           grep -qi "lock timeout" /tmp/upgrade-attempt1.log || { echo "::error::the first attempt did not fail on the lock timeout"; exit 1; }
           q() { (cd / && sudo -u postgres psql -d openestate -AtX -c "$1"); }
-          # State: the hatch and portal-check migrations applied, the FK file failed, no FK added.
-          [ "$(q "SELECT count(*) FROM _prisma_migrations WHERE migration_name IN ('20261020000000_scope_financial_mutation_hatch','20261021000000_portal_guard_function_owner') AND finished_at IS NOT NULL")" = "2" ] \
-            || { echo "::error::the earlier v0.8.4 migrations are not both applied"; exit 1; }
-          [ "$(q "SELECT count(*) FROM _prisma_migrations WHERE migration_name = '20261022000000_restore_foreign_keys' AND finished_at IS NULL AND rolled_back_at IS NULL")" = "1" ] \
-            || { echo "::error::the foreign-key migration is not recorded as failed"; exit 1; }
-          [ "$(q "SELECT count(*) FROM pg_constraint WHERE conname = 'ledger_entries_installment_id_fkey'")" = "0" ] \
-            || { echo "::error::a restored foreign key exists although its file failed"; exit 1; }
-          # The previous version still runs correctly on this database.
+          # Nothing half-applied: the migration is recorded as failed, and
+          # nothing it would change has changed.
+          [ "$(q "SELECT count(*) FROM _prisma_migrations WHERE migration_name = '${FIRST_MIGRATION}' AND finished_at IS NULL AND rolled_back_at IS NULL")" = "1" ] \
+            || { echo "::error::${FIRST_MIGRATION} is not recorded as failed"; exit 1; }
+          [ "$(q "SELECT count(*) FROM information_schema.columns WHERE table_name = 'bookings' AND column_name = 'interest_from_date'")" = "0" ] \
+            || { echo "::error::bookings.interest_from_date exists although its migration failed"; exit 1; }
+          [ "$(q "SELECT confdeltype FROM pg_constraint WHERE conname = 'bookings_interest_rule_id_fkey'")" = "n" ] \
+            || { echo "::error::bookings_interest_rule_id_fkey is no longer ON DELETE SET NULL although its migration failed"; exit 1; }
+          # The previous version keeps serving on this database.
           cd "$GITHUB_WORKSPACE"
           V="$(curl -fsS http://localhost/api/v1/health | jq -r .version)"
           [ "v${V}" = "$PREV_TAG" ] || { echo "::error::running version is ${V}, expected ${PREV_TAG}"; exit 1; }
           node scripts/ci/upgrade-scenario.mjs receipt || exit 1
           node scripts/ci/upgrade-scenario.mjs sessions || exit 1
-          echo "Half-migrated: hatch and portal-check migrations applied, foreign keys not; ${PREV_TAG} still records receipts and refreshes sessions."
+          echo "Migration timed out, nothing applied; ${PREV_TAG} still serves, records receipts and refreshes sessions."
 
-      - name: Record money totals before the upgrade
-        run: bash scripts/ci/upgrade-checks.sh money /tmp/money-before.txt
+      - name: Record money totals and staff role permissions before the upgrade
+        run: |
+          bash scripts/ci/upgrade-checks.sh money /tmp/money-before.txt
+          bash scripts/ci/upgrade-checks.sh roles /tmp/roles-before.txt
+          bash scripts/ci/upgrade-checks.sh role-audit /tmp/role-audit-before.txt
 
       - name: "Variant lock-timeout: the retry needs the release-notes recovery command"
         if: matrix.variant == 'lock-timeout'
@@ -1095,8 +1122,10 @@ jobs:
           set -e
           [ "$RC" -ne 0 ] || { echo "::error::a retry WITHOUT the recovery command succeeded; it should stop with P3009"; exit 1; }
           grep -q "P3009" /tmp/upgrade-attempt2.log || { echo "::error::the retry failed (exit ${RC}) but not with P3009"; exit 1; }
-          # The command exactly as the release notes print it.
-          CMD="$(grep -m1 'UPDATE _prisma_migrations SET rolled_back_at' "${GITHUB_WORKSPACE}/docs/releases/v0.8.4-release-notes.md")"
+          # The command exactly as this release's notes print it.
+          # REVIEW EACH RELEASE: point this at the new release's notes.
+          CMD="$(grep -m1 'UPDATE _prisma_migrations SET rolled_back_at' "${GITHUB_WORKSPACE}/docs/releases/v0.9.0-release-notes.md")"
+          [ -n "$CMD" ] || { echo "::error::the release notes have no recovery command"; exit 1; }
           echo "Running the release-notes command: ${CMD}"
           (cd / && eval "$CMD") || { echo "::error::the release-notes recovery command failed"; exit 1; }
 
@@ -1126,6 +1155,40 @@ jobs:
           bash scripts/ci/upgrade-checks.sh migrations "$GITHUB_WORKSPACE"
           bash scripts/ci/upgrade-checks.sh money /tmp/money-after.txt
           bash scripts/ci/upgrade-checks.sh same-money /tmp/money-before.txt /tmp/money-after.txt
+          bash scripts/ci/upgrade-checks.sh roles /tmp/roles-after.txt
+          bash scripts/ci/upgrade-checks.sh role-audit /tmp/role-audit-after.txt
+          # Any release: each system role gained exactly the keys new to its
+          # seed baseline, none lost any, and the audit rows match the gains.
+          bash scripts/ci/upgrade-checks.sh role-sync /tmp/roles-before.txt /tmp/roles-after.txt /tmp/role-audit-before.txt /tmp/role-audit-after.txt
+          bash scripts/ci/upgrade-checks.sh interest-report /tmp/upgrade.log
+          # Self-checks: the role comparison notices a lost permission and a
+          # missing audit row, and the interest-report check notices a missing
+          # report line.
+          awk -F'|' 'NR==1{sub(/^[^,]*,?/, "", $3)} {print $1"|"$2"|"$3"|"$4}' /tmp/roles-after.txt > /tmp/roles-tampered.txt
+          if bash scripts/ci/upgrade-checks.sh role-sync /tmp/roles-before.txt /tmp/roles-tampered.txt /tmp/role-audit-before.txt /tmp/role-audit-after.txt >/dev/null 2>&1; then
+            echo "::error::the role comparison did not notice a lost permission"; exit 1
+          fi
+          if [ -s /tmp/role-audit-after.txt ] && ! cmp -s /tmp/role-audit-before.txt /tmp/role-audit-after.txt; then
+            if bash scripts/ci/upgrade-checks.sh role-sync /tmp/roles-before.txt /tmp/roles-after.txt /tmp/role-audit-before.txt /tmp/role-audit-before.txt >/dev/null 2>&1; then
+              echo "::error::the role comparison did not notice missing audit rows"; exit 1
+            fi
+          fi
+          # Release-specific: REVIEW EACH RELEASE. From v0.8.4, v0.9's
+          # postsales.interest.manage reaches accounts and company_admin through
+          # the seed baseline, super_admin through its own sync, and no other
+          # role. (When the previous release is v0.9 or later this no longer
+          # applies, and the guard skips it.)
+          if [ "$PREV_TAG" = "v0.8.4" ]; then
+            q() { (cd / && sudo -u postgres psql -d openestate -AtX -c "$1"); }
+            HOLDERS="$(q "SELECT string_agg(DISTINCT r.slug, ',' ORDER BY r.slug) FROM roles r JOIN role_permissions rp ON rp.role_id = r.id JOIN permissions p ON p.id = rp.permission_id WHERE p.key = 'postsales.interest.manage'")"
+            [ "$HOLDERS" = "accounts,company_admin,super_admin" ] \
+              || { echo "::error::postsales.interest.manage is held by '${HOLDERS}', expected accounts,company_admin,super_admin"; exit 1; }
+            echo "postsales.interest.manage reached accounts and company_admin (baseline) and super_admin (own sync), and no other role."
+          fi
+          : > /tmp/empty.log
+          if bash scripts/ci/upgrade-checks.sh interest-report /tmp/empty.log >/dev/null 2>&1; then
+            echo "::error::the interest-report check passed on an empty upgrade log"; exit 1
+          fi
           # Self-check: the money comparison does catch a changed total.
           sed '0,/^booking /s/^\(booking [^ ]*\) \([0-9-]*\)/\1 999\2/' /tmp/money-before.txt > /tmp/money-tampered.txt
           if bash scripts/ci/upgrade-checks.sh same-money /tmp/money-before.txt /tmp/money-tampered.txt >/dev/null 2>&1; then
@@ -1134,13 +1197,18 @@ jobs:
           node scripts/ci/upgrade-scenario.mjs sessions
           UNVALIDATED="$(cd / && sudo -u postgres psql -d openestate -AtX -c "SELECT COALESCE(string_agg(conname, ',' ORDER BY conname), '') FROM pg_constraint WHERE contype = 'f' AND NOT convalidated")"
           if [ "${{ matrix.variant }}" = "orphan" ]; then
-            [ "$UNVALIDATED" = "webhook_endpoints_created_by_id_fkey" ] || { echo "::error::expected only webhook_endpoints_created_by_id_fkey NOT VALID, got '${UNVALIDATED}'"; exit 1; }
-            # The previous release's upgrade script cannot print this report
-            # (it is new in v0.8.4), so the release notes tell operators to run
-            # check-foreign-keys.sh after this upgrade. That is what is checked.
+            # REVIEW EACH RELEASE, with the orphan planting step above.
+            q() { (cd / && sudo -u postgres psql -d openestate -AtX -c "$1"); }
+            [ "$UNVALIDATED" = "bookings_interest_rule_id_fkey" ] || { echo "::error::expected only bookings_interest_rule_id_fkey NOT VALID, got '${UNVALIDATED}'"; exit 1; }
+            [ "$(q "SELECT confdeltype FROM pg_constraint WHERE conname = 'bookings_interest_rule_id_fkey'")" = "r" ] \
+              || { echo "::error::bookings_interest_rule_id_fkey is not the new ON DELETE RESTRICT key"; exit 1; }
+            [ "$(q "SELECT interest_rule_id FROM bookings WHERE id = '${ORPHAN_BOOKING}'")" = "$ORPHAN_RULE" ] \
+              || { echo "::error::the orphan row was changed by the upgrade"; exit 1; }
+            # (The interest-report check above already required this booking to
+            # be counted as having no interest rule.)
             set +e; sudo "$SRC/deploy/native/check-foreign-keys.sh" > /tmp/check-fk.txt 2>&1; RC=$?; set -e
             cat /tmp/check-fk.txt
-            if [ "$RC" != "2" ] || ! grep -q "webhook_endpoints_created_by_id_fkey" /tmp/check-fk.txt; then
+            if [ "$RC" != "2" ] || ! grep -q "bookings_interest_rule_id_fkey" /tmp/check-fk.txt; then
               echo "::error::check-foreign-keys.sh did not report it (exit ${RC})"; exit 1
             fi
           else
@@ -1151,14 +1219,12 @@ jobs:
             sudo journalctl -u openestate-api --since "$CUTOVER_SINCE" -o cat --no-pager | grep '"level":50' | tail -5
             echo "::error::${ERRORS} error lines in the API journal since the upgrade"; exit 1
           fi
-          # Part I: the first upgrade with a seed baseline records one for every
-          # system role except super_admin and adds nothing to them.
+          # Part I: after any upgrade every system role except super_admin has a
+          # seed baseline. (What each role gained is role-sync above.)
           q() { (cd / && sudo -u postgres psql -d openestate -AtX -c "$1"); }
           ROLES="$(q "SELECT count(*) FROM roles WHERE is_system AND slug IN ('company_admin','sales_manager','sales_executive','accounts','customer','broker')")"
           BASED="$(q "SELECT count(*) FROM role_seed_baselines b JOIN roles r ON r.id = b.role_id WHERE r.slug <> 'super_admin'")"
           [ "$ROLES" -gt 0 ] && [ "$ROLES" = "$BASED" ] || { echo "::error::${BASED} seed baselines for ${ROLES} system roles"; exit 1; }
-          ADDED="$(q "SELECT count(*) FROM audit_logs WHERE action = 'ROLE_PERMS_CHANGED' AND after->>'surface' = 'upgrade'")"
-          [ "$ADDED" = "0" ] || { echo "::error::the first upgrade added permissions to system roles (${ADDED} audit rows)"; exit 1; }
           echo "Upgrade outcome as expected (${{ matrix.variant }})."
 
       - name: "Part M after the upgrade: the API listens on loopback only"

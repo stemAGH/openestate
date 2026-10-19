@@ -108,6 +108,18 @@ export class AuthzVersionService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * The user's version read from the database (null if the user is gone),
+   * then raised into the cache. For a token newer than the cached value: a
+   * bump made outside this service (the upgrade's permission sync) leaves the
+   * cache behind until it expires.
+   */
+  async fromDatabase(userId: string): Promise<number | null> {
+    const fromDb = await this.readDb(userId);
+    if (fromDb !== null) await this.writeThrough([{ id: userId, authz_version: fromDb }]);
+    return fromDb;
+  }
+
   /** Ends every existing session of these users (their tokens carry the old version). */
   async bumpUsers(userIds: string[]): Promise<void> {
     if (userIds.length === 0) return;

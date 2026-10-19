@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Param, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Post, Put, Req } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { createZodDto } from 'nestjs-zod';
@@ -9,18 +9,20 @@ import {
   createPaymentPlanSchema,
   extraChargeSchema,
   interestWaiverSchema,
+  setBookingInterestRuleSchema,
   createTransferSchema,
   cancellationSchema,
   requestNocSchema,
   PERMISSIONS,
 } from '@openestate/shared';
 import type { JwtPayload } from '@openestate/shared';
-import { RequirePermissions } from '../auth/guards/permissions.guard';
+import { RequireAnyPermission, RequirePermissions } from '../auth/guards/permissions.guard';
 import { TENANT_PRISMA } from '../database/database.module';
 import { BookingService } from './booking.service';
 import { PaymentPlanService } from './payment-plan.service';
 import { ExtraChargeService } from './extra-charge.service';
 import { InterestService } from './interest.service';
+import { BookingInterestRuleService } from './booking-interest-rule.service';
 import { TransferService } from './transfer.service';
 import { CancellationService } from './cancellation.service';
 import { BrokerService } from '../brokers/broker.service';
@@ -35,6 +37,7 @@ class AttachSourceInquiryDto extends createZodDto(z.object({ inquiryId: z.string
 class CreatePaymentPlanDto extends createZodDto(createPaymentPlanSchema) {}
 class ExtraChargeDto extends createZodDto(extraChargeSchema) {}
 class InterestWaiverDto extends createZodDto(interestWaiverSchema) {}
+class SetInterestRuleDto extends createZodDto(setBookingInterestRuleSchema) {}
 class CreateTransferDto extends createZodDto(createTransferSchema) {}
 class CancellationDto extends createZodDto(cancellationSchema) {}
 class RequestNocDto extends createZodDto(requestNocSchema) {}
@@ -59,6 +62,7 @@ export class BookingController {
     private readonly commissions: CommissionService,
     private readonly costLineVerifier: BookingCostLineVerifier,
     private readonly inquiries: InquiryService,
+    private readonly interestRules: BookingInterestRuleService,
   ) {}
 
   @Post()
@@ -137,8 +141,19 @@ export class BookingController {
     return this.extraCharges.add(u.companyId, id, dto, u.sub);
   }
 
+  @Put(':id/interest-rule')
+  @RequirePermissions(PERMISSIONS.POSTSALES_INTEREST_MANAGE)
+  @ApiOperation({
+    summary:
+      'Attach, change or remove the delay-interest rule (null removes). Interest runs from today; a change first settles up to today under the old rule. SIMPLE rules only.',
+  })
+  setInterestRule(@Param('id') id: string, @Body() dto: SetInterestRuleDto, @Req() req: Request) {
+    const u = req.user as JwtPayload;
+    return this.interestRules.setRule(u.companyId, id, dto.interestRuleId, u.sub);
+  }
+
   @Post(':id/interest/accrue')
-  @RequirePermissions(PERMISSIONS.POSTSALES_INTEREST_WAIVE)
+  @RequireAnyPermission(PERMISSIONS.POSTSALES_INTEREST_MANAGE, PERMISSIONS.POSTSALES_INTEREST_WAIVE)
   @ApiOperation({ summary: 'Accrue delay interest up to today (idempotent)' })
   accrue(@Param('id') id: string, @Req() req: Request) {
     const u = req.user as JwtPayload;

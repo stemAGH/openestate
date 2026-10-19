@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { formatInr, computeBaseAmountPaise, toAreaScaled, type AreaUnit } from '@openestate/shared';
+import { formatInr, computeBaseAmountPaise, toAreaScaled, PERMISSIONS, type AreaUnit } from '@openestate/shared';
 import { api } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
 
 interface ApplicantRow {
   id: string;
@@ -103,6 +104,17 @@ interface GstRateRow {
   isActive: boolean;
 }
 
+interface InterestRuleRow {
+  id: string;
+  name: string;
+  rateType: string;
+  ratePercent: string;
+  isActive: boolean;
+}
+
+/** No rule chosen on purpose (as opposed to not chosen yet: undefined). */
+const NO_INTEREST = 'NONE';
+
 interface DraftData {
   step: number;
   primaryApplicantId?: string;
@@ -120,6 +132,8 @@ interface DraftData {
   customInstallments: CustomInstallmentRow[];
   brokerId?: string;
   gstRateId?: string;
+  /** A delay-interest rule id, or NO_INTEREST. Undefined until chosen. */
+  interestChoice?: string;
 }
 
 interface BookingDraftRecord {
@@ -369,6 +383,18 @@ export default function BookingWizard() {
     queryFn: () => api('/brokers?limit=100'),
   });
 
+  // Attaching a rule needs postsales.interest.manage; without it the choice
+  // is left to Accounts, on the booking's installment schedule.
+  const { hasPermission } = useAuth();
+  const canSetInterest = hasPermission(PERMISSIONS.POSTSALES_INTEREST_MANAGE);
+  const { data: interestRules } = useQuery<{ data: InterestRuleRow[] }>({
+    queryKey: ['interest-rules-all'],
+    queryFn: () => api('/masters/interest-rules?limit=100'),
+    enabled: canSetInterest,
+  });
+  // Only active SIMPLE rules can be attached for now (compounding waits for the CA).
+  const attachableRules = (interestRules?.data ?? []).filter((r) => r.isActive && r.rateType === 'SIMPLE');
+
   const { data: gstRates } = useQuery<{ data: GstRateRow[] }>({
     queryKey: ['gst-rates-all'],
     queryFn: () => api('/masters/gst-rates?limit=100'),
@@ -444,6 +470,11 @@ export default function BookingWizard() {
       );
       return;
     }
+    // No default rule (v0.9): the person booking says which, or says none.
+    if (canSetInterest && !draft.interestChoice) {
+      setError('Choose a delay-interest rule, or "No delay interest", before booking.');
+      return;
+    }
     setSubmitting(true);
     try {
       const booking = await api<{ id: string }>('/bookings', {
@@ -501,11 +532,25 @@ export default function BookingWizard() {
         });
       }
 
+      // The booking exists by now, so a failure here must not send the user
+      // back to book again: the schedule page shows it and offers the choice.
+      let interestError: string | undefined;
+      if (canSetInterest && draft.interestChoice && draft.interestChoice !== NO_INTEREST) {
+        try {
+          await api(`/bookings/${booking.id}/interest-rule`, {
+            method: 'PUT',
+            body: JSON.stringify({ interestRuleId: draft.interestChoice }),
+          });
+        } catch (err) {
+          interestError = (err as Error).message;
+        }
+      }
+
       if (draftId) {
         await api(`/booking-drafts/${draftId}`, { method: 'DELETE' }).catch(() => {});
       }
 
-      navigate(`/postsales/bookings/${booking.id}/installments`);
+      navigate(`/postsales/bookings/${booking.id}/installments`, { state: interestError ? { interestError } : undefined });
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -844,6 +889,30 @@ export default function BookingWizard() {
                   <option key={b.id} value={b.id}>{b.name}</option>
                 ))}
               </select>
+            </div>
+            <div className="mt-3">
+              <label htmlFor="interest-choice" className="block text-sm font-medium text-slate-700">Delay interest</label>
+              {canSetInterest ? (
+                <>
+                  <select
+                    id="interest-choice"
+                    value={draft.interestChoice ?? ''}
+                    onChange={(e) => setDraft({ ...draft, interestChoice: e.target.value || undefined })}
+                    className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="" disabled>Choose…</option>
+                    <option value={NO_INTEREST}>No delay interest</option>
+                    {attachableRules.map((r) => (
+                      <option key={r.id} value={r.id}>{r.name} ({Number(r.ratePercent)}% simple)</option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Interest on overdue installments runs from the day the rule is attached. It can be changed later from the installment schedule.
+                  </p>
+                </>
+              ) : (
+                <p className="mt-1 text-sm text-slate-500">Set by Accounts from the booking's installment schedule.</p>
+              )}
             </div>
             <dl className="mt-3 space-y-1.5 text-sm">
               <div className="flex justify-between"><dt className="text-slate-500">Applicant</dt><dd className="font-medium">{draft.primaryApplicantName}</dd></div>
