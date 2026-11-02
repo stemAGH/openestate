@@ -1,10 +1,12 @@
-import { SESSION_ENDED_MESSAGE } from '@openestate/shared';
+import { SESSION_ENDED_MESSAGE, type JwtPayload } from '@openestate/shared';
 import { toast } from './toast';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 
 let accessToken: string | null = null;
 let refreshPromise: Promise<string | null> | null = null;
+let sessionEpoch = 0;
+let sessionController = new AbortController();
 let sessionEndedHandler: ((message: string) => void) | null = null;
 
 /**
@@ -18,8 +20,18 @@ export function onSessionEnded(handler: ((message: string) => void) | null) {
   sessionEndedHandler = handler;
 }
 
+// Explicit authentication changes start a new boundary; ordinary refresh stays inside it.
 export function setAccessToken(token: string | null) {
+  sessionController.abort();
+  sessionController = new AbortController();
+  sessionEpoch += 1;
+  refreshPromise = null;
   accessToken = token;
+  toast.clear();
+}
+
+export function getSessionEpoch() {
+  return sessionEpoch;
 }
 
 export function getAccessToken() {
@@ -33,15 +45,39 @@ function getCsrfToken(): string | null {
   return match ? match.split('=')[1] : null;
 }
 
+// Compare continuity only; JWT signature and authorization checks remain on the server.
+function tokenIdentity(token: string): string | null {
+  try {
+    const payload: JwtPayload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    if (typeof payload.sub !== 'string' || !payload.sub ||
+        typeof payload.companyId !== 'string' || !payload.companyId || payload.surface !== 'staff') return null;
+
+    return JSON.stringify([payload.sub, payload.companyId, payload.surface]);
+  } catch {
+    return null;
+  }
+}
+
 async function refreshAccessToken(): Promise<string | null> {
+  const signal = sessionController.signal;
+  const previousToken = accessToken;
   try {
     const res = await fetch(`${API_BASE}/api/v1/auth/refresh`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
+      signal,
     });
     if (!res.ok) return null;
     const data = await res.json();
+    signal.throwIfAborted();
+    const identity = tokenIdentity(data.accessToken);
+    if (!identity || (previousToken !== null && identity !== tokenIdentity(previousToken))) {
+      // The shared cookie may belong to another tab; never revoke its server session.
+      setAccessToken(null);
+      sessionEndedHandler?.('Your session has changed. Please sign in again.');
+      return null;
+    }
     accessToken = data.accessToken;
     return accessToken;
   } catch {
@@ -62,9 +98,10 @@ async function refreshAccessToken(): Promise<string | null> {
  */
 export function refreshSession(): Promise<string | null> {
   if (!refreshPromise) {
-    refreshPromise = refreshAccessToken().finally(() => {
-      refreshPromise = null;
+    const pending = refreshAccessToken().finally(() => {
+      if (refreshPromise === pending) refreshPromise = null;
     });
+    refreshPromise = pending;
   }
   return refreshPromise;
 }
@@ -74,6 +111,11 @@ export async function api<T = unknown>(
   options: RequestInit = {},
 ): Promise<T> {
   const url = `${API_BASE}/api/v1${path}`;
+
+  const signal = options.signal
+    ? AbortSignal.any([sessionController.signal, options.signal])
+    : sessionController.signal;
+  signal.throwIfAborted();
 
   const headers = new Headers(options.headers);
   // FormData (file uploads) must NOT get an explicit Content-Type — the
@@ -94,11 +136,14 @@ export async function api<T = unknown>(
     ...options,
     headers,
     credentials: 'include',
+    signal,
   });
+  signal.throwIfAborted();
 
   let refreshFailed = false;
   if (res.status === 401 && accessToken) {
     const newToken = await refreshSession();
+    signal.throwIfAborted();
     if (!newToken) refreshFailed = true;
     if (newToken) {
       headers.set('Authorization', `Bearer ${newToken}`);
@@ -116,14 +161,16 @@ export async function api<T = unknown>(
       if (refreshedCsrf) {
         headers.set('X-CSRF-Token', refreshedCsrf);
       }
-      res = await fetch(url, { ...options, headers, credentials: 'include' });
+      res = await fetch(url, { ...options, headers, credentials: 'include', signal });
+      signal.throwIfAborted();
     }
   }
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
+    signal.throwIfAborted();
     if (res.status === 401 && refreshFailed && body.message === SESSION_ENDED_MESSAGE) {
-      accessToken = null;
+      setAccessToken(null);
       sessionEndedHandler?.(SESSION_ENDED_MESSAGE);
     }
     const err = new Error(body.message ?? `API error ${res.status}`);
@@ -133,7 +180,9 @@ export async function api<T = unknown>(
   }
 
   if (res.status === 204) return undefined as T;
-  return res.json();
+  const data = await res.json();
+  signal.throwIfAborted();
+  return data;
 }
 
 export interface ApiError extends Error {
@@ -150,12 +199,15 @@ export interface ApiError extends Error {
  */
 export async function downloadFile(path: string, filename: string): Promise<void> {
   const url = `${API_BASE}/api/v1${path}`;
+  const signal = sessionController.signal;
   const headers = new Headers();
   if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
 
-  const res = await fetch(url, { headers, credentials: 'include' });
+  const res = await fetch(url, { headers, credentials: 'include', signal });
+  signal.throwIfAborted();
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
+    signal.throwIfAborted();
     const message = body.message ?? `Download failed: ${res.status}`;
     // Not a TanStack Query mutation, so MutationCache's global onError
     // (main.tsx) never sees this — toast here directly. Several call sites
@@ -167,6 +219,7 @@ export async function downloadFile(path: string, filename: string): Promise<void
   }
 
   const blob = await res.blob();
+  signal.throwIfAborted();
   const objectUrl = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = objectUrl;

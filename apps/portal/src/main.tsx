@@ -1,38 +1,52 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClient, QueryClientProvider, MutationCache } from '@tanstack/react-query';
-import { AuthProvider } from './lib/auth';
+import { AuthProvider, useAuth } from './lib/auth';
+import { getSessionEpoch } from './lib/api';
 import { toast, ToastContainer } from './lib/toast';
 import App from './App';
 import './index.css';
 
-const queryClient = new QueryClient({
-  // MutationCache's onError fires for every mutation app-wide, in addition
-  // to any per-mutation onError/try-catch a component already has (unlike
-  // defaultOptions.mutations.onError, which a mutation-level handler would
-  // override) — this is what guarantees a failed create always surfaces a
-  // reason, without editing every call site.
-  mutationCache: new MutationCache({
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Something went wrong.');
+function SessionQueries({ sessionEpoch }: { sessionEpoch: number }) {
+  const [queryClient] = useState(() => new QueryClient({
+    mutationCache: new MutationCache({
+      onError: (error) => {
+        if (sessionEpoch === getSessionEpoch()) {
+          toast.error(error instanceof Error ? error.message : 'Something went wrong.');
+        }
+      },
+    }),
+    defaultOptions: {
+      queries: {
+        retry: 1,
+        staleTime: 30_000,
+        refetchOnWindowFocus: false,
+      },
     },
-  }),
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      staleTime: 30_000,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
+  }));
+
+  useEffect(() => () => {
+    // StrictMode replays cleanup without ending the session.
+    if (sessionEpoch !== getSessionEpoch()) queryClient.clear();
+  }, [queryClient, sessionEpoch]);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <App />
+      <ToastContainer />
+    </QueryClientProvider>
+  );
+}
+
+function SessionBoundary() {
+  const { sessionEpoch } = useAuth();
+  return <SessionQueries key={sessionEpoch} sessionEpoch={sessionEpoch} />;
+}
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
-      <ToastContainer />
-    </QueryClientProvider>
+    <AuthProvider>
+      <SessionBoundary />
+    </AuthProvider>
   </React.StrictMode>,
 );

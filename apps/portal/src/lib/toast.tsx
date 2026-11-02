@@ -26,6 +26,7 @@ function show(message: string) {
 }
 
 export const toast = {
+  clear: () => { toasts = []; emit(); },
   error: (message: string) => show(message),
 };
 
