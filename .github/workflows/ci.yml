@@ -94,6 +94,19 @@ jobs:
             exit 1
           fi
 
+      # How build_release runs `pnpm deploy`: its exit status decides, the
+      # deployed prisma and tsx launchers must exist, be executable and run,
+      # and only then is pnpm's transient .bin/prisma warning hidden.
+      - name: Test the deploy launcher checks
+        run: |
+          bash deploy/native/test-deploy-launchers.sh
+          for impl in old novalidate; do
+            if DEPLOY_LAUNCHERS_IMPL=$impl bash deploy/native/test-deploy-launchers.sh >/dev/null 2>&1; then
+              echo "::error::test-deploy-launchers.sh passed with DEPLOY_LAUNCHERS_IMPL=${impl}, so it can no longer detect what it guards"
+              exit 1
+            fi
+          done
+
       - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
@@ -575,14 +588,26 @@ jobs:
 
       - name: Assert no pnpm "Failed to create bin" warnings and no stray release tree
         run: |
-          if grep -q "Failed to create bin" /tmp/install-native.log; then
-            grep "Failed to create bin" /tmp/install-native.log
-            echo "::error::the build printed pnpm bin warnings"; exit 1
-          fi
+          # Each check runs and reports on its own; the step fails if any did.
+          # /tmp/install-native.log is the installer's own output (tee'd), not
+          # this step's echoed source, so the patterns can't match themselves.
+          FAILED=0
           ID="$(basename "$(readlink -f /opt/openestate/current)")"
           STRAY="$(sudo find /home /opt /root -path "*/releases/${ID}" -not -path "/opt/openestate/releases/${ID}" 2>/dev/null || true)"
-          [ -z "$STRAY" ] || { echo "::error::stray release tree left behind: $STRAY"; exit 1; }
-          echo "No bin warnings, no stray tree (release ${ID})."
+          if [ -n "$STRAY" ]; then echo "::error::stray release tree left behind: $STRAY"; FAILED=1; fi
+          # build_release hides only pnpm's transient .bin/prisma warning for the
+          # real release tree, and only after verifying the launchers, so any
+          # "Failed to create bin" line left in the log is unclassified.
+          if grep -q "Failed to create bin" /tmp/install-native.log; then
+            grep "Failed to create bin" /tmp/install-native.log
+            echo "::error::the build printed unclassified pnpm bin warnings"; FAILED=1
+          fi
+          if ! grep -q "Deployed launchers verified: prisma, tsx." /tmp/install-native.log; then
+            echo "::error::the build did not report verifying the deployed prisma and tsx launchers"; FAILED=1
+          fi
+          grep "transient launcher warning" /tmp/install-native.log || true
+          [ "$FAILED" -eq 0 ] || exit 1
+          echo "No stray tree, no unclassified bin warnings, launchers verified (release ${ID})."
 
       - name: Assert login succeeds over HTTP
         run: |
