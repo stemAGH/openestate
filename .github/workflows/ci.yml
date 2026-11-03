@@ -89,6 +89,10 @@ jobs:
             echo "::error::test-previous-release.sh passed against the OLD selection, so it can no longer detect the bug it guards"
             exit 1
           fi
+          if MIGRATION_SOURCE_IMPL=previous bash deploy/native/test-previous-release.sh >/dev/null 2>&1; then
+            echo "::error::test-previous-release.sh passed when migration variants start from the previous release, so it can no longer detect the v0.8.5 failure it guards"
+            exit 1
+          fi
 
       - uses: pnpm/action-setup@v4
         with:
@@ -981,7 +985,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [clean, orphan, lock-timeout]
+        # `exercises` names the migration a negative variant is about. Such a
+        # variant starts from the newest release WITHOUT that migration, so the
+        # upgrade always crosses it (a release with no migrations of its own
+        # can't time out or orphan anything). The clean variant leaves it empty
+        # and starts from the previous release. When a release adds a migration
+        # worth its own failure test, add a variant here that names it.
+        include:
+          - variant: clean
+            exercises: ""
+          - variant: orphan
+            exercises: 20261022000000_restore_foreign_keys
+          - variant: lock-timeout
+            exercises: 20261022000000_restore_foreign_keys
     env:
       STATE: /tmp/upgrade-state.json
       SRC: /opt/openestate-src
@@ -1005,11 +1021,18 @@ jobs:
         run: |
           set -euo pipefail
           HEAD_SHA="$(git rev-parse HEAD)"
-          # The newest tag whose version is lower than this commit's, so a
-          # commit after a release still starts from the release before it.
           source deploy/native/lib.sh
-          PREV="$(previous_release_tag . 2>/tmp/prev-tag.err)" || { echo "::error::$(cat /tmp/prev-tag.err)"; exit 1; }
-          echo "Previous release: ${PREV} ($(git log -1 --format='%h %s' "$PREV"))"
+          MIG="${{ matrix.exercises }}"
+          if [ -n "$MIG" ]; then
+            # The newest lower tag without the migration this variant is about.
+            PREV="$(release_tag_before_migration . "$MIG" 2>/tmp/prev-tag.err)" || { echo "::error::$(cat /tmp/prev-tag.err)"; exit 1; }
+          else
+            # The newest tag whose version is lower than this commit's, so a
+            # commit after a release still starts from the release before it.
+            PREV="$(previous_release_tag . 2>/tmp/prev-tag.err)" || { echo "::error::$(cat /tmp/prev-tag.err)"; exit 1; }
+          fi
+          echo "Start release: ${PREV} ($(git log -1 --format='%h %s' "$PREV"))"
+          echo "Upgrade under test (${{ matrix.variant }}): ${PREV} -> $(jq -r .version package.json) at ${HEAD_SHA}${MIG:+, crossing migration ${MIG}}"
           echo "PREV_TAG=${PREV}" >> "$GITHUB_ENV"
           echo "HEAD_SHA=${HEAD_SHA}" >> "$GITHUB_ENV"
           # The server's source folder clones THIS checkout, so the previous
@@ -1034,8 +1057,12 @@ jobs:
       - name: "Variant orphan: plant a row whose pointer will not resolve"
         if: matrix.variant == 'orphan'
         run: |
-          # On the previous release this foreign key does not exist yet, so a
-          # webhook endpoint "created by" a user that never existed is accepted.
+          set -euo pipefail
+          # The start release predates ${{ matrix.exercises }}, so this foreign
+          # key doesn't exist yet and a webhook endpoint "created by" a user that
+          # never existed is accepted.
+          [ "$(cd / && sudo -u postgres psql -d openestate -AtX -c "SELECT count(*) FROM pg_constraint WHERE conname = 'webhook_endpoints_created_by_id_fkey'")" = "0" ] \
+            || { echo "::error::${PREV_TAG} already has webhook_endpoints_created_by_id_fkey, so no orphan can be planted; the start release is wrong"; exit 1; }
           (cd / && sudo -u postgres psql -d openestate -v ON_ERROR_STOP=1 -c \
             "INSERT INTO webhook_endpoints (id, company_id, name, url, secret_ciphertext, secret_key_version, event_types, created_by_id, updated_at)
              VALUES (gen_random_uuid(), (SELECT id FROM companies ORDER BY created_at LIMIT 1), 'Orphan hook', 'https://example.invalid/hook', 'x', 1, '{}', gen_random_uuid(), now())")
