@@ -104,6 +104,30 @@ previous_release_tag() {
   printf '%s\n' "$best"
 }
 
+# release_tag_before_migration REPO_DIR MIGRATION: prints the newest v* tag,
+# with a version lower than HEAD's, whose tree has no folder for MIGRATION. Used
+# by CI's upgrade variants that exercise one migration's failure and recovery: the
+# upgrade must cross that migration, so it starts from the last release without
+# it rather than from the previous release (which may already contain it, or
+# whose upgrade may have no migrations at all). Fails, saying why, when HEAD has
+# no such migration or no lower tag lacks it.
+release_tag_before_migration() {
+  local repo="$1" mig="$2" dir="packages/db/prisma/migrations" head_v t v best="" best_v=""
+  head_v="$(cd "$repo" && git show HEAD:package.json | node -p 'JSON.parse(require("fs").readFileSync(0, "utf8")).version')" \
+    || { echo "Could not read the version from package.json at HEAD in ${repo}." >&2; return 1; }
+  (cd "$repo" && git cat-file -e "HEAD:${dir}/${mig}" 2>/dev/null) \
+    || { echo "HEAD in ${repo} has no migration ${mig}, so a scenario that exercises it cannot run." >&2; return 1; }
+  for t in $(cd "$repo" && git tag -l 'v*'); do
+    v="${t#v}"
+    [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || continue
+    version_is_older "$v" "$head_v" || continue
+    (cd "$repo" && git cat-file -e "${t}:${dir}/${mig}" 2>/dev/null) && continue
+    if [ -z "$best" ] || version_is_older "$best_v" "$v"; then best="$t"; best_v="$v"; fi
+  done
+  [ -n "$best" ] || { echo "No release tag lower than ${head_v} lacks migration ${mig}, so there is no release to upgrade across it from." >&2; return 1; }
+  printf '%s\n' "$best"
+}
+
 # migrations_not_in MIGRATIONS_DIR: reads applied migration names on stdin and
 # prints each one that has no folder in MIGRATIONS_DIR.
 migrations_not_in() {
