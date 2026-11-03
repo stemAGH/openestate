@@ -301,10 +301,10 @@ journalctl -u openestate-api -n 200    # last 200 lines
 
 ```bash
 cd /opt/openestate-src/deploy/native
-sudo ./upgrade-native.sh --ref v0.8.4
+sudo ./upgrade-native.sh --ref v0.8.5
 ```
 
-**Always pass a release tag (like `v0.8.4`), never a branch name such as `master`.**
+**Always pass a release tag (like `v0.8.5`), never a branch name such as `master`.**
 An install whose upgrade script is older than v0.8.3 (every install upgrading to
 v0.8.3 for the first time) checks out the *local* copy of a branch with that name.
 That copy is usually weeks behind GitHub, so the script silently builds and installs
@@ -353,7 +353,7 @@ yours lives in a tag), then run the upgrade again:
 
 ```bash
 sudo git -C /opt/openestate-src fetch --tags --force origin
-cd /opt/openestate-src && sudo ./deploy/native/upgrade-native.sh --ref v0.8.4
+cd /opt/openestate-src && sudo ./deploy/native/upgrade-native.sh --ref v0.8.5
 ```
 
 From v0.8.3 on the script does this itself: `--ref` fetches only that one
