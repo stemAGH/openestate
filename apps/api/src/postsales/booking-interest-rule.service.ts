@@ -54,6 +54,19 @@ export class BookingInterestRuleService {
     private readonly interest: InterestService,
   ) {}
 
+  async listAttachable(companyId: string) {
+    return runWithTenant({ companyId }, () =>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      withTenantTx(this.tenantPrisma, companyId, async (tx: any) => ({
+        data: await tx.interestRule.findMany({
+          where: { companyId, isActive: true, rateType: INTEREST_RATE_TYPE.SIMPLE },
+          select: { id: true, name: true, ratePercent: true },
+          orderBy: [{ name: 'asc' }, { id: 'asc' }],
+        }),
+      })),
+    );
+  }
+
   async setRule(
     companyId: string,
     bookingId: string,

@@ -72,7 +72,7 @@ describeIf('e2e PUT /bookings/:id/interest-rule and the interest-rule guards', (
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let systemPrisma: any;
   let fx: CompanyFixture;
-  const emails = { manage: '', waive: '', none: '' };
+  const emails = { manage: '', waive: '', none: '', accounts: '', masters: '' };
   let managerId: string;
   let simpleRuleId: string;
   let compoundRuleId: string;
@@ -156,6 +156,8 @@ describeIf('e2e PUT /bookings/:id/interest-rule and the interest-rule guards', (
     ]);
     emails.manage = manager.email;
     managerId = manager.id;
+    emails.accounts = (await makeStaff('accounts', [PERMISSIONS.POSTSALES_INTEREST_MANAGE])).email;
+    emails.masters = (await makeStaff('masters', [PERMISSIONS.ADMIN_MASTER_READ])).email;
     emails.waive = (await makeStaff('waive', [PERMISSIONS.POSTSALES_INTEREST_WAIVE])).email;
     emails.none = (await makeStaff('none', [PERMISSIONS.POSTSALES_BOOKING_READ])).email;
 
@@ -174,6 +176,44 @@ describeIf('e2e PUT /bookings/:id/interest-rule and the interest-rule guards', (
     await app?.close();
     await cleanupCompany(systemPrisma, fx.companyId);
     await systemPrisma.$disconnect();
+  });
+
+  it('attachable lookup: Accounts can select rules without master-read', async () => {
+    const { agent, auth } = await login(emails.accounts);
+    await agent.get('/api/v1/masters/interest-rules').set(auth).expect(403);
+    const res = await agent.get('/api/v1/bookings/interest-rules/attachable').set(auth).expect(200);
+    expect(res.body).toEqual({ data: [
+      { id: simpleRuleId, name: `Simple 18 ${TAG}`, ratePercent: '18' },
+      { id: spareRuleId, name: `Spare 18 ${TAG}`, ratePercent: '18' },
+    ] });
+  });
+
+  it('attachable lookup: ignores caller company scope and excludes every ineligible rule', async () => {
+    const other = await seedCompany(systemPrisma);
+    try {
+      await systemPrisma.interestRule.createMany({ data: [
+        { companyId: other.companyId, name: 'Foreign', rateType: 'SIMPLE', ratePercent: 12, frequency: 'YEARLY' },
+        { companyId: fx.companyId, name: 'Inactive simple', rateType: 'SIMPLE', isActive: false, ratePercent: 12, frequency: 'YEARLY' },
+        { companyId: fx.companyId, name: 'Inactive compound', rateType: 'COMPOUND', isActive: false, ratePercent: 12, frequency: 'YEARLY' },
+      ] });
+      const { agent, auth } = await login(emails.accounts);
+      const res = await agent.get('/api/v1/bookings/interest-rules/attachable')
+        .query({ companyId: other.companyId }).set(auth).expect(200);
+      expect(res.body.data.map((rule: { id: string }) => rule.id)).toEqual([simpleRuleId, spareRuleId]);
+    } finally {
+      await cleanupCompany(systemPrisma, other.companyId);
+    }
+  });
+
+  it('attachable lookup: refuses callers without manage', async () => {
+    for (const email of [emails.none, emails.waive, emails.masters]) {
+      const { agent, auth } = await login(email);
+      await agent.get('/api/v1/bookings/interest-rules/attachable').set(auth).expect(403);
+      if (email === emails.masters) {
+        await agent.get('/api/v1/masters/interest-rules').set(auth).expect(200);
+      }
+    }
+    await request(app.getHttpServer()).get('/api/v1/bookings/interest-rules/attachable').expect(401);
   });
 
   it('attaches a rule (manage), writes an audit row with the actor, and charges nothing before the attach date', async () => {
@@ -213,6 +253,50 @@ describeIf('e2e PUT /bookings/:id/interest-rule and the interest-rule guards', (
     // only from today.
     const accrued = await agent.post(`/api/v1/bookings/${bookingId}/interest/accrue`).set(auth).expect(201);
     expect(accrued.body.postedPaise).toBe('0');
+  });
+
+  it('attached rule display: booking readers retain minimal rule details after deactivation and lose them on removal', async () => {
+    const bookingId = await overdueBooking();
+    const rule = await systemPrisma.interestRule.create({ data: {
+      companyId: fx.companyId, name: 'Annual Delay 18%', rateType: 'SIMPLE', ratePercent: 18, frequency: 'YEARLY',
+    } });
+    const manager = await login(emails.accounts);
+    const reader = await login(emails.none);
+    await manager.agent.put(`/api/v1/bookings/${bookingId}/interest-rule`).set(manager.auth).send({ interestRuleId: rule.id }).expect(200);
+    const expected = { id: rule.id, name: rule.name, ratePercent: '18', rateType: 'SIMPLE' };
+    const active = await reader.agent.get(`/api/v1/bookings/${bookingId}`).set(reader.auth).expect(200);
+    expect(active.body.attachedInterestRule).toEqual(expected);
+    await systemPrisma.interestRule.update({ where: { id: rule.id }, data: { isActive: false } });
+    const inactive = await reader.agent.get(`/api/v1/bookings/${bookingId}`).set(reader.auth).expect(200);
+    expect(inactive.body.attachedInterestRule).toEqual(expected);
+    expect(inactive.body.interestFromDate).toBe(active.body.interestFromDate);
+    const choices = await manager.agent.get('/api/v1/bookings/interest-rules/attachable').set(manager.auth).expect(200);
+    expect(choices.body.data.some((r: { id: string }) => r.id === rule.id)).toBe(false);
+    await manager.agent.get(`/api/v1/bookings/${bookingId}`).set(manager.auth).expect(403);
+    await manager.agent.put(`/api/v1/bookings/${bookingId}/interest-rule`).set(manager.auth).send({ interestRuleId: null }).expect(200);
+    const removed = await reader.agent.get(`/api/v1/bookings/${bookingId}`).set(reader.auth).expect(200);
+    expect(removed.body.attachedInterestRule).toBeNull();
+    expect(removed.body.interestFromDate).toBeNull();
+  });
+
+  it('attached rule display: a booking reader cannot retrieve another company booking or its rule', async () => {
+    const other = await seedCompany(systemPrisma);
+    try {
+      const unitId = await makeUnit(systemPrisma, other);
+      const applicantId = await makeApplicant(systemPrisma, other.companyId);
+      const rule = await systemPrisma.interestRule.create({ data: {
+        companyId: other.companyId, name: 'Foreign attached rule', rateType: 'SIMPLE', ratePercent: 24, frequency: 'YEARLY', isActive: false,
+      } });
+      const booking = await systemPrisma.booking.create({ data: {
+        companyId: other.companyId, unitId, primaryApplicantId: applicantId, bookingNumber: `FOREIGN-${TAG}`,
+        status: 'BOOKED', agreedPricePaise: 10000n, bookingDate: new Date(), interestRuleId: rule.id,
+      } });
+      const reader = await login(emails.none);
+      await reader.agent.get(`/api/v1/bookings/${booking.id}`).query({ companyId: other.companyId })
+        .set(reader.auth).set('X-Company-Id', other.companyId).expect(404);
+    } finally {
+      await cleanupCompany(systemPrisma, other.companyId);
+    }
   });
 
   it('refuses the change without postsales.interest.manage (403), even with waive', async () => {

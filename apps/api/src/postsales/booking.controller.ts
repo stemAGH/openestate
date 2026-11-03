@@ -77,6 +77,13 @@ export class BookingController {
     return this.bookings.createBooking(u.companyId, dto, u.sub);
   }
 
+  @Get('interest-rules/attachable')
+  @RequirePermissions(PERMISSIONS.POSTSALES_INTEREST_MANAGE)
+  @ApiOperation({ summary: 'List active SIMPLE interest rules for this company; returns data containing id, name and ratePercent' })
+  attachableInterestRules(@Req() req: Request) {
+    return this.interestRules.listAttachable((req.user as JwtPayload).companyId);
+  }
+
   @Get(':id')
   @RequirePermissions(PERMISSIONS.POSTSALES_BOOKING_READ)
   @ApiOperation({ summary: 'Get a booking with its ledger balance' })

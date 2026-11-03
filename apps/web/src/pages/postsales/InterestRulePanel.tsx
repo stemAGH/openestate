@@ -7,9 +7,7 @@ import { useAuth } from '../../lib/auth';
 interface InterestRuleRow {
   id: string;
   name: string;
-  rateType: string;
   ratePercent: string;
-  isActive: boolean;
 }
 
 interface Props {
@@ -17,6 +15,7 @@ interface Props {
   status: string;
   interestRuleId: string | null;
   interestFromDate: string | null;
+  attachedInterestRule: (InterestRuleRow & { rateType: string }) | null;
   /** Set when the booking wizard created the booking but couldn't attach its rule. */
   wizardError?: string;
 }
@@ -32,21 +31,21 @@ const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { tim
  * postsales.interest.manage attach, change or remove it, and lets manage or
  * waive holders accrue interest up to today.
  */
-export default function InterestRulePanel({ bookingId, status, interestRuleId, interestFromDate, wizardError }: Props) {
+export default function InterestRulePanel({ bookingId, status, interestRuleId, interestFromDate, attachedInterestRule, wizardError }: Props) {
   const qc = useQueryClient();
-  const { hasPermission } = useAuth();
+  const { user, hasPermission } = useAuth();
   const canManage = hasPermission(PERMISSIONS.POSTSALES_INTEREST_MANAGE);
   const canAccrue = canManage || hasPermission(PERMISSIONS.POSTSALES_INTEREST_WAIVE);
   const active = ACTIVE_STATUSES.has(status);
 
   const { data: rules } = useQuery<{ data: InterestRuleRow[] }>({
-    queryKey: ['interest-rules-all'],
-    queryFn: () => api('/masters/interest-rules?limit=100'),
-    enabled: hasPermission(PERMISSIONS.ADMIN_MASTER_READ),
+    queryKey: ['attachable-interest-rules', user?.companyId, user?.sub],
+    queryFn: ({ signal }) => api('/bookings/interest-rules/attachable', { signal }),
+    enabled: !!user && canManage,
   });
-  const current = rules?.data.find((r) => r.id === interestRuleId);
+  const current = attachedInterestRule;
   // Only active SIMPLE rules can be attached for now (compounding waits for the CA).
-  const attachable = (rules?.data ?? []).filter((r) => r.isActive && r.rateType === 'SIMPLE');
+  const attachable = (rules?.data ?? []);
 
   const [choice, setChoice] = useState('');
   const [busy, setBusy] = useState(false);
@@ -99,7 +98,7 @@ export default function InterestRulePanel({ bookingId, status, interestRuleId, i
       )}
       <p className="mt-1 text-sm text-slate-700" data-testid="interest-rule-current">
         {interestRuleId
-          ? `${current ? `${current.name} (${Number(current.ratePercent)}% simple)` : 'A rule is attached'}` +
+          ? `${current ? `${current.name} (${Number(current.ratePercent)}% ${current.rateType.toLowerCase()})` : 'A rule is attached'}` +
             (interestFromDate ? `, from ${fmtDate(interestFromDate)}` : '')
           : 'No delay interest.'}
       </p>

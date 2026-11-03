@@ -268,7 +268,13 @@ export class BookingService {
       },
     });
     if (!booking) throw new NotFoundException('Booking not found');
+    const attachedInterestRule = booking.interestRuleId
+      ? await this.systemPrisma.interestRule.findFirst({
+          where: { id: booking.interestRuleId, companyId },
+          select: { id: true, name: true, ratePercent: true, rateType: true },
+        })
+      : null;
     const balancePaise = await this.ledger.balance(companyId, id);
-    return { ...booking, balancePaise: balancePaise.toString() };
+    return { ...booking, attachedInterestRule, balancePaise: balancePaise.toString() };
   }
 }

@@ -107,9 +107,7 @@ interface GstRateRow {
 interface InterestRuleRow {
   id: string;
   name: string;
-  rateType: string;
   ratePercent: string;
-  isActive: boolean;
 }
 
 /** No rule chosen on purpose (as opposed to not chosen yet: undefined). */
@@ -385,15 +383,15 @@ export default function BookingWizard() {
 
   // Attaching a rule needs postsales.interest.manage; without it the choice
   // is left to Accounts, on the booking's installment schedule.
-  const { hasPermission } = useAuth();
+  const { user, hasPermission } = useAuth();
   const canSetInterest = hasPermission(PERMISSIONS.POSTSALES_INTEREST_MANAGE);
   const { data: interestRules } = useQuery<{ data: InterestRuleRow[] }>({
-    queryKey: ['interest-rules-all'],
-    queryFn: () => api('/masters/interest-rules?limit=100'),
-    enabled: canSetInterest,
+    queryKey: ['attachable-interest-rules', user?.companyId, user?.sub],
+    queryFn: ({ signal }) => api('/bookings/interest-rules/attachable', { signal }),
+    enabled: !!user && canSetInterest,
   });
   // Only active SIMPLE rules can be attached for now (compounding waits for the CA).
-  const attachableRules = (interestRules?.data ?? []).filter((r) => r.isActive && r.rateType === 'SIMPLE');
+  const attachableRules = (interestRules?.data ?? []);
 
   const { data: gstRates } = useQuery<{ data: GstRateRow[] }>({
     queryKey: ['gst-rates-all'],

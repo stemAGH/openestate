@@ -3,8 +3,8 @@ import { expect } from '@playwright/test';
 import type { E2eFixture } from './seed';
 
 /** Straight login for fixtures seeded with forcePasswordChange: false (the default). */
-export async function login(page: Page, fixture: E2eFixture) {
-  await page.goto('/login');
+export async function login(page: Page, fixture: E2eFixture, options: { navigate?: boolean } = {}) {
+  if (options.navigate !== false) await page.goto('/login');
   await page.locator('#email').fill(fixture.adminEmail);
   await page.locator('#password').fill(fixture.adminPassword);
   await page.getByRole('button', { name: 'Sign in' }).click();
