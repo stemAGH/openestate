@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatInr } from '@openestate/shared';
 import { api } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
 import DataTable, { type Column } from '../../components/DataTable';
+import InterestRulePanel from './InterestRulePanel';
 
 interface Installment {
   id: string;
@@ -30,6 +32,9 @@ interface PlanVersion {
 interface BookingRow {
   brokerId: string | null;
   status: string;
+  interestRuleId: string | null;
+  interestFromDate: string | null;
+  attachedInterestRule: { id: string; name: string; ratePercent: string; rateType: string } | null;
 }
 
 // Mirrors CANCELLABLE_FROM in apps/api/src/postsales/cancellation.service.ts.
@@ -44,7 +49,9 @@ const STATUS_STYLE: Record<string, string> = {
 export default function InstallmentSchedule() {
   const { bookingId } = useParams<{ bookingId: string }>();
   const [showHistory, setShowHistory] = useState(false);
+  const wizardInterestError = (useLocation().state as { interestError?: string } | null)?.interestError;
   const qc = useQueryClient();
+  const { user } = useAuth();
 
   const { data: versions, isLoading } = useQuery<PlanVersion[]>({
     queryKey: ['plan-history', bookingId],
@@ -53,9 +60,9 @@ export default function InstallmentSchedule() {
   });
 
   const { data: booking } = useQuery<BookingRow>({
-    queryKey: ['booking', bookingId],
-    queryFn: () => api(`/bookings/${bookingId}`),
-    enabled: !!bookingId,
+    queryKey: ['booking', bookingId, user?.companyId, user?.sub],
+    queryFn: ({ signal }) => api(`/bookings/${bookingId}`, { signal }),
+    enabled: !!bookingId && !!user,
   });
 
   const [accruing, setAccruing] = useState(false);
@@ -157,6 +164,17 @@ export default function InstallmentSchedule() {
           <span>Plan: <strong>{active.name}</strong> (v{active.version})</span>
           <span>Total due: <strong className={dues > 0n ? 'text-red-600' : 'text-emerald-600'}>{formatInr(dues)}</strong></span>
         </div>
+      )}
+
+      {booking && bookingId && (
+        <InterestRulePanel
+          bookingId={bookingId}
+          status={booking.status}
+          interestRuleId={booking.interestRuleId}
+          interestFromDate={booking.interestFromDate}
+          attachedInterestRule={booking.attachedInterestRule}
+          wizardError={wizardInterestError}
+        />
       )}
 
       {booking?.brokerId && (

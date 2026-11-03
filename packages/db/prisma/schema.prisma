@@ -1698,6 +1698,11 @@ model Booking {
   // Interest rule for overdue installments (Phase 4). Null = no delay interest.
   // Scalar + DB-level FK (no Prisma relation).
   interestRuleId         String?       @map("interest_rule_id") @db.Uuid
+  // Delay interest runs only from this date (v0.9): the day a rule was
+  // attached or changed, or the transfer date on a transferred booking. Null
+  // with no rule. Accrual starts from the latest of this, the installment's
+  // due date and the last accrual's end.
+  interestFromDate       DateTime?     @map("interest_from_date") @db.Date
   // Sourcing broker (Phase 5). Null = unsourced booking, no commission/NOC
   // gating at all. Scalar + DB-level FK (no Prisma relation), same policy
   // as interestRuleId above — set by a Phase 5 controller-layer call after

@@ -408,6 +408,79 @@ describeIf('session authorisation version (UA-116), staff and portal', () => {
     }
   });
 
+  // ── a version bumped directly in the database (the upgrade sync) ──
+  //
+  // packages/db/prisma/sync-permissions.ts bumps users.authz_version with plain
+  // SQL when an upgrade grants permissions, and does not touch the Redis cache.
+  // Found by PR #78's CI: a session that refreshed within 60 s of such a bump
+  // got a token with the new version, which the guard compared with the old
+  // cached one and refused, signing the user out.
+
+  const jwtDecode = (token: string) => new JwtService({}).decode(token);
+  const bumpInDatabase = (userId: string) =>
+    systemPrisma.$executeRaw`UPDATE users SET authz_version = authz_version + 1 WHERE id = ${userId}::uuid`;
+  const cachedVersion = async (userId: string) => {
+    const redis = new Redis(REDIS_URL);
+    try {
+      const v = await redis.get(`authz:v:${userId}`);
+      return v === null ? null : Number(v);
+    } finally {
+      redis.disconnect();
+    }
+  };
+  const dbVersion = async (userId: string) =>
+    (await systemPrisma.user.findUniqueOrThrow({ where: { id: userId }, select: { authzVersion: true } })).authzVersion as number;
+
+  it('direct database bump, cache still old: a refreshed session carries on, and the cache catches up', async () => {
+    const target = await createStaff(await makeRole('Exec direct bump', execPerms));
+    const t = await staffSession(target.email);
+    expect((await staffProbe(t.token)).status).toBe(200); // fills the cache
+    const before = await dbVersion(target.id);
+    await bumpInDatabase(target.id);
+    expect(await cachedVersion(target.id)).toBe(before); // premise: the cache is stale
+
+    const refreshed = await t.agent.post('/api/v1/auth/refresh').set('X-CSRF-Token', t.csrf).expect(200);
+    expect((jwtDecode(refreshed.body.accessToken) as { av: number }).av).toBe(before + 1);
+    expect((await staffProbe(refreshed.body.accessToken)).status).toBe(200);
+    expect(await cachedVersion(target.id)).toBe(before + 1);
+  });
+
+  it('control: a token newer than the database is refused, even with a stale cache', async () => {
+    const target = await createStaff(await makeRole('Exec forged av', execPerms));
+    const t = await staffSession(target.email);
+    expect((await staffProbe(t.token)).status).toBe(200);
+    const payload = jwtDecode(t.token) as Record<string, unknown> & { av: number };
+    const jwt = new JwtService({ secret: process.env.JWT_ACCESS_SECRET });
+    delete payload.exp;
+    await expectEnded(await staffProbe(jwt.sign({ ...payload, av: payload.av + 5 }, { expiresIn: '15m' })));
+  });
+
+  it('control: after an in-app session end (password change) the old access token is refused', async () => {
+    const target = await createStaff(await makeRole('Exec in-app end', execPerms));
+    const here = await staffSession(target.email);
+    expect((await staffProbe(here.token)).status).toBe(200);
+    await here.agent
+      .post('/api/v1/auth/change-password')
+      .set('Authorization', `Bearer ${here.token}`)
+      .set('X-CSRF-Token', here.csrf)
+      .send({ currentPassword: PASSWORD, newPassword: NEW_PASSWORD })
+      .expect(204);
+    await expectEnded(await staffProbe(here.token));
+  });
+
+  it('known window (docs/todo.md): an OLD token is accepted while the cache still holds the old version after a direct bump', async () => {
+    const target = await createStaff(await makeRole('Exec old token', execPerms));
+    const t = await staffSession(target.email);
+    expect((await staffProbe(t.token)).status).toBe(200);
+    const before = await dbVersion(target.id);
+    await bumpInDatabase(target.id);
+    expect(await cachedVersion(target.id)).toBe(before);
+    // Not fixed here (owner ruling): only an in-app bump updates the cache, so
+    // until the 60 s entry expires the old token still matches it. Harmless
+    // while the upgrade sync only adds permissions.
+    expect((await staffProbe(t.token)).status).toBe(200);
+  });
+
   // Last: it ends the session of every customer in this company.
   it('portal, the customer role\'s permissions edited: the customer is refused; a staff session is not', async () => {
     const target = await createCustomer();

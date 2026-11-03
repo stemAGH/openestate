@@ -62,6 +62,9 @@ export default async function globalSetup() {
     // Its own company: role-permission-edit.spec.ts edits this company's
     // Customer portal role, which other specs' portal users depend on.
     rolesPortal: await seedE2eFixture(DATABASE_URL_SYSTEM, { withPortalTicketSetup: true }),
+    // Its own company: interest-rule.spec.ts books the fixture's unit and
+    // attaches a delay-interest rule to the booking.
+    interestRule: await seedE2eFixture(DATABASE_URL_SYSTEM),
   };
   writeFileSync(path.join(__dirname, '.fixture-state.json'), JSON.stringify(fixtures, null, 2));
 }

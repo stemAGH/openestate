@@ -79,6 +79,12 @@ export interface MasterModuleConfig {
   // "this field is required," so the generic factory's CRUD is still the
   // right fit once it actually knows about the field.
   extraFields?: z.ZodRawShape;
+  /**
+   * Runs inside update()'s transaction, before the write; throw to refuse it.
+   * Used by InterestRule to keep the rate of a rule in use (interest-rule.master.ts).
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  beforeUpdate?: (tx: any, companyId: string, id: string, data: Record<string, unknown>) => Promise<void>;
 }
 
 export function createMasterService(config: MasterModuleConfig) {
@@ -167,10 +173,11 @@ export function createMasterService(config: MasterModuleConfig) {
       const payload = config.supportsDescription ? data : stripDescription(data);
       try {
         return await runWithTenant({ companyId }, () =>
-          withTenantTx(this.tenantPrisma, companyId, (tx) =>
+          withTenantTx(this.tenantPrisma, companyId, async (tx) => {
+            await config.beforeUpdate?.(tx, companyId, id, payload);
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (tx as any)[key].update({ where: { id }, data: payload }),
-          ),
+            return (tx as any)[key].update({ where: { id }, data: payload });
+          }),
         );
       } catch (err) {
         throw mapDuplicateNameError(err, config.apiTag);

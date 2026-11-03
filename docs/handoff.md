@@ -5,10 +5,12 @@ with whatever a new session needs to pick up work immediately; prune stale facts
 rather than layering history on top of them. For *why* a decision was made, see
 CLAUDE.md's Decisions log; this file is only *what's true right now*.
 
-**Last updated: 2026-11-03. v0.8.5 is released (commit `3ae6d6da`; public master
-and the `v0.8.5` tag both point there). In flight: PR #78 (`v0.9-interest-rule`),
-unfinished, with uncommitted changes in its worktree and a merge conflict with the
-new master (section 4).**
+**Last updated: 2026-11-03. v0.8.5 is released (commit `3ae6d6da`, tag `v0.8.5`);
+master is `7b29363` (the post-release docs, release-aware upgrade CI and the
+deploy launcher check). In flight: v0.9 item 1, delayed-payment interest (PR #78,
+`v0.9-interest-rule`). Its integration with master is being prepared locally on
+`integrate/v0.9-on-7b29363` (not pushed); the original worktree's uncommitted work
+is backed up at `C:\Users\Ashis\oe-backups\pr78-20261103` (section 4).**
 
 ## 1. How we work
 
@@ -43,6 +45,13 @@ new master (section 4).**
   top), publish the advisory straight away and request its CVE, then check a fresh
   clone (tag points at the commit, `package.json` version), delete the merged
   branches. The owner is present from the master push to the advisory.
+  Before the first PR run of a new release, review the previous-release CI
+  variants. Each failure variant names the migration it exercises (`exercises`
+  in the matrix) and starts from the newest release without it, so it keeps
+  testing that migration in later releases; a release that adds a migration worth
+  its own failure test gets new variants for it. (v0.9's first run failed because
+  the variants still described v0.8.4; v0.8.5's because they assumed the previous
+  release had migrations.)
 - **Security release via a private fork (as done for v0.8.5).** Draft advisory, then
   its temporary private fork; push the fix branch there (CI does not run in it, so
   run the full suite locally); make the release commit there; rehearse that exact
@@ -66,7 +75,8 @@ new master (section 4).**
   `C:\Users\Ashis\AppData\Local\Programs\DockerDesktop\resources\bin`. They are
   provisioned by `scripts/test-setup.sh`, which needs a `psql` client; none is
   installed here (a small stand-in was used before), so the database is simply
-  kept migrated (42 migrations). **Confirmed 2026-11-03: both are stopped** and were
+  kept migrated (42 migrations as of v0.8.5; 44 with the v0.9 interest-rule
+  migrations). **Confirmed 2026-11-03: both are stopped** and were
   not used or changed during the v0.8.5 work. The historical interest job 1400 is
   most likely in `parts-redis-1` (not checked, because the container was left
   stopped); leave it alone.
@@ -106,7 +116,7 @@ new master (section 4).**
 - `openestate-partS` is a leftover local clone of the removed private fork and can
   be deleted. A PostgreSQL 17 and a Redis-on-Windows install were made by mistake
   earlier; their services are stopped and disabled and can be uninstalled.
-- Docs site: `pnpm --filter docs build`.
+- Docs site: `pnpm --filter @openestate/docs build`.
 
 ### CI
 
@@ -212,7 +222,8 @@ Snapshot 1                        2026-09-08 original install
 ```
 
 `v0.8.4-verified` is the clean base for the next release's rehearsal (the previous
-release is then v0.8.4). Before trusting any snapshot as a base, check the active
+release is then v0.8.4). The v0.8.4-verified checkout has no v0.8.4 tag (upgraded
+by sha before tagging); identify the base by HEAD 5891f99, not git describe. Before trusting any snapshot as a base, check the active
 build, the git tag and the migration count (`SELECT count(*) FROM
 _prisma_migrations`); never assume.
 
@@ -327,11 +338,12 @@ and the three LOW session-isolation usability items.
 **v0.9, "pilot readiness".** Everything is written up in `docs/todo.md` (the
 "v0.9 'pilot readiness'" entry at the top lists it). In order:
 
-1. **The interest-rule gap is the top item.** Nothing writes
-   `Booking.interestRuleId`, so no interest is ever charged. It touches the frozen
-   financial core, so a written plan and the owner's approval come first (also:
-   may a rule be attached after booking, and may it change once interest has been
-   charged).
+1. **The interest-rule gap: built, waiting for the VM rehearsal.** Branch
+   `v0.9-interest-rule`, built to the owner's rulings (a)–(j) (see the
+   `docs/todo.md` entry). Next: the owner confirms no other session uses the VM
+   and puts the sudo rule in place, then the rehearsal from `v0.8.4-verified`
+   with the installed v0.8.4 `upgrade-native.sh`, upgrading by full commit sha.
+   CHANGELOG and release-notes drafts are in the branch.
 2. "Log out everywhere" should also bump the session version, so other devices'
    access tokens end at once rather than within 15 minutes.
 3. The cookie-ordering follow-up (which cookie the browser keeps after two

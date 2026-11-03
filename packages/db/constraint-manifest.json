@@ -54,7 +54,7 @@
     {"table":"bookings","name":"bookings_broker_id_fkey","type":"foreign key","definition":"FOREIGN KEY (broker_id) REFERENCES brokers(id) ON UPDATE CASCADE ON DELETE SET NULL"},
     {"table":"bookings","name":"bookings_company_id_fkey","type":"foreign key","definition":"FOREIGN KEY (company_id) REFERENCES companies(id) ON UPDATE CASCADE ON DELETE RESTRICT"},
     {"table":"bookings","name":"bookings_created_by_id_fkey","type":"foreign key","definition":"FOREIGN KEY (created_by_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE SET NULL"},
-    {"table":"bookings","name":"bookings_interest_rule_id_fkey","type":"foreign key","definition":"FOREIGN KEY (interest_rule_id) REFERENCES interest_rules(id) ON UPDATE CASCADE ON DELETE SET NULL"},
+    {"table":"bookings","name":"bookings_interest_rule_id_fkey","type":"foreign key","definition":"FOREIGN KEY (interest_rule_id) REFERENCES interest_rules(id) ON UPDATE CASCADE ON DELETE RESTRICT"},
     {"table":"bookings","name":"bookings_payment_plan_template_id_fkey","type":"foreign key","definition":"FOREIGN KEY (payment_plan_template_id) REFERENCES payment_plan_templates(id) ON UPDATE CASCADE ON DELETE SET NULL"},
     {"table":"bookings","name":"bookings_pkey","type":"primary key","definition":"PRIMARY KEY (id)"},
     {"table":"bookings","name":"bookings_primary_applicant_id_fkey","type":"foreign key","definition":"FOREIGN KEY (primary_applicant_id) REFERENCES applicants(id) ON UPDATE CASCADE ON DELETE RESTRICT"},

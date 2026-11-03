@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { z } from 'zod';
-import { INTEREST_RATE_TYPE } from '@openestate/shared';
 import { createMasterModule } from './master.factory';
+import { INTEREST_RULE_MASTER } from './interest-rule.master';
 import { GstRateModule } from './gst-rate/gst-rate.module';
 import { TdsRuleModule } from './tds-rule/tds-rule.module';
 import { SmsTemplateModule } from './sms-template/sms-template.module';
@@ -75,19 +75,8 @@ const SIMPLE_MASTERS = [
       hsnSac: z.string().max(20).optional(),
     },
   },
-  // InterestRule.rateType/ratePercent/frequency are all required, non-
-  // nullable Prisma columns createMasterSchema never had. rateType
-  // reuses InterestService's own INTEREST_RATE_TYPE enum (SIMPLE/
-  // COMPOUND) so this can never drift from what the accrual engine
-  // actually understands.
-  {
-    modelName: 'InterestRule', routePath: 'interest-rules', apiTag: 'Interest Rules',
-    extraFields: {
-      rateType: z.nativeEnum(INTEREST_RATE_TYPE),
-      ratePercent: z.coerce.number().min(0).max(100),
-      frequency: z.enum(['DAILY', 'MONTHLY', 'YEARLY']),
-    },
-  },
+  // See interest-rule.master.ts (required columns, and the rate guard).
+  INTEREST_RULE_MASTER,
   // TransferFeeRule.feeType is required; TransferService reads the
   // literal 'FIXED' to decide between amountPaise/percentage.
   {

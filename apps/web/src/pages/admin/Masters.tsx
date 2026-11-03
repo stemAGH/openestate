@@ -581,6 +581,12 @@ export default function MastersPage() {
               Cancel
             </button>
           </div>
+          {selectedTable === 'interest-rules' && (
+            <p className="mt-2 text-xs text-slate-500">
+              Only SIMPLE rules can be attached to bookings for now. A rule attached to an active booking keeps its
+              rate type and rate; to change the rate, create a new rule and change the bookings to it.
+            </p>
+          )}
           {formError && <p className="mt-2 text-sm text-red-600">{formError}</p>}
         </div>
       )}

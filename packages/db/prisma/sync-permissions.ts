@@ -390,6 +390,32 @@ export async function syncSystemRoleBaselines(
   return out;
 }
 
+/**
+ * v0.9: active bookings (BOOKED, ALLOTTED, REGISTERED) with no delay-interest
+ * rule, per company: none set, or a rule id that no longer exists. Read-only. Printed by the CLI below so every upgrade
+ * shows it, including the first upgrade to v0.9, which runs the previous
+ * release's upgrade-native.sh but this release's copy of this script.
+ * Nothing attaches a rule automatically: an admin attaches one per booking,
+ * and interest runs only from that day. Optional companyId scope: tests only.
+ */
+export async function bookingsWithoutInterestRule(
+  client: PrismaClient = prisma,
+  scope: { companyId?: string } = {},
+): Promise<Array<{ companyId: string; companyName: string; count: number }>> {
+  const companyId = scope.companyId ?? null;
+  const rows = await client.$queryRaw<Array<{ company_id: string; name: string; n: number }>>`
+    SELECT c.id AS company_id, c.name, count(*)::int AS n
+      FROM bookings b JOIN companies c ON c.id = b.company_id
+     WHERE b.status IN ('BOOKED', 'ALLOTTED', 'REGISTERED')
+       -- No rule: none set, or one that no longer exists (an orphan left by a
+       -- NOT VALID key, which accrual treats as no rule).
+       AND NOT EXISTS (SELECT 1 FROM interest_rules r WHERE r.id = b.interest_rule_id)
+       AND (${companyId}::uuid IS NULL OR b.company_id = ${companyId}::uuid)
+     GROUP BY c.id, c.name
+     ORDER BY c.name`;
+  return rows.map((r) => ({ companyId: r.company_id, companyName: r.name, count: r.n }));
+}
+
 // Exit codes this CLI entrypoint uses, inspected by
 // deploy/native/upgrade-native.sh (see its own comment at the call site):
 //   0 — clean, nothing skipped.
@@ -457,6 +483,18 @@ if (require.main === module) {
         );
         console.log('='.repeat(72));
         console.log('');
+      }
+
+      const noRule = await bookingsWithoutInterestRule();
+      const noRuleTotal = noRule.reduce((sum, r) => sum + r.count, 0);
+      if (noRuleTotal === 0) {
+        console.log('Delay interest: no active booking is without an interest rule.');
+      } else {
+        console.log(
+          `Delay interest: ${noRuleTotal} active booking(s) have no interest rule. Nothing was attached ` +
+            "automatically; attach a rule from each booking's installment schedule (interest runs from that day).",
+        );
+        for (const r of noRule) console.log(`  ${r.companyName} (company ${r.companyId}): ${r.count}`);
       }
 
       const totalSkipped = superAdminSkipped + leadStagesSkipped + roles.skipped;

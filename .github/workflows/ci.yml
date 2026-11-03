@@ -94,6 +94,11 @@ jobs:
             exit 1
           fi
 
+      # The upgrade job's five variants (clean, and an orphan and a lock
+      # timeout for each migration worth its own failure test) stay in place.
+      - name: Test the upgrade-variant matrix
+        run: node scripts/ci/test-upgrade-matrix.mjs
+
       # How build_release runs `pnpm deploy`: its exit status decides, the
       # deployed prisma and tsx launchers must exist, be executable and run,
       # and only then is pnpm's transient .bin/prisma warning hidden.
@@ -103,6 +108,18 @@ jobs:
           for impl in old novalidate; do
             if DEPLOY_LAUNCHERS_IMPL=$impl bash deploy/native/test-deploy-launchers.sh >/dev/null 2>&1; then
               echo "::error::test-deploy-launchers.sh passed with DEPLOY_LAUNCHERS_IMPL=${impl}, so it can no longer detect what it guards"
+              exit 1
+            fi
+          done
+
+      # Backup bundles are root-only (dirs 700, files 600) and restore still
+      # loads the private dump (streamed on stdin, never opened by postgres).
+      - name: Test the backup permissions and restore compatibility
+        run: |
+          bash deploy/native/test-backup-permissions.sh
+          for impl in old old-restore; do
+            if BACKUP_PERMS_IMPL=$impl bash deploy/native/test-backup-permissions.sh >/dev/null 2>&1; then
+              echo "::error::test-backup-permissions.sh passed with BACKUP_PERMS_IMPL=${impl}, so it can no longer detect what it guards"
               exit 1
             fi
           done
@@ -994,14 +1011,16 @@ jobs:
             echo "::error::${line}"
           done
 
-  # v0.8.4 Part O. Real servers upgrade from the PREVIOUS RELEASE, with the
+  # v0.8.4 Part O. Real servers upgrade from an earlier release, with the
   # upgrade script that release shipped. The job above starts from a fixed old
-  # baseline and runs the new script, so it never proved that path. Three
-  # variants: clean data; one planted orphan row (a restored foreign key must
-  # be left NOT VALID and reported, never block the upgrade); and a forced lock
-  # timeout during the foreign-key step (the previous version must keep
+  # baseline and runs the new script, so it never proved that path. Variants:
+  # clean data; per migration worth its own failure test, one planted orphan
+  # row (the new foreign key must be left NOT VALID and reported, never block
+  # the upgrade) and one forced lock timeout (the previous version must keep
   # working on the half-migrated database, the release-notes recovery command
   # must be needed and must work, and the retry must succeed).
+  # scripts/ci/test-upgrade-matrix.mjs (lint job) fails if a variant is
+  # removed, renamed, pointed at another migration, or left with no steps.
   native-upgrade-from-previous-release:
     name: Upgrade from the previous release (${{ matrix.variant }})
     runs-on: ubuntu-latest
@@ -1018,11 +1037,26 @@ jobs:
         # worth its own failure test, add a variant here that names it.
         include:
           - variant: clean
+            kind: clean
             exercises: ""
-          - variant: orphan
+          # v0.8.4's restored foreign keys (start: v0.8.3).
+          - variant: orphan-fk
+            kind: orphan
             exercises: 20261022000000_restore_foreign_keys
-          - variant: lock-timeout
+          - variant: lock-fk
+            kind: lock
             exercises: 20261022000000_restore_foreign_keys
+            lock_table: users
+            recovery_notes: docs/releases/v0.8.4-release-notes.md
+          # v0.9's booking interest rule key (start: v0.8.5).
+          - variant: orphan-interest
+            kind: orphan
+            exercises: 20261101000000_booking_interest_rule
+          - variant: lock-interest
+            kind: lock
+            exercises: 20261101000000_booking_interest_rule
+            lock_table: bookings
+            recovery_notes: docs/releases/v0.9.0-release-notes.md
     env:
       STATE: /tmp/upgrade-state.json
       SRC: /opt/openestate-src
@@ -1079,8 +1113,12 @@ jobs:
       - name: Add data and open one staff and one portal session (over HTTP)
         run: node scripts/ci/upgrade-scenario.mjs seed
 
-      - name: "Variant orphan: plant a row whose pointer will not resolve"
-        if: matrix.variant == 'orphan'
+      # The start release predates ${{ matrix.exercises }} (v0.8.3): the
+      # webhook_endpoints creator key doesn't exist yet, so an endpoint
+      # "created by" a user that never existed is accepted. The upgrade must
+      # add the key NOT VALID, leave the row alone and report it.
+      - name: "Variant orphan-fk: a webhook endpoint created by a user that does not exist"
+        if: matrix.variant == 'orphan-fk'
         run: |
           set -euo pipefail
           # The start release predates ${{ matrix.exercises }}, so this foreign
@@ -1092,49 +1130,87 @@ jobs:
             "INSERT INTO webhook_endpoints (id, company_id, name, url, secret_ciphertext, secret_key_version, event_types, created_by_id, updated_at)
              VALUES (gen_random_uuid(), (SELECT id FROM companies ORDER BY created_at LIMIT 1), 'Orphan hook', 'https://example.invalid/hook', 'x', 1, '{}', gen_random_uuid(), now())")
 
-      - name: "Variant lock-timeout: upgrade with the previous script while users is locked"
-        if: matrix.variant == 'lock-timeout'
+      # The start release predates ${{ matrix.exercises }} (v0.8.5), which
+      # replaces bookings_interest_rule_id_fkey (SET NULL -> RESTRICT). Plant
+      # the state an earlier orphan leaves: the key NOT VALID and one booking
+      # pointing at a rule that doesn't exist. The upgrade must keep the new
+      # key NOT VALID, leave the row alone, report it, and count the booking
+      # as having no interest rule.
+      - name: "Variant orphan-interest: a booking whose interest rule does not exist"
+        if: matrix.variant == 'orphan-interest'
+        run: |
+          set -euo pipefail
+          q() { (cd / && sudo -u postgres psql -d openestate -AtX -v ON_ERROR_STOP=1 -c "$1"); }
+          ORPHAN_BOOKING="$(q "SELECT id FROM bookings ORDER BY created_at LIMIT 1")"
+          ORPHAN_RULE="$(q "SELECT gen_random_uuid()")"
+          [ -n "$ORPHAN_BOOKING" ] || { echo "::error::no booking to plant the orphan on"; exit 1; }
+          q "BEGIN;
+             ALTER TABLE bookings DROP CONSTRAINT bookings_interest_rule_id_fkey;
+             UPDATE bookings SET interest_rule_id = '${ORPHAN_RULE}' WHERE id = '${ORPHAN_BOOKING}';
+             ALTER TABLE bookings ADD CONSTRAINT bookings_interest_rule_id_fkey FOREIGN KEY (interest_rule_id) REFERENCES interest_rules(id) ON DELETE SET NULL ON UPDATE CASCADE NOT VALID;
+             COMMIT;"
+          [ "$(q "SELECT confdeltype::text || convalidated::text FROM pg_constraint WHERE conname = 'bookings_interest_rule_id_fkey'")" = "nfalse" ] \
+            || { echo "::error::the planted key is not ON DELETE SET NULL, NOT VALID"; exit 1; }
+          echo "ORPHAN_BOOKING=${ORPHAN_BOOKING}" >> "$GITHUB_ENV"
+          echo "ORPHAN_RULE=${ORPHAN_RULE}" >> "$GITHUB_ENV"
+
+      - name: "Variant ${{ matrix.variant }}: upgrade with the previous script while ${{ matrix.lock_table }} is locked"
+        if: matrix.kind == 'lock'
         run: |
           set -uo pipefail
-          # Hold ROW EXCLUSIVE on users: ordinary writes still work, but the
-          # foreign-key file's SHARE ROW EXCLUSIVE lock on users must wait,
-          # and with a 3 s lock_timeout the file fails cleanly.
-          (cd / && sudo -u postgres env PGAPPNAME=o-lock-holder psql -d openestate -c \
-            "BEGIN; LOCK TABLE users IN ROW EXCLUSIVE MODE; SELECT pg_sleep(900);" >/dev/null 2>&1) &
+          LOCK_TABLE="${{ matrix.lock_table }}"
+          FIRST_MIGRATION="${{ matrix.exercises }}"
+          # Hold ROW EXCLUSIVE on it: ordinary writes still work, but the
+          # migration's lock on it (SHARE ROW EXCLUSIVE to add a foreign key,
+          # ACCESS EXCLUSIVE to alter the table) must wait, and with a 3 s
+          # lock_timeout the file fails cleanly.
+          (cd / && sudo -u postgres env PGAPPNAME=o-lock-holder psql -d openestate -c             "BEGIN; LOCK TABLE ${LOCK_TABLE} IN ROW EXCLUSIVE MODE; SELECT pg_sleep(900);" >/dev/null 2>&1) &
           HELD=0
           for i in $(seq 1 30); do
-            HELD="$(cd / && sudo -u postgres psql -d openestate -AtX -c "SELECT count(*) FROM pg_locks l JOIN pg_stat_activity a ON a.pid = l.pid WHERE a.application_name = 'o-lock-holder' AND l.relation = 'users'::regclass AND l.granted")"
+            HELD="$(cd / && sudo -u postgres psql -d openestate -AtX -c "SELECT count(*) FROM pg_locks l JOIN pg_stat_activity a ON a.pid = l.pid WHERE a.application_name = 'o-lock-holder' AND l.relation = '${LOCK_TABLE}'::regclass AND l.granted")"
             [ "$HELD" = "1" ] && break; sleep 1
           done
-          [ "$HELD" = "1" ] || { echo "::error::could not take the lock on users"; exit 1; }
+          [ "$HELD" = "1" ] || { echo "::error::could not take the lock on ${LOCK_TABLE}"; exit 1; }
           cd "$SRC/deploy/native"
           set +e   # the step runs under bash -e; this command is expected to fail
           sudo MIGRATION_LOCK_TIMEOUT=3s ./upgrade-native.sh --no-backup --ref "$HEAD_SHA" 2>&1 | tee /tmp/upgrade-attempt1.log
           RC=${PIPESTATUS[0]}
           set -e
-          [ "$RC" -ne 0 ] || { echo "::error::the upgrade succeeded although users was locked; the variant proves nothing"; exit 1; }
+          [ "$RC" -ne 0 ] || { echo "::error::the upgrade succeeded although ${LOCK_TABLE} was locked; the variant proves nothing"; exit 1; }
           grep -qi "lock timeout" /tmp/upgrade-attempt1.log || { echo "::error::the first attempt did not fail on the lock timeout"; exit 1; }
           q() { (cd / && sudo -u postgres psql -d openestate -AtX -c "$1"); }
-          # State: the hatch and portal-check migrations applied, the FK file failed, no FK added.
-          [ "$(q "SELECT count(*) FROM _prisma_migrations WHERE migration_name IN ('20261020000000_scope_financial_mutation_hatch','20261021000000_portal_guard_function_owner') AND finished_at IS NOT NULL")" = "2" ] \
-            || { echo "::error::the earlier v0.8.4 migrations are not both applied"; exit 1; }
-          [ "$(q "SELECT count(*) FROM _prisma_migrations WHERE migration_name = '20261022000000_restore_foreign_keys' AND finished_at IS NULL AND rolled_back_at IS NULL")" = "1" ] \
-            || { echo "::error::the foreign-key migration is not recorded as failed"; exit 1; }
-          [ "$(q "SELECT count(*) FROM pg_constraint WHERE conname = 'ledger_entries_installment_id_fkey'")" = "0" ] \
-            || { echo "::error::a restored foreign key exists although its file failed"; exit 1; }
-          # The previous version still runs correctly on this database.
+          # The migration this variant is about failed, and is the one that failed.
+          [ "$(q "SELECT count(*) FROM _prisma_migrations WHERE migration_name = '${FIRST_MIGRATION}' AND finished_at IS NULL AND rolled_back_at IS NULL")" = "1" ]             || { echo "::error::${FIRST_MIGRATION} is not recorded as failed"; exit 1; }
+          [ "$(q "SELECT count(*) FROM _prisma_migrations WHERE finished_at IS NULL AND rolled_back_at IS NULL")" = "1" ]             || { echo "::error::more than one migration is recorded as failed"; exit 1; }
+          # Nothing it would change has changed.
+          case "${{ matrix.variant }}" in
+            lock-fk)
+              [ "$(q "SELECT count(*) FROM _prisma_migrations WHERE migration_name IN ('20261020000000_scope_financial_mutation_hatch','20261021000000_portal_guard_function_owner') AND finished_at IS NOT NULL")" = "2" ]                 || { echo "::error::the earlier v0.8.4 migrations are not both applied"; exit 1; }
+              [ "$(q "SELECT count(*) FROM pg_constraint WHERE conname = 'ledger_entries_installment_id_fkey'")" = "0" ]                 || { echo "::error::a restored foreign key exists although its file failed"; exit 1; }
+              [ "$(q "SELECT count(*) FROM _prisma_migrations WHERE migration_name = '20261101000000_booking_interest_rule'")" = "0" ]                 || { echo "::error::a later migration ran after the foreign-key file failed"; exit 1; }
+              ;;
+            lock-interest)
+              [ "$(q "SELECT count(*) FROM information_schema.columns WHERE table_name = 'bookings' AND column_name = 'interest_from_date'")" = "0" ]                 || { echo "::error::bookings.interest_from_date exists although its migration failed"; exit 1; }
+              [ "$(q "SELECT confdeltype FROM pg_constraint WHERE conname = 'bookings_interest_rule_id_fkey'")" = "n" ]                 || { echo "::error::bookings_interest_rule_id_fkey is no longer ON DELETE SET NULL although its migration failed"; exit 1; }
+              ;;
+            *) echo "::error::no half-migrated-state checks for variant ${{ matrix.variant }}"; exit 1 ;;
+          esac
+          # The previous version keeps serving on this database.
           cd "$GITHUB_WORKSPACE"
           V="$(curl -fsS http://localhost/api/v1/health | jq -r .version)"
           [ "v${V}" = "$PREV_TAG" ] || { echo "::error::running version is ${V}, expected ${PREV_TAG}"; exit 1; }
           node scripts/ci/upgrade-scenario.mjs receipt || exit 1
           node scripts/ci/upgrade-scenario.mjs sessions || exit 1
-          echo "Half-migrated: hatch and portal-check migrations applied, foreign keys not; ${PREV_TAG} still records receipts and refreshes sessions."
+          echo "${FIRST_MIGRATION} timed out, nothing of it applied; ${PREV_TAG} still serves, records receipts and refreshes sessions."
 
-      - name: Record money totals before the upgrade
-        run: bash scripts/ci/upgrade-checks.sh money /tmp/money-before.txt
+      - name: Record money totals and staff role permissions before the upgrade
+        run: |
+          bash scripts/ci/upgrade-checks.sh money /tmp/money-before.txt
+          bash scripts/ci/upgrade-checks.sh roles /tmp/roles-before.txt
+          bash scripts/ci/upgrade-checks.sh role-audit /tmp/role-audit-before.txt
 
-      - name: "Variant lock-timeout: the retry needs the release-notes recovery command"
-        if: matrix.variant == 'lock-timeout'
+      - name: "Variant ${{ matrix.variant }}: the retry needs the release-notes recovery command"
+        if: matrix.kind == 'lock'
         run: |
           set -uo pipefail
           (cd / && sudo -u postgres psql -d openestate -AtX -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE application_name = 'o-lock-holder'") >/dev/null
@@ -1147,8 +1223,11 @@ jobs:
           set -e
           [ "$RC" -ne 0 ] || { echo "::error::a retry WITHOUT the recovery command succeeded; it should stop with P3009"; exit 1; }
           grep -q "P3009" /tmp/upgrade-attempt2.log || { echo "::error::the retry failed (exit ${RC}) but not with P3009"; exit 1; }
-          # The command exactly as the release notes print it.
-          CMD="$(grep -m1 'UPDATE _prisma_migrations SET rolled_back_at' "${GITHUB_WORKSPACE}/docs/releases/v0.8.4-release-notes.md")"
+          # The command exactly as the notes of the release that added the
+          # migration print it.
+          NOTES="${GITHUB_WORKSPACE}/${{ matrix.recovery_notes }}"
+          CMD="$(grep -m1 'UPDATE _prisma_migrations SET rolled_back_at' "$NOTES")"
+          [ -n "$CMD" ] || { echo "::error::${NOTES} has no recovery command"; exit 1; }
           echo "Running the release-notes command: ${CMD}"
           (cd / && eval "$CMD") || { echo "::error::the release-notes recovery command failed"; exit 1; }
 
@@ -1158,7 +1237,7 @@ jobs:
           echo "CUTOVER_SINCE=$(date -u '+%Y-%m-%d %H:%M:%S')" >> "$GITHUB_ENV"
           cd "$SRC/deploy/native"
           set +e   # so the exit-code check below runs and names the failure
-          if [ "${{ matrix.variant }}" = "lock-timeout" ]; then
+          if [ "${{ matrix.kind }}" = "lock" ]; then
             sudo ./upgrade-native.sh --no-backup 2>&1 | tee /tmp/upgrade.log   # the operator's retry, new script
           else
             sudo ./upgrade-native.sh --no-backup --ref "$HEAD_SHA" 2>&1 | tee /tmp/upgrade.log   # the previous release's own script
@@ -1178,6 +1257,42 @@ jobs:
           bash scripts/ci/upgrade-checks.sh migrations "$GITHUB_WORKSPACE"
           bash scripts/ci/upgrade-checks.sh money /tmp/money-after.txt
           bash scripts/ci/upgrade-checks.sh same-money /tmp/money-before.txt /tmp/money-after.txt
+          bash scripts/ci/upgrade-checks.sh roles /tmp/roles-after.txt
+          bash scripts/ci/upgrade-checks.sh role-audit /tmp/role-audit-after.txt
+          # Any release: each system role gained exactly the keys new to its
+          # seed baseline, none lost any, and the audit rows match the gains.
+          bash scripts/ci/upgrade-checks.sh role-sync /tmp/roles-before.txt /tmp/roles-after.txt /tmp/role-audit-before.txt /tmp/role-audit-after.txt
+          bash scripts/ci/upgrade-checks.sh interest-report /tmp/upgrade.log
+          # Self-checks: the role comparison notices a lost permission and a
+          # missing audit row, and the interest-report check notices a missing
+          # report line.
+          awk -F'|' 'NR==1{sub(/^[^,]*,?/, "", $3)} {print $1"|"$2"|"$3"|"$4}' /tmp/roles-after.txt > /tmp/roles-tampered.txt
+          if bash scripts/ci/upgrade-checks.sh role-sync /tmp/roles-before.txt /tmp/roles-tampered.txt /tmp/role-audit-before.txt /tmp/role-audit-after.txt >/dev/null 2>&1; then
+            echo "::error::the role comparison did not notice a lost permission"; exit 1
+          fi
+          if [ -s /tmp/role-audit-after.txt ] && ! cmp -s /tmp/role-audit-before.txt /tmp/role-audit-after.txt; then
+            if bash scripts/ci/upgrade-checks.sh role-sync /tmp/roles-before.txt /tmp/roles-after.txt /tmp/role-audit-before.txt /tmp/role-audit-before.txt >/dev/null 2>&1; then
+              echo "::error::the role comparison did not notice missing audit rows"; exit 1
+            fi
+          fi
+          # v0.9's postsales.interest.manage, by upgrade history rather than by
+          # start tag: super_admin always; accounts and company_admin only where
+          # a seed baseline existed before the upgrade (v0.8.4 or later); no
+          # other role. Self-check: with the before-snapshot's baselines flipped
+          # (present <-> absent) the expectation changes, so the check must fail.
+          bash scripts/ci/upgrade-checks.sh interest-holders /tmp/roles-before.txt
+          # (Skipped once a start release already grants the key: flipping
+          # then changes nothing.)
+          if ! grep -q "postsales.interest.manage" /tmp/roles-before.txt; then
+            awk -F'|' -v OFS='|' '{$4 = ($4 == "NONE") ? "flipped" : "NONE"; print}' /tmp/roles-before.txt > /tmp/roles-flipped.txt
+            if bash scripts/ci/upgrade-checks.sh interest-holders /tmp/roles-flipped.txt >/dev/null 2>&1; then
+              echo "::error::the interest-holders check did not notice a wrong upgrade history"; exit 1
+            fi
+          fi
+          : > /tmp/empty.log
+          if bash scripts/ci/upgrade-checks.sh interest-report /tmp/empty.log >/dev/null 2>&1; then
+            echo "::error::the interest-report check passed on an empty upgrade log"; exit 1
+          fi
           # Self-check: the money comparison does catch a changed total.
           sed '0,/^booking /s/^\(booking [^ ]*\) \([0-9-]*\)/\1 999\2/' /tmp/money-before.txt > /tmp/money-tampered.txt
           if bash scripts/ci/upgrade-checks.sh same-money /tmp/money-before.txt /tmp/money-tampered.txt >/dev/null 2>&1; then
@@ -1185,15 +1300,28 @@ jobs:
           fi
           node scripts/ci/upgrade-scenario.mjs sessions
           UNVALIDATED="$(cd / && sudo -u postgres psql -d openestate -AtX -c "SELECT COALESCE(string_agg(conname, ',' ORDER BY conname), '') FROM pg_constraint WHERE contype = 'f' AND NOT convalidated")"
-          if [ "${{ matrix.variant }}" = "orphan" ]; then
-            [ "$UNVALIDATED" = "webhook_endpoints_created_by_id_fkey" ] || { echo "::error::expected only webhook_endpoints_created_by_id_fkey NOT VALID, got '${UNVALIDATED}'"; exit 1; }
-            # The previous release's upgrade script cannot print this report
-            # (it is new in v0.8.4), so the release notes tell operators to run
-            # check-foreign-keys.sh after this upgrade. That is what is checked.
+          q() { (cd / && sudo -u postgres psql -d openestate -AtX -c "$1"); }
+          if [ "${{ matrix.kind }}" = "orphan" ]; then
+            case "${{ matrix.variant }}" in
+              orphan-fk) ORPHAN_KEY=webhook_endpoints_created_by_id_fkey ;;
+              orphan-interest)
+                ORPHAN_KEY=bookings_interest_rule_id_fkey
+                [ "$(q "SELECT confdeltype FROM pg_constraint WHERE conname = 'bookings_interest_rule_id_fkey'")" = "r" ] \
+                  || { echo "::error::bookings_interest_rule_id_fkey is not the new ON DELETE RESTRICT key"; exit 1; }
+                [ "$(q "SELECT interest_rule_id FROM bookings WHERE id = '${ORPHAN_BOOKING}'")" = "$ORPHAN_RULE" ] \
+                  || { echo "::error::the orphan row was changed by the upgrade"; exit 1; }
+                # (The interest-report check above already required this booking
+                # to be counted as having no interest rule.)
+                ;;
+              *) echo "::error::no orphan expectations for variant ${{ matrix.variant }}"; exit 1 ;;
+            esac
+            [ "$UNVALIDATED" = "$ORPHAN_KEY" ] || { echo "::error::expected only ${ORPHAN_KEY} NOT VALID, got '${UNVALIDATED}'"; exit 1; }
+            # Reported by check-foreign-keys.sh (the start release's own upgrade
+            # script may predate the report, so the release notes point here).
             set +e; sudo "$SRC/deploy/native/check-foreign-keys.sh" > /tmp/check-fk.txt 2>&1; RC=$?; set -e
             cat /tmp/check-fk.txt
-            if [ "$RC" != "2" ] || ! grep -q "webhook_endpoints_created_by_id_fkey" /tmp/check-fk.txt; then
-              echo "::error::check-foreign-keys.sh did not report it (exit ${RC})"; exit 1
+            if [ "$RC" != "2" ] || ! grep -q "$ORPHAN_KEY" /tmp/check-fk.txt; then
+              echo "::error::check-foreign-keys.sh did not report ${ORPHAN_KEY} (exit ${RC})"; exit 1
             fi
           else
             [ -z "$UNVALIDATED" ] || { echo "::error::foreign keys left NOT VALID on clean data: ${UNVALIDATED}"; exit 1; }
@@ -1203,14 +1331,12 @@ jobs:
             sudo journalctl -u openestate-api --since "$CUTOVER_SINCE" -o cat --no-pager | grep '"level":50' | tail -5
             echo "::error::${ERRORS} error lines in the API journal since the upgrade"; exit 1
           fi
-          # Part I: the first upgrade with a seed baseline records one for every
-          # system role except super_admin and adds nothing to them.
+          # Part I: after any upgrade every system role except super_admin has a
+          # seed baseline. (What each role gained is role-sync above.)
           q() { (cd / && sudo -u postgres psql -d openestate -AtX -c "$1"); }
           ROLES="$(q "SELECT count(*) FROM roles WHERE is_system AND slug IN ('company_admin','sales_manager','sales_executive','accounts','customer','broker')")"
           BASED="$(q "SELECT count(*) FROM role_seed_baselines b JOIN roles r ON r.id = b.role_id WHERE r.slug <> 'super_admin'")"
           [ "$ROLES" -gt 0 ] && [ "$ROLES" = "$BASED" ] || { echo "::error::${BASED} seed baselines for ${ROLES} system roles"; exit 1; }
-          ADDED="$(q "SELECT count(*) FROM audit_logs WHERE action = 'ROLE_PERMS_CHANGED' AND after->>'surface' = 'upgrade'")"
-          [ "$ADDED" = "0" ] || { echo "::error::the first upgrade added permissions to system roles (${ADDED} audit rows)"; exit 1; }
           echo "Upgrade outcome as expected (${{ matrix.variant }})."
 
       - name: "Part M after the upgrade: the API listens on loopback only"

@@ -1,7 +1,8 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, type BookingStatus } from '@prisma/client';
 import { PrismaClient, withTenantTx, runWithTenant } from '@openestate/db';
 import {
+  BOOKING_STATUS,
   LEDGER_ENTRY_TYPE,
   INTEREST_RATE_TYPE,
   roundedDiv,
@@ -19,6 +20,22 @@ function daysBetween(from: Date, to: Date): number {
 }
 function toUtcMidnight(d: Date): number {
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}
+
+/** Only these bookings accrue (a cancelled or transferred-out booking is settled). */
+export const ACCRUING_STATUSES: BookingStatus[] = [
+  BOOKING_STATUS.BOOKED,
+  BOOKING_STATUS.ALLOTTED,
+  BOOKING_STATUS.REGISTERED,
+];
+
+/**
+ * Per-booking lock for everything that reads or changes a booking's interest:
+ * accrual and the rule change (BookingInterestRuleService). Transaction-scoped;
+ * re-entrant within one transaction, so a rule change can accrue inside it.
+ */
+export async function lockBookingInterest(tx: Prisma.TransactionClient, bookingId: string): Promise<void> {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended('interest:' || ${bookingId}::text, 0))`;
 }
 
 export interface AccrualResult {
@@ -70,8 +87,13 @@ export class InterestService {
     bookingId: string,
     asOf: Date,
   ): Promise<AccrualResult> {
+    // Before any read: two runs for one booking (daily job, manual accrue, a
+    // rule change's settle-up) must not both see "no prior accrual" and post
+    // the same period twice.
+    await lockBookingInterest(tx, bookingId);
     const booking = await tx.booking.findFirst({ where: { id: bookingId, companyId } });
     if (!booking) throw new NotFoundException('Booking not found');
+    if (!ACCRUING_STATUSES.includes(booking.status)) return { bookingId, postedPaise: 0n, installmentsAccrued: 0 };
     if (!booking.interestRuleId) return { bookingId, postedPaise: 0n, installmentsAccrued: 0 };
 
     const rule = await tx.interestRule.findFirst({ where: { id: booking.interestRuleId, companyId } });
@@ -101,7 +123,11 @@ export class InterestService {
         where: { companyId, installmentId: inst.id },
         orderBy: { periodEnd: 'desc' },
       });
-      const cursor: Date = priorAccruals.length > 0 ? priorAccruals[0].periodEnd : inst.dueDate!;
+      const lastEnd: Date = priorAccruals.length > 0 ? priorAccruals[0].periodEnd : inst.dueDate!;
+      // Interest runs only from the date the rule was attached (v0.9): a rule
+      // attached late, or re-attached after a removal, charges nothing before it.
+      const floor: Date | null = booking.interestFromDate;
+      const cursor: Date = floor && toUtcMidnight(floor) > toUtcMidnight(lastEnd) ? floor : lastEnd;
       const days = daysBetween(cursor, asOf);
       if (days <= 0) continue;
 
@@ -148,7 +174,7 @@ export class InterestService {
     const bookings = await runWithTenant({ companyId }, () =>
       withTenantTx(this.tenantPrisma, companyId, (tx) =>
         tx.booking.findMany({
-          where: { companyId, interestRuleId: { not: null }, status: { in: ['BOOKED', 'ALLOTTED', 'REGISTERED'] } },
+          where: { companyId, interestRuleId: { not: null }, status: { in: ACCRUING_STATUSES } },
           select: { id: true },
         }),
       ),

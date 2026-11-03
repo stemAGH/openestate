@@ -1,1 +1,9 @@
-[]
+[
+  {
+    "migration": "20261101000000_booking_interest_rule",
+    "statement": "DROP CONSTRAINT",
+    "name": "bookings_interest_rule_id_fkey",
+    "reason": "Re-added in the same migration with ON DELETE RESTRICT instead of SET NULL (v0.9 item 1, ruling g): deleting a rule must not silently switch off interest on its bookings.",
+    "approvedBy": "owner and architect, v0.9 item 1 rulings (2026-10-16)"
+  }
+]

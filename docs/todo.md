@@ -9,20 +9,31 @@ they're expected to land. Each entry should say *what*, *why deferred*, and
 The top item comes first; the rest are each written up in their own entry below
 (search the heading) and are not ordered.
 
-1. **Delayed-payment interest can't be switched on for a booking** (next entry;
-   frozen core, so a written plan and owner approval first).
-2. **"Log out everywhere" should also end other devices' access tokens at once.**
-3. **Which cookie the browser keeps after two overlapping refreshes.**
-4. **Indexes on the 70 unindexed foreign-key columns** (in "Deferred from v0.8.4
+**Scope of v0.9.0:** only item 1 (delayed-payment interest) plus the backup
+permission fix ("Backups made before v0.9" below), and the CI work in item 11.
+Items 2–10 and 12 are not in v0.9.0 and stay open for later releases; the
+pilot-readiness plan as a whole is not done.
+
+1. **Delayed-payment interest can't be switched on for a booking** (next entry).
+   Built and in release candidate `349dcc3` (PR #78, not yet merged or
+   released): CI run 41664855406 green on all 10 jobs, and rehearsed on the VM
+   from `v0.8.5-verified` on 2026-11-03 (snapshot
+   `v0.9.0-rc-349dcc37-verified`). Remaining: merge, tag and release.
+2. **Wizard: a refused payment plan leaves a booking with no plan** (the entry
+   right after the top item's).
+3. **"Log out everywhere" should also end other devices' access tokens at once.**
+4. **Which cookie the browser keeps after two overlapping refreshes.**
+5. **Indexes on the 70 unindexed foreign-key columns** (in "Deferred from v0.8.4
    items A and G").
-5. **The erasure CLI hard-delete tool (item Q)** (in "Erasure").
-6. **Upgrades refresh the installed systemd unit.**
-7. **Lint the root `scripts/` folder.**
-8. **A fragile super_admin test.**
-9. **Upgrade audit rows list permission keys; the Roles screen's list ids.**
-10. **Make the previous-release upgrade CI variants version-aware** (found at the
-    v0.8.5 release).
-11. **Three LOW usability items left by the v0.8.5 session-isolation fix.**
+6. **The erasure CLI hard-delete tool (item Q)** (in "Erasure").
+7. **Upgrades refresh the installed systemd unit.**
+8. **Lint the root `scripts/` folder.**
+9. **A fragile super_admin test.**
+10. **Upgrade audit rows list permission keys; the Roles screen's list ids.**
+11. **Make the previous-release upgrade CI variants version-aware** (found at the
+    v0.8.5 release). Done in PR #78 (five variants, see its entry); lands on
+    master with the merge.
+12. **Three LOW usability items left by the v0.8.5 session-isolation fix.**
 
 ## v0.9 TOP ITEM: delayed-payment interest can't be switched on for a booking
 
@@ -37,6 +48,122 @@ wizard, and how a rule change affects accruals already posted), so it needs a
 written plan and owner approval before any code. Decide with it: whether a rule
 may be attached after booking, and whether changing it is allowed once interest
 has been charged.
+
+**Built (branch `v0.9-interest-rule`, 2026-10-16), to the owner's rulings:** a
+rule can be attached at booking (the wizard requires a choice: a rule or "No
+delay interest") or later (`PUT /bookings/:id/interest-rule`, permission
+`postsales.interest.manage`); interest runs only from the attach date
+(`bookings.interest_from_date`); a change or removal settles up to today under
+the old rule first, and past interest is never recalculated; no rule is
+attached on upgrade (the upgrade prints how many active bookings have none); a
+rule in use can't be re-rated or deleted (`bookings_interest_rule_id_fkey` is
+now `ON DELETE RESTRICT`); a transfer copies the rule from the transfer date.
+Also fixed: two accrual runs at once double-posted a period, and the manual
+accrue action charged interest on a cancelled booking.
+
+**Status (2026-11-03):** release candidate `349dcc3` (PR #78). CI run
+41664855406 passed all 10 jobs. VM rehearsal from `v0.8.5-verified` with the
+installed v0.8.5 script and the full SHA: 42 → 44 migrations, 283 foreign keys
+validated, every pre-existing financial record identical (content checksums),
+the permission on accounts/company_admin/super_admin only; in the browser,
+attach / change / remove, accrue (₹0, interest runs from the attach date), five
+simultaneous accruals, compound refused, deleting an attached rule refused, a
+role without the permission refused, and portal isolation. Not shown on the VM
+(one company, nothing overdue since attachment): a non-zero charge and
+cross-company access; the automated tests cover both. Evidence:
+`~textopen/oe-rehearsal/v090-20261103-155431/`. Remaining: merge, tag and
+release. Two notes for the release (both now in the release notes):
+
+- `postsales.interest.manage` reaches existing `accounts` and `company_admin`
+  roles only through the v0.8.4 seed baseline. An install that skips v0.8.4
+  (v0.8.3 or older straight to v0.9) records its first baseline instead, adds
+  nothing, and lists the key under "roles that differ from their defaults"; an
+  admin grants it in Roles. Say so in the release notes.
+- A user without the permission (a sales manager, by default) books without
+  the interest choice; the wizard says Accounts sets it from the schedule.
+
+## Cheque queue returns HTTP 500 for an unknown status (already in v0.8.5)
+
+Seen in the v0.9 VM rehearsal (2026-11-03, about 16:05 UTC), signed in as the
+UIAUDIT accounts user: `GET /api/v1/receipts/cheque-queue?status=PENDING`
+returned 500, while `CLEARED`, `DEPOSITED` and `BOUNCED` returned 200.
+`PENDING` is not a status (the enum is `NOT_APPLICABLE`, `RECEIVED`,
+`DEPOSITED`, `CLEARED`, `BOUNCED`); the request was hand-made, and the Cheque
+Queue screen only sends valid values. Likely cause, from the code (the server
+log for that request was not read): `ReceiptController.chequeQueue` puts the raw
+`?status=` string into the Prisma `where`, with no zod validation, so Prisma
+rejects the unknown enum value and the default exception filter turns it into a
+500. The file is identical in v0.8.5, so it's not a v0.9 regression. It is a
+read, so nothing is written or changed and no data is returned. Severity: low
+(an input-validation gap against the "validate every input with zod" rule, not
+a data or money problem). Fix: validate `status` against the enum and return
+400; add a through-the-wire test with an unknown value. To confirm the cause,
+read the API journal around that time from the `v0.9.0-rc-349dcc37-verified`
+snapshot, or reproduce it on a disposable install.
+
+## Backups made before v0.9 are world-readable until secured
+
+v0.9's `backup-native.sh` writes root-only bundles, but bundles made by earlier
+versions stay `644` inside `755` folders until the one-time command in the
+v0.9.0 release notes is run. Done on the verification VM during the rehearsal.
+Still exposed: copies of old bundles made off the server, and the VM snapshots
+taken before 2026-11-03 (`v0.8.5-verified` and older), which contain the old
+permissions; re-run the command after reverting to one of them.
+
+## v0.9: wizard: a refused payment plan leaves a booking with no plan
+
+Wizard: booking is created before the payment plan; if the plan is refused
+(e.g. installments not equal to the GST-inclusive total) the booking is left
+with no plan and holds its unit, and retries on that unit fail. Seen on the VM
+rehearsal 2026-10-19 (bookings 000006–000008). Also: the 400's reason isn't
+logged anywhere. Must be reproduced deterministically before fixing; the
+GST-inclusive cause is so far inferred.
+
+## v0.9 follow-up: compounding waits for the CA
+
+In v0.9 only SIMPLE interest rules can be attached to a booking (attaching a
+COMPOUND rule is refused with a 409). `InterestRule.frequency` (DAILY,
+MONTHLY, YEARLY) is stored but the accrual never reads it: a COMPOUND rule
+would compound every time the daily job runs, which is not what any rule
+says. Unblock with the CA's answers (compounding period, day count, whether
+GST applies to interest, grace days, any RERA-prescribed rate such as SBI
+MCLR + 2%), then make accrual honour `frequency` and lift the refusal in
+`BookingInterestRuleService`, with tests against hand-computed figures.
+
+## Follow-up: bookings created without the manage permission have no interest rule
+
+Bookings created without the manage permission have no interest rule and
+nothing flags them: add a visible 'No interest rule' marker or filter for
+Accounts.
+
+## Follow-up: bulk move bookings between interest rules
+
+Not built (owner ruling j). A rule in use can't be re-rated, so a rate change
+(an MCLR change, for example) means creating a new rule and moving each
+booking to it with `PUT /bookings/:id/interest-rule`, one booking at a time.
+A bulk action ("move every active booking on rule A to rule B from today")
+would call the same per-booking change for each, so each booking still
+settles up under its old rule, takes its own lock and gets its own audit row.
+Needs a screen, a permission decision and a test that a failure part-way
+leaves no booking half-moved.
+
+## CI: enforce that a new migration sorts after master's newest
+
+CLAUDE.md now says every new migration's folder name must sort after the
+newest migration on master, because Prisma applies migrations in name order on
+a fresh install, so name order must follow dependency order (v0.9's
+`20261101…` replaces a key that v0.8.4's `20261022…` adds; dated by its real
+creation day it would sort first and fail on a fresh install). Nothing enforces
+it: add a CI check that compares each migration the PR adds with master's
+newest migration folder and fails if it sorts before it.
+
+## CI: the previous-release assertions should print an ok line per check
+
+In the previous-release job, several checks in "Assert the upgrade outcome"
+(the orphan variant's NOT VALID RESTRICT key and unchanged orphan row, among
+others) print nothing when they pass, so confirming them from a log means
+reading the script and relying on `set -e` reaching the final line. Print one
+"ok: …" line per passed check.
 
 ## v0.9: upgrades never refresh the installed systemd unit
 
@@ -138,6 +265,14 @@ PR #78's branch already reworks these variants for the v0.8.4 to v0.9 upgrade
 (commit `b39a860`, not on master); reconcile with that work rather than
 duplicating it.
 
+**Done in PR #78 (merge `c3f2ca4`, 2026-11-03):** five variants, each failure
+variant naming the migration it crosses (`exercises`) and starting from the
+newest release without it: clean (from v0.8.5), orphan-fk and lock-fk (v0.8.4's
+restored keys, from v0.8.3), orphan-interest and lock-interest (v0.9's key, from
+v0.8.5). `scripts/ci/test-upgrade-matrix.mjs` fails the lint job if a variant
+is removed, repointed or left without steps. All five passed in run
+41664855406. Lands on master with the PR.
+
 ## v0.9: three LOW usability items left by the v0.8.5 session-isolation fix
 
 Found in the independent review before v0.8.5. None is a security defect.
@@ -227,6 +362,17 @@ shared test database. Likely fix: a scope parameter, as done for
 
 The upgrade's `ROLE_PERMS_CHANGED` audit rows list permission keys, while the
 Roles screen's rows list permission ids. Make them consistent.
+
+## Direct database bumps of `users.authz_version` don't clear the session-version cache
+
+Direct database bumps of `users.authz_version` (the upgrade sync,
+`packages/db/prisma/sync-permissions.ts`) don't clear the Redis
+session-version cache, so an old token can be accepted for up to 60s. Harmless
+while the sync only adds permissions; any future step that removes access this
+way must clear the cache. (The other direction was fixed in v0.9: a token newer
+than the cache is checked against the database, so a refreshed session is no
+longer signed out; found by PR #78's CI. `e2e-session-authz-version.test.ts`
+pins both, the old-token window as a "known window" test.)
 
 ## v0.9: which cookie the browser keeps after two overlapping refreshes
 

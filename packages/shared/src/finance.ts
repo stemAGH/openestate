@@ -324,6 +324,12 @@ export const interestWaiverSchema = z
   .strict();
 export type InterestWaiverDto = z.infer<typeof interestWaiverSchema>;
 
+/** PUT /bookings/:id/interest-rule. null removes the rule. */
+export const setBookingInterestRuleSchema = z
+  .object({ interestRuleId: z.string().uuid().nullable() })
+  .strict();
+export type SetBookingInterestRuleDto = z.infer<typeof setBookingInterestRuleSchema>;
+
 export const tdsCertificateSchema = z
   .object({
     certificateNumber: z.string().min(1).max(50),

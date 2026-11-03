@@ -82,7 +82,9 @@ log "Creating the database roles the dump refers to..."
 "${SCRIPT_DIR}/setup-database.sh" --db "$DB_NAME" --env-file "$ENV_FILE" "${HOST_ARGS[@]}"
 
 log "Restoring database from ${BUNDLE_DIR}/db.sql..."
-psql_admin -d "$DB_NAME" -f "${BUNDLE_DIR}/db.sql"
+# Streamed on standard input, so root opens the dump and the postgres OS user
+# never has to: backup-native.sh makes it root-only (mode 600).
+psql_admin -d "$DB_NAME" < "${BUNDLE_DIR}/db.sql"
 
 log "Re-applying role setup (roles/grants are not part of the dump)..."
 "${SCRIPT_DIR}/setup-database.sh" --db "$DB_NAME" --env-file "$ENV_FILE" "${HOST_ARGS[@]}"
