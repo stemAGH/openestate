@@ -222,9 +222,27 @@ run_api_deploy() {
     return 1
   fi
   known="Failed to create bin at ${api}/node_modules/.bin/prisma. ENOENT: no such file or directory, chmod '${api}/node_modules/.bin/prisma'"
-  hidden="$(grep -cF -- "$known" "$out" || true)"
-  if ! awk -v s="Failed to create bin at ${stray}/node_modules/.bin/" -v k="$known" \
-      'index($0, s) || index($0, k) { next } { print }' "$out"; then
+  # One rule for both counting and hiding: after removing colour codes, turning
+  # pnpm's thin spaces (U+2009, as in " <ts>WARN<ts> ") into spaces and trimming
+  # trailing whitespace, the line must be exactly optional leading whitespace,
+  # "WARN", whitespace, then $known. Appended or prefixed text, the message
+  # inside another diagnostic, or a missing WARN prefix all stay visible.
+  local classify='
+    function known_line(l) {
+      gsub(esc "\\[[0-9;]*m", "", l)
+      gsub(ts, " ", l)
+      sub(/[ \t\r]+$/, "", l)
+      if (sub(/^[ \t]*WARN[ \t]+/, "", l) != 1) return 0
+      return l == k
+    }
+    index($0, s) { next }
+    known_line($0) { n++; next }
+    mode == "filter" { print }
+    END { if (mode == "count") print n + 0 }'
+  local -a vars=(-v s="Failed to create bin at ${stray}/node_modules/.bin/" -v k="$known"
+    -v esc="$(printf '\033')" -v ts="$(printf '\342\200\211')")
+  if ! hidden="$(awk "${vars[@]}" -v mode=count "$classify" "$out")" \
+      || ! awk "${vars[@]}" -v mode=filter "$classify" "$out"; then
     rm -f "$out"
     echo "Could not print the API deploy output." >&2
     return 1

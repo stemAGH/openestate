@@ -94,6 +94,28 @@ has "F: explains the hidden warning" "transient launcher warning"; has "F: verif
 reset; rm "$BIN/prisma"; run 0 "$REAL_WARN"
 rcN "F: known warning, prisma really missing: fails"; has "F: warning kept when the check fails" "Failed to create bin at ${BIN}/prisma"
 
+# M. Only the complete warning is hidden, in pnpm's own formatting.
+MSG="Failed to create bin at ${BIN}/prisma. ENOENT: no such file or directory, chmod '${BIN}/prisma'"
+TS=$'\xe2\x80\x89'   # U+2009 thin space: pnpm prints " <ts>WARN<ts> " (CI run 41596801322)
+reset; run 0 " ${TS}WARN${TS} ${MSG}"
+hasnt "M: pnpm's real prefix (thin spaces) hidden" "Failed to create bin"; has "M: real prefix counted" "transient launcher warning"
+reset; run 0 $'\e[33m'" ${TS}WARN${TS}"$'\e[39m'" ${MSG}"$'\r'
+hasnt "M: coloured prefix and trailing CR hidden" "Failed to create bin"
+reset; run 0 "${REAL_WARN} (retrying)"
+has "M: extra text appended stays visible" "(retrying)"; hasnt "M: appended text not counted" "transient launcher warning"
+reset; run 0 "${REAL_WARN}'"
+has "M: extra quote appended stays visible" "${MSG}'"
+reset; run 0 "ERROR: earlier failure: ${MSG}"
+has "M: embedded in another diagnostic stays visible" "ERROR: earlier failure"; hasnt "M: embedded not counted" "transient launcher warning"
+reset; run 0 "NOTE WARN  ${MSG}"
+has "M: unexpected prefix stays visible" "NOTE WARN"
+reset; run 0 "${MSG}"
+has "M: message without pnpm's WARN prefix stays visible" "Failed to create bin at ${BIN}/prisma"
+reset; run 0 " ERR  ${MSG}"
+has "M: an ERR line with the same text stays visible" " ERR  "
+reset; run 1 " ${TS}WARN${TS} ${MSG}"
+rcN "M: exact warning with a failing deploy still fails"; has "M: shown when the deploy fails" "Failed to create bin at ${BIN}/prisma"
+
 # G. A warning for another launcher is not hidden.
 reset; run 0 " WARN  Failed to create bin at ${BIN}/tsx. ENOENT: no such file or directory, chmod '${BIN}/tsx'"
 has "G: tsx warning shown" "Failed to create bin at ${BIN}/tsx"
