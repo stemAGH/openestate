@@ -382,7 +382,9 @@ not optional** — `PAN_ENCRYPTION_KEY`, `TOTP_ENCRYPTION_KEY`, and
 `PLUGIN_SECRET_ENCRYPTION_KEYS` live only there, and encrypted database
 columns are permanently unreadable without them. Copy backup bundles
 somewhere off this server (they contain live secrets — treat them with
-the same care as the database itself).
+the same care as the database itself). Each bundle is readable by root only
+(folders 700, files 600); a backup that fails part-way is left as
+`<timestamp>.incomplete`, never under the bundle's own name.
 
 **Restore** (disaster recovery — test this before you need it for real):
 ```bash

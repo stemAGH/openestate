@@ -112,6 +112,18 @@ jobs:
             fi
           done
 
+      # Backup bundles are root-only (dirs 700, files 600) and restore still
+      # loads the private dump (streamed on stdin, never opened by postgres).
+      - name: Test the backup permissions and restore compatibility
+        run: |
+          bash deploy/native/test-backup-permissions.sh
+          for impl in old old-restore; do
+            if BACKUP_PERMS_IMPL=$impl bash deploy/native/test-backup-permissions.sh >/dev/null 2>&1; then
+              echo "::error::test-backup-permissions.sh passed with BACKUP_PERMS_IMPL=${impl}, so it can no longer detect what it guards"
+              exit 1
+            fi
+          done
+
       - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}

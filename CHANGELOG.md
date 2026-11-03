@@ -42,6 +42,14 @@ missing rule). No new environment variable.
   booking.
 - After an upgrade that adds permissions, some users could be signed out for up
   to a minute.
+- **Backups were readable by every local account.** `backup-native.sh` wrote
+  `db.sql` and `uploads.tar.gz` world-readable (only the env file was private),
+  so any account on the server could read the whole database and every upload.
+  New bundles are now root-only (folders 700, files 600), are written under a
+  `.incomplete` name until they finish, and refuse to write through a path that
+  already exists. `restore-native.sh` now streams the dump to `psql`, so it can
+  restore a root-only dump. Bundles made before this release are still exposed;
+  see the release notes for the one-time command that secures them.
 
 ### Upgrade notes
 
