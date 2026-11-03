@@ -6,6 +6,7 @@ export default defineConfig({
     // Run separately, after every other suite: see vitest.serial.config.ts.
     exclude: ['test/**/*.serial.test.ts', '**/node_modules/**'],
     environment: 'node',
+    setupFiles: ['./test/setup-bigint-json.ts'],
     // ~50 concurrently-forked test files (this suite plus packages/db's own)
     // all share ONE IP-keyed default throttle bucket (RedisThrottlerStorage
     // is real, shared state across every forked worker — see its own doc

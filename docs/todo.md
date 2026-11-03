@@ -23,6 +23,9 @@ The top item comes first; the rest are each written up in their own entry below
 8. **Lint the root `scripts/` folder.**
 9. **A fragile super_admin test.**
 10. **Upgrade audit rows list permission keys; the Roles screen's list ids.**
+11. **Make the previous-release upgrade CI variants version-aware** (found at the
+    v0.8.5 release).
+12. **Three LOW usability items left by the v0.8.5 session-isolation fix.**
 
 ## v0.9 TOP ITEM: delayed-payment interest can't be switched on for a booking
 
@@ -167,8 +170,12 @@ Each is written up, with its fix and tests, in
   was run on the verification VM before release and found none (all 71 links
   validated).
 
-## CVE numbers are pending for two advisories
+## CVE numbers are pending for three advisories
 
+- **GHSA-vfmf-36cm-8fg7** (v0.8.5, Low 3.3, published 2026-11-03): a CVE was
+  requested at publication on 2026-11-03; no number was confirmed then. Check
+  https://github.com/stemAGH/openestate/security/advisories/GHSA-vfmf-36cm-8fg7
+  around 2026-11-10 and re-request if there is still none.
 - **GHSA-gq5m-m6q6-x32p** (v0.8.3, published 2026-10-10): a CVE was requested
   while it was a draft, no number was assigned at publication, and it was
   re-requested on 2026-10-15.
@@ -179,6 +186,71 @@ Re-check both around 2026-10-22 on the advisory pages
 (https://github.com/stemAGH/openestate/security/advisories/GHSA-gq5m-m6q6-x32p and
 https://github.com/stemAGH/openestate/security/advisories/GHSA-x58f-9wjq-rjgj);
 re-request any that still have no number.
+
+## v0.9: make the previous-release upgrade CI variants version-aware
+
+Found at the v0.8.5 release (2026-11-03). On the release commit `3ae6d6da`, two
+of the three "Upgrade from the previous release" jobs failed (run 41590683112);
+the owner accepted them for v0.8.5 because v0.8.5 has no migrations.
+
+- **lock-timeout** locks `users` so that a migration times out, and expects the
+  upgrade to stop. With no pending migration the upgrade correctly succeeded, and
+  the job failed itself ("the upgrade succeeded although users was locked; the
+  variant proves nothing").
+- **orphan** plants a `webhook_endpoints` row pointing at a user that doesn't
+  exist, which only worked while v0.8.3 lacked that foreign key; v0.8.4 has it,
+  so the insert was refused before any upgrade ran.
+
+Both were written for the v0.8.3 to v0.8.4 upgrade, which added the foreign keys
+and lock-sensitive migrations. What is needed:
+
+- Detect whether the upgrade being tested contains a suitable pending migration
+  (one that takes a lock on a busy table, or one that validates a foreign key).
+- Keep real coverage: run the lock-timeout scenario against an upgrade or a
+  controlled fixture that does have such a migration, and the orphan scenario
+  against a historical schema that lacks the foreign key (for example starting
+  from v0.8.3), instead of the immediately previous release.
+- A variant that doesn't apply must say so clearly, as a skip with its reason,
+  and must never report a pass it didn't earn.
+
+PR #78's branch already reworks these variants for the v0.8.4 to v0.9 upgrade
+(commit `b39a860`, not on master); reconcile with that work rather than
+duplicating it.
+
+## v0.9: three LOW usability items left by the v0.8.5 session-isolation fix
+
+Found in the independent review before v0.8.5. None is a security defect.
+
+1. **"This operation was aborted" on some staff screens.** `Webhooks.tsx`,
+   `CustomFields.tsx` and `presales/Reports.tsx` show their own error message when
+   a request fails; a request cancelled by a sign-out or session change shows a
+   generic abort message on the login page. Fix: skip the message when
+   `err.name === 'AbortError'`.
+2. **A wrong 2FA code can say "Your session has changed".** A wrong code returns
+   401, which triggers a token refresh; if the shared cookie belongs to another
+   account, that refresh is refused and the tab shows the session-changed message
+   instead of "Invalid TOTP code". Fix: don't refresh on a 401 from the 2FA
+   verify call (staff and portal).
+3. **Error messages hidden on the login screen after a failed 2FA attempt.**
+   Starting 2FA advances the session number, so the global mutation-error handler
+   sees a mismatch and stays silent until the next sign-in.
+
+## Browser support floor since v0.8.5
+
+The v0.8.5 fix uses `AbortSignal.any`, so signed-in pages need **Chrome/Edge 116,
+Firefox 124 or Safari 17.4** or newer (from the API's documented browser support).
+**Only Chromium has been tested**, by the Playwright suite and by hand. Open
+questions: test Firefox and Safari, and decide whether to set an explicit Vite
+build target or add a fallback for older browsers (either would need a full
+re-test).
+
+## Test fixture: the `2fa` account has 2FA turned off
+
+In the VM's `v0.8.4-verified` snapshot, the UIAUDIT `2fa` staff account has 2FA
+off (most likely reset during an earlier admin-2FA-reset check), so the v0.8.5
+browser check could not test 2FA by hand; the automated suite covers it. Turning
+it back on changes a fixture and needs the owner's approval. Do not change the
+account otherwise.
 
 ## Done (v0.8.4): the two flaky test races
 

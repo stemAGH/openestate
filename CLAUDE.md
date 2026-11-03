@@ -7946,6 +7946,69 @@ portal sessions each did one silent refresh and carried on.
   (interest-rule gap first), the CVE re-checks, and the open owner items
   (rotate the test-VM passwords and the Cloudflare token first).
 
+### v0.8.5 released (2026-11-03) — session isolation in the browser, and what the release taught
+
+- **Record.** Master fast-forwarded from `cedcacd` to `3ae6d6da` (fix `431933e`
+  plus release commit `3ae6d6d`); annotated tag `v0.8.5` on that commit; GitHub
+  release `v0.8.5` (latest); advisory GHSA-vfmf-36cm-8fg7 (Low, CVSS 3.1 3.3,
+  `AV:L/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:N`, CWE-488, affects <= 0.8.4, patched 0.8.5)
+  published 06:45 UTC, about 12½ minutes after the push; CVE requested, no
+  number yet. The fix was kept in a GitHub temporary private fork and published
+  by fast-forwarding public master, not by the advisory's merge button (GitHub's
+  docs don't say which merge method it uses, and CI doesn't run in the fork).
+  The fork was gone after publication, as after v0.8.2.
+- **Every explicit sign-in, sign-out or session end starts a new, session-owned
+  query cache and page tree** (staff and portal `main.tsx`, keyed by a session
+  number from `lib/api.ts`). The apps used one `QueryClient` for the life of the
+  page since v0.1.0, so the next person signing in on the same tab could see the
+  previous person's cached data, and a late reply could land on their screen. Old
+  requests are cancelled through one `AbortController` per session, and every
+  await re-checks it, because a reply that ignores cancellation must still be
+  thrown away. An ordinary same-account renewal does not start a new session, so
+  forms and loaded pages survive it.
+- **A renewed access token is accepted only if it is the same identity**: user,
+  company and surface, and on the portal the same customer or broker. The refresh
+  cookie is shared by every tab of an app, so an old tab renewing after another
+  tab signed in as someone else received that account and resent its waiting
+  request as them. On a mismatch the tab ends only its own local session; it must
+  never call logout, because the cookie now belongs to the other account. Token
+  fields like `av`, `exp` and permissions are deliberately not compared, or every
+  role change would sign people out.
+- **The exact rehearsed commit was tagged.** The release commit was made before the
+  VM rehearsal, so the commit tested on the VM is the one that shipped. Docs that
+  could only be written afterwards (this entry, the rehearsal results) go in a
+  follow-up docs commit, never into the tagged commit.
+- **Two CI failures were accepted for this release, by the owner.** On `3ae6d6d`,
+  6 of 8 jobs passed. The lock-timeout and orphan "upgrade from the previous
+  release" variants were written for the v0.8.3 to v0.8.4 upgrade, which added
+  foreign keys and lock-sensitive migrations. v0.8.5 has no migrations, so one
+  variant saw the upgrade succeed and failed itself ("proves nothing"), and the
+  other could not plant its orphan row because v0.8.4 already has that foreign
+  key. The clean variant and the VM rehearsal passed. Making the variants
+  version-aware is in `docs/todo.md`. Accepting a red job needs this kind of
+  evidence from the job log, not "it's probably flaky".
+- **The fix needs `AbortSignal.any`**: Chrome/Edge 116, Firefox 124, Safari 17.4.
+  The Vite build sets no target, so its default floor is lower; older browsers
+  now fail to load data after sign-in. This is documented, not polyfilled, and
+  only Chromium was tested.
+- **Windows lessons from local verification.** A checkout with `core.autocrlf=true`
+  gives `scripts/lint-migration-drops.mjs` CRLF endings, and its `#!` line then
+  makes Vitest fail to parse `packages/db/test/lint-migration-drops.test.ts`
+  (proven with a CRLF copy of only the script). A clone deep in the scratchpad hit
+  the 260-character path limit and broke Vite's config loading
+  (`ERR_PACKAGE_IMPORT_NOT_DEFINED`); a clone at `C:\oe-t23` fixed it. Starting
+  Docker Desktop made Windows reserve ports 3812-3911, which includes Playwright's
+  API port 3900; `net stop winnat; net start winnat` (admin) released them.
+  `fk-orphan-upgrade.test.ts` runs when `CI` is set and needs a real `psql`.
+- **Claude in Chrome's network panel showed 503 for responses nginx logged as 204
+  or 401** (sign-outs, and the expired request in the two-tab check). Before
+  treating a status from that panel as a server failure, check the nginx access
+  log and the API journal.
+- **Real-browser checks must reach the real token expiry.** The two-tab check
+  only proves anything after the old tab's own access token expires (15 minutes);
+  before that, the tab correctly keeps working as its own account. The rehearsal
+  waited for real expiry and confirmed from nginx's log that nothing was resent.
+
 ## graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.

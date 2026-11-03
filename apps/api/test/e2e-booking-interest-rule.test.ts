@@ -375,4 +375,84 @@ describeIf('e2e PUT /bookings/:id/interest-rule and the interest-rule guards', (
     );
     expect(fk).toEqual({ confdeltype: 'r', convalidated: true });
   });
+  it('attach: another company\'s rule is not found (404), and the booking is unchanged', async () => {
+    const other = await seedCompany(systemPrisma);
+    try {
+      const foreign = await systemPrisma.interestRule.create({ data: {
+        companyId: other.companyId, name: 'Foreign active', rateType: 'SIMPLE', ratePercent: 12, frequency: 'YEARLY',
+      } });
+      const bookingId = await overdueBooking();
+      const { agent, auth } = await login(emails.manage);
+      await agent.put(`/api/v1/bookings/${bookingId}/interest-rule`).set(auth)
+        .set('X-Company-Id', other.companyId).send({ interestRuleId: foreign.id }).expect(404);
+      expect((await systemPrisma.booking.findUnique({ where: { id: bookingId } })).interestRuleId).toBeNull();
+      expect(await systemPrisma.auditLog.count({ where: { entityId: bookingId, action: 'INTEREST_RULE_SET' } })).toBe(0);
+    } finally {
+      await cleanupCompany(systemPrisma, other.companyId);
+    }
+  });
+
+  it('attached rule display: a stored rule id from another company is never shown', async () => {
+    const other = await seedCompany(systemPrisma);
+    const bookingId = await overdueBooking();
+    try {
+      const foreign = await systemPrisma.interestRule.create({ data: {
+        companyId: other.companyId, name: 'Foreign leaked name', rateType: 'SIMPLE', ratePercent: 31, frequency: 'YEARLY',
+      } });
+      // Only reachable by writing the column directly; the API never allows it.
+      await systemPrisma.booking.update({ where: { id: bookingId }, data: { interestRuleId: foreign.id } });
+      const reader = await login(emails.none);
+      const res = await reader.agent.get(`/api/v1/bookings/${bookingId}`).set(reader.auth).expect(200);
+      expect(res.body.attachedInterestRule).toBeNull();
+      expect(JSON.stringify(res.body)).not.toContain('Foreign leaked name');
+    } finally {
+      await systemPrisma.booking.update({ where: { id: bookingId }, data: { interestRuleId: null } });
+      await cleanupCompany(systemPrisma, other.companyId);
+    }
+  });
+
+  it('manual grant (v0.9 release notes): a Super Admin grants manage in Roles; a Company Admin without it cannot', async () => {
+    const keysOf = async (roleId: string) =>
+      (await systemPrisma.rolePermission.findMany({ where: { roleId }, include: { permission: true } }))
+        .map((rp: { permission: { key: string } }) => rp.permission.key).sort();
+    const systemRole = async (slug: string, keys: string[]) => {
+      const role = await systemPrisma.role.create({ data: { companyId: fx.companyId, name: slug, slug, isSystem: true } });
+      const perms = await systemPrisma.permission.findMany({ where: { key: { in: keys } } });
+      await systemPrisma.rolePermission.createMany({ data: perms.map((p: { id: string }) => ({ roleId: role.id, permissionId: p.id })) });
+      return role.id as string;
+    };
+    const userIn = async (roleId: string, label: string) => {
+      const email = `e2e-ir-grant-${label}-${TAG}@test.com`;
+      await systemPrisma.user.create({ data: {
+        companyId: fx.companyId, email, name: label, roleId, forcePasswordChange: false,
+        passwordHash: await argon2.hash(STAFF_PASSWORD, { algorithm: argon2.Algorithm.Argon2id }),
+      } });
+      return email;
+    };
+    // The state a v0.8.3 install is left in: no system role but super_admin holds it.
+    const accountsKeys = [PERMISSIONS.POSTSALES_BOOKING_READ, PERMISSIONS.POSTSALES_INTEREST_WAIVE];
+    const accountsRole = await systemRole('accounts', accountsKeys);
+    const adminRole = await systemRole('company_admin', [PERMISSIONS.ADMIN_ROLE_READ, PERMISSIONS.ADMIN_ROLE_UPDATE, ...accountsKeys]);
+    const superRole = await systemRole('super_admin', [...ALL_PERMISSIONS]);
+    const accountsUser = await userIn(accountsRole, 'accounts');
+    const all = await systemPrisma.permission.findMany({ where: { key: { in: [...accountsKeys, PERMISSIONS.POSTSALES_INTEREST_MANAGE] } } });
+    const body = { permissionIds: all.map((p: { id: string }) => p.id) };
+
+    const before = await login(accountsUser);
+    await before.agent.get('/api/v1/bookings/interest-rules/attachable').set(before.auth).expect(403);
+
+    const admin = await login(await userIn(adminRole, 'admin'));
+    await admin.agent.patch(`/api/v1/roles/${accountsRole}`).set(admin.auth).send(body).expect(403);
+    expect(await keysOf(accountsRole)).not.toContain(PERMISSIONS.POSTSALES_INTEREST_MANAGE);
+
+    const sup = await login(await userIn(superRole, 'super'));
+    await sup.agent.patch(`/api/v1/roles/${accountsRole}`).set(sup.auth).send(body).expect(200);
+    expect(await keysOf(accountsRole)).toContain(PERMISSIONS.POSTSALES_INTEREST_MANAGE);
+    expect(await systemPrisma.auditLog.count({ where: { entityId: accountsRole, action: 'ROLE_PERMS_CHANGED' } })).toBe(1);
+
+    // "To check": the role's users can now choose a rule, without signing in again.
+    const refreshed = await before.agent.post('/api/v1/auth/refresh').set('X-CSRF-Token', before.auth['X-CSRF-Token']).expect(200);
+    await before.agent.get('/api/v1/bookings/interest-rules/attachable')
+      .set({ ...before.auth, Authorization: `Bearer ${refreshed.body.accessToken}` }).expect(200);
+  });
 });

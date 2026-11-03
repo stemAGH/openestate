@@ -12,6 +12,7 @@
 #   upgrade-checks.sh role-audit FILE     the upgrade's ROLE_PERMS_CHANGED rows
 #   upgrade-checks.sh role-sync RB RA AB AA   roles gained exactly their new seed keys, audited
 #   upgrade-checks.sh interest-report LOG no rule attached; the count was printed
+#   upgrade-checks.sh interest-holders RB postsales.interest.manage holders follow the upgrade history
 set -euo pipefail
 
 q() { (cd / && sudo -u postgres psql -d openestate -AtX -v ON_ERROR_STOP=1 -c "$1"); }
@@ -134,6 +135,34 @@ case "${1:-}" in
         || { echo "::error::the upgrade output does not report ${NO_RULE} active booking(s) with no interest rule"; exit 1; }
     fi
     echo "Interest report: ${NO_RULE} active booking(s) with no rule, reported; none attached."
+    ;;
+  interest-holders)
+    # v0.9: who holds postsales.interest.manage after the upgrade, from the
+    # upgrade's history (the before-snapshot), not from the start tag:
+    # every super_admin; a system role that held it before keeps it; accounts
+    # and company_admin (the roles whose seed has it) gain it only if a seed
+    # baseline was recorded before the upgrade (an install that has been on
+    # v0.8.4 or later); every other role holds it only if it did before.
+    #   interest-holders ROLES_BEFORE
+    KEY=postsales.interest.manage
+    SEEDED=",accounts,company_admin,"
+    q "SELECT r.id || '|' || r.slug || '|' || (EXISTS (SELECT 1 FROM role_permissions rp JOIN permissions p ON p.id = rp.permission_id WHERE rp.role_id = r.id AND p.key = '${KEY}'))::text FROM roles r ORDER BY r.id" > /tmp/interest-holders-now.txt
+    BAD=0
+    while IFS='|' read -r ID SLUG HAS; do
+      if [ "$SLUG" = "super_admin" ]; then WANT=true
+      else
+        LINE="$(grep "^${ID}|" "$2" || true)"
+        WANT=false
+        if [ -n "$LINE" ]; then
+          HELD="$(cut -d'|' -f3 <<<"$LINE")"; BASE="$(cut -d'|' -f4 <<<"$LINE")"
+          case ",${HELD}," in *",${KEY},"*) WANT=true ;; esac
+          if [ "$BASE" != "NONE" ] && [[ "$SEEDED" == *",${SLUG},"* ]] && [[ ",${BASE}," != *",${KEY},"* ]]; then WANT=true; fi
+        fi
+      fi
+      if [ "$HAS" != "$WANT" ]; then echo "::error::${SLUG} (${ID}) holds ${KEY}: ${HAS}, expected ${WANT}"; BAD=1; fi
+    done < /tmp/interest-holders-now.txt
+    [ "$BAD" = 0 ] || exit 1
+    echo "${KEY} held by: $(awk -F'|' '$3=="true"{print $2}' /tmp/interest-holders-now.txt | sort -u | paste -sd, -) (as the upgrade history requires)."
     ;;
   *)
     echo "usage: $0 money FILE | same-money A B | migrations SRC | loopback | roles FILE | role-audit FILE | role-sync RB RA AB AA | interest-report LOG" >&2

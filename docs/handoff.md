@@ -5,10 +5,12 @@ with whatever a new session needs to pick up work immediately; prune stale facts
 rather than layering history on top of them. For *why* a decision was made, see
 CLAUDE.md's Decisions log; this file is only *what's true right now*.
 
-**Last updated: 2026-10-16. v0.8.4 is released (commit `5891f99`). Master CI run
-38723215452 on `cedcacd` (the v0.9 notes) was green. In flight: v0.9 item 1,
-delayed-payment interest, on branch `v0.9-interest-rule` (PR open, waiting for
-the VM rehearsal from `v0.8.4-verified`).**
+**Last updated: 2026-11-03. v0.8.5 is released (commit `3ae6d6da`, tag `v0.8.5`);
+master is `7b29363` (the post-release docs, release-aware upgrade CI and the
+deploy launcher check). In flight: v0.9 item 1, delayed-payment interest (PR #78,
+`v0.9-interest-rule`). Its integration with master is being prepared locally on
+`integrate/v0.9-on-7b29363` (not pushed); the original worktree's uncommitted work
+is backed up at `C:\Users\Ashis\oe-backups\pr78-20261103` (section 4).**
 
 ## 1. How we work
 
@@ -44,9 +46,20 @@ the VM rehearsal from `v0.8.4-verified`).**
   clone (tag points at the commit, `package.json` version), delete the merged
   branches. The owner is present from the master push to the advisory.
   Before the first PR run of a new release, review the previous-release CI
-  variants (clean, orphan, lock-timeout) for what that release changes. (They
-  are marked "REVIEW EACH RELEASE" in `.github/workflows/ci.yml`; v0.9's first
-  run failed on all three because they still described v0.8.4.)
+  variants. Each failure variant names the migration it exercises (`exercises`
+  in the matrix) and starts from the newest release without it, so it keeps
+  testing that migration in later releases; a release that adds a migration worth
+  its own failure test gets new variants for it. (v0.9's first run failed because
+  the variants still described v0.8.4; v0.8.5's because they assumed the previous
+  release had migrations.)
+- **Security release via a private fork (as done for v0.8.5).** Draft advisory, then
+  its temporary private fork; push the fix branch there (CI does not run in it, so
+  run the full suite locally); make the release commit there; rehearse that exact
+  commit on the VM from a `git bundle` with `upgrade-native.sh` and no `--ref`
+  (the installed script would fetch `--ref` from the public origin); then
+  fast-forward public master to it, wait for master CI, tag, release and publish.
+  Don't use the advisory's merge button: GitHub doesn't document its merge method.
+  The fork disappears when the advisory is published.
 - **Only one Claude session may use the VM or one working directory at a time.**
 
 ## 2. Environment
@@ -62,8 +75,27 @@ the VM rehearsal from `v0.8.4-verified`).**
   `C:\Users\Ashis\AppData\Local\Programs\DockerDesktop\resources\bin`. They are
   provisioned by `scripts/test-setup.sh`, which needs a `psql` client; none is
   installed here (a small stand-in was used before), so the database is simply
-  kept migrated (44 migrations with the `v0.9-interest-rule` branch). They are
-  still running and can be stopped.
+  kept migrated (42 migrations as of v0.8.5; 44 with the v0.9 interest-rule
+  migrations). **Confirmed 2026-11-03: both are stopped** and were
+  not used or changed during the v0.8.5 work. The historical interest job 1400 is
+  most likely in `parts-redis-1` (not checked, because the container was left
+  stopped); leave it alone.
+- **v0.8.5 verification used separate, disposable services (confirmed running
+  2026-11-03, not yet removed):** containers `t22-disposable-pg` (Postgres 16,
+  data in memory) and `t22-disposable-redis` (Redis 7, saving off), on the standard
+  ports 5432/6379, and a clean short-path clone at `C:\oe-t23` (detached at
+  `3ae6d6da`, `core.autocrlf=false`). The `psql` stand-ins (`psql` and `psql.cmd`)
+  live in the session scratchpad, outside the repo, and only reach
+  `t22-disposable-pg`. All of this can be deleted once the owner agrees; deleting
+  the containers loses nothing, since their data lives in memory.
+- **Windows checkouts and long paths.** With `core.autocrlf=true`, the
+  `lint-migration-drops` test fails to parse (CRLF in the script's `#!` line); a
+  clone deep in the scratchpad breaks Vite on the 260-character path limit. Use a
+  short path such as `C:\oe-t23` with `core.autocrlf=false` for a full local run.
+- **Port 3900 and Docker.** Starting Docker Desktop can make Windows reserve ports
+  3812-3911, which blocks Playwright's API on 3900 (`EACCES`). Check with
+  `netsh interface ipv4 show excludedportrange protocol=tcp`; the owner releases
+  them with `net stop winnat; net start winnat` in an administrator shell.
 - `.test-env` (git-ignored) holds `DATABASE_URL_TEST`, `DATABASE_URL_TEST_SYSTEM`
   and `REDIS_TEST_URL`. **It does not hold `DATABASE_URL_TEST_SUPER`**, which the
   suites that use `cleanupCompany` need for teardown (the append-only escape
@@ -112,11 +144,22 @@ to add it to `~textopen/.ssh/authorized_keys` again (one `echo ... >>` command,
 typing the password). IPs on this project drift, so confirm it before trusting it.
 Credentials are kept outside this repo; ask a maintainer.
 
-- **State now: powered off on `v0.8.4-verified`.** v0.8.4 is installed (release
-  `20261015084534-5891f996`, health 0.8.4, 42 migrations, every foreign key
-  validated), plain HTTP, the temporary sudo rule removed. **One test staff user's
-  password was changed during the 2026-10-15 check** (the owner knows which); the
-  change is in the snapshot.
+- **State now (confirmed 2026-11-03): running v0.8.5**, upgraded from a revert to
+  `v0.8.4-verified` with the installed v0.8.4 script: release
+  `20261103052619-3ae6d6da`, health 0.8.5, 42 migrations, all 283 foreign keys
+  validated, money totals unchanged from v0.8.4. The pre-upgrade backup is
+  `/var/backups/openestate/20261103-052618`. The temporary sudo rule was added for
+  the upgrade, then removed by the owner, and its removal was verified
+  (`sudo -n true` asks for a password). The private bundle and read-only SQL used
+  for the rehearsal are in `~textopen/oe-rehearsal/` (mode 700) and can be deleted.
+  This state is **not** saved as a snapshot; `v0.8.4-verified` is still the clean
+  base for the next release's rehearsal.
+- **Known fixture states:** the `2fa` test account has **2FA turned off** in
+  `v0.8.4-verified`, so a manual 2FA check needs it turned back on first (owner's
+  approval: it changes a fixture). Two deactivated customer-role accounts with no
+  linked customer are flagged by every upgrade and left as they are. **One test
+  staff user's password was changed during the 2026-10-15 check** (the owner knows
+  which); the change is in the snapshot.
 - **`sudo` needs the owner.** `textopen` has no passwordless sudo. For a rehearsal
   the owner adds a temporary rule, `/etc/sudoers.d/90-uiaudit-temp` (NOPASSWD),
   typing their password in their own terminal (`ssh -t openestate-vm`), and it is
@@ -136,7 +179,9 @@ Credentials are kept outside this repo; ask a maintainer.
   2026-10-07): HTTPS on port 443 with a self-signed certificate (expires
   2026-11-06), a `cloudflared` service that cannot connect, and `~/oe-staging`
   plus `/opt/openestate-released`. It is present in the `staging-2026-10-09`
-  snapshot, not in the `v0.8.3-clean` line.
+  snapshot. Correction (observed 2026-11-03): a `cloudflared` service is also
+  active after a revert to `v0.8.4-verified`, so at least that part is in the
+  `v0.8.3-clean` line too; `~/oe-staging` was absent in the PR #78 state.
 - An older walkthrough box at `192.168.1.100` (user `newopen`, v0.4.0 as of
   2026-08-29) was not used in this release cycle; its state is unverified.
 
@@ -164,8 +209,16 @@ Snapshot 1                        2026-09-08 original install
           v0.8.4-verified         2026-10-15 upgraded with the installed v0.8.4
                                                script to the release commit
                                                5891f99, v0.8.4 verified in the
-                                               browser, no sudo rule; the VM is
-                                               powered off here
+                                               browser, no sudo rule; the clean
+                                               base for the next rehearsal
+            pr78-state-2026-11-02-e92babe4
+                                  2026-11-03 the VM as the PR #78 (interest-rule)
+                                               work left it: build e92babe4,
+                                               version 0.9.0, 44 migrations (two
+                                               not on master), UIAUDIT data as
+                                               then; sudo rule removed before it
+                                               was taken. Kept separately; not a
+                                               base for a public release
 ```
 
 `v0.8.4-verified` is the clean base for the next release's rehearsal (the previous
@@ -204,6 +257,23 @@ _prisma_migrations`); never assume.
   off from inside (`sudo shutdown -h +0`) before taking a snapshot.
 
 ## 3. Release history
+
+### v0.8.5: released 2026-11-03 (commit `3ae6d6da`, tag `v0.8.5`)
+
+Release: https://github.com/stemAGH/openestate/releases/tag/v0.8.5. Advisory
+**GHSA-vfmf-36cm-8fg7** (Low, 3.3; session isolation; affects up to 0.8.4),
+published 2026-11-03.
+
+- Every sign-in, sign-out or session end gives the staff app and the portal a new,
+  empty data cache, and old requests are cancelled and their replies discarded.
+- A tab accepts renewed access only for the same user, company and app (and, on
+  the portal, the same customer or broker); otherwise it signs itself out with
+  "Your session has changed" and resends nothing.
+- No migrations, settings or permission changes. **Needs Chrome/Edge 116, Firefox
+  124 or Safari 17.4**; only Chromium was tested.
+- Master CI on the release commit: 6 of 8 jobs passed; the lock-timeout and
+  orphan upgrade variants failed because they need migrations this release
+  doesn't have (owner accepted; fix is in `docs/todo.md`).
 
 ### v0.8.4: released 2026-10-15 (commit `5891f99`, tag `v0.8.4`)
 
@@ -247,6 +317,8 @@ Release: https://github.com/stemAGH/openestate/releases/tag/v0.8.4. Advisory
 
 ### CVE status
 
+- **GHSA-vfmf-36cm-8fg7:** CVE requested 2026-11-03 at publication; no number yet.
+  Check the advisory page around 2026-11-10.
 - **GHSA-x58f-9wjq-rjgj:** CVE requested 2026-10-15; no number yet.
 - **GHSA-gq5m-m6q6-x32p:** re-requested 2026-10-15 (none was assigned at
   publication on 2026-10-10); no number yet.
@@ -254,6 +326,14 @@ Release: https://github.com/stemAGH/openestate/releases/tag/v0.8.4. Advisory
   that still have none.
 
 ## 4. Next
+
+**PR #78 first.** The `v0.9-interest-rule` branch (PR #78; GitHub head
+`e92babe`, local worktree `C:\Users\Ashis\Desktop\Claude Code\openestate` at
+`d67c7ed` with 10 uncommitted files) is unfinished. It now conflicts with master
+(v0.8.5 changed the version fields and release docs), so bring the new master in
+with a merge, never a rebase, once the uncommitted work is committed or set aside.
+Then the v0.8.5 follow-ups in `docs/todo.md`: version-aware upgrade CI variants,
+and the three LOW session-isolation usability items.
 
 **v0.9, "pilot readiness".** Everything is written up in `docs/todo.md` (the
 "v0.9 'pilot readiness'" entry at the top lists it). In order:
@@ -296,14 +376,21 @@ Release: https://github.com/stemAGH/openestate/releases/tag/v0.8.4. Advisory
    tool's retention rules, and the numbers a pilot will rely on.
 5. **Approach a pilot builder.**
 6. **Ask a lawyer about DPDP consent, erasure and retention.**
-7. **Re-check both CVE requests around 2026-10-22** (see section 3).
+7. **Re-check the CVE requests** (see section 3): the two from October, and
+   GHSA-vfmf-36cm-8fg7's around 2026-11-10.
+8. **Decide whether to delete the v0.8.5 verification leftovers:** the containers
+   `t22-disposable-pg` and `t22-disposable-redis`, the clone `C:\oe-t23`, the
+   worktree for this docs branch, and `~textopen/oe-rehearsal/` on the VM.
+9. **Decide whether to turn 2FA back on for the `2fa` test account** in the VM
+   fixture, so 2FA can be checked by hand in a browser.
 
 ## 6. Roadmap
 
 - **Shipped:** all eight build phases (v0.1.0) and the v0.2 to v0.8 releases:
   plotted inventory, lead stages and reports, manager hierarchy, admin reset
   links and admin 2FA reset, audit fixes, the Aadhaar guard, session and
-  authorisation security fixes, and v0.8.4's database and upgrade hardening.
+  authorisation security fixes, v0.8.4's database and upgrade hardening, and
+  v0.8.5's session isolation in the browser.
 - **v0.9 pilot readiness:** section 4.
 - **Planned, no release assigned:** uploaded documents for applicants and bookings
   (`docs/plans/uploaded-documents-plan.md`) and booking custom fields. The plan's

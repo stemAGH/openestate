@@ -104,6 +104,30 @@ previous_release_tag() {
   printf '%s\n' "$best"
 }
 
+# release_tag_before_migration REPO_DIR MIGRATION: prints the newest v* tag,
+# with a version lower than HEAD's, whose tree has no folder for MIGRATION. Used
+# by CI's upgrade variants that exercise one migration's failure and recovery: the
+# upgrade must cross that migration, so it starts from the last release without
+# it rather than from the previous release (which may already contain it, or
+# whose upgrade may have no migrations at all). Fails, saying why, when HEAD has
+# no such migration or no lower tag lacks it.
+release_tag_before_migration() {
+  local repo="$1" mig="$2" dir="packages/db/prisma/migrations" head_v t v best="" best_v=""
+  head_v="$(cd "$repo" && git show HEAD:package.json | node -p 'JSON.parse(require("fs").readFileSync(0, "utf8")).version')" \
+    || { echo "Could not read the version from package.json at HEAD in ${repo}." >&2; return 1; }
+  (cd "$repo" && git cat-file -e "HEAD:${dir}/${mig}" 2>/dev/null) \
+    || { echo "HEAD in ${repo} has no migration ${mig}, so a scenario that exercises it cannot run." >&2; return 1; }
+  for t in $(cd "$repo" && git tag -l 'v*'); do
+    v="${t#v}"
+    [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || continue
+    version_is_older "$v" "$head_v" || continue
+    (cd "$repo" && git cat-file -e "${t}:${dir}/${mig}" 2>/dev/null) && continue
+    if [ -z "$best" ] || version_is_older "$best_v" "$v"; then best="$t"; best_v="$v"; fi
+  done
+  [ -n "$best" ] || { echo "No release tag lower than ${head_v} lacks migration ${mig}, so there is no release to upgrade across it from." >&2; return 1; }
+  printf '%s\n' "$best"
+}
+
 # migrations_not_in MIGRATIONS_DIR: reads applied migration names on stdin and
 # prints each one that has no folder in MIGRATIONS_DIR.
 migrations_not_in() {
@@ -151,6 +175,83 @@ wait_for_health() {
     sleep 2
   done
   return 0
+}
+
+# verify_launchers API_DIR: the deployed launchers the install and upgrade
+# scripts run must exist, be executable and run: .bin/prisma (generate,
+# migrate deploy) and .bin/tsx (seed, permission sync; install-native.sh treats a
+# failed seed as only a warning, so a broken tsx would otherwise go unnoticed).
+# Prints the reason on stderr and fails at the first problem.
+verify_launchers() {
+  local bin="$1/node_modules/.bin" name out
+  for name in prisma tsx; do
+    [ -e "${bin}/${name}" ] || { echo "Deployed launcher ${bin}/${name} is missing." >&2; return 1; }
+    [ -x "${bin}/${name}" ] || { echo "Deployed launcher ${bin}/${name} is not executable." >&2; return 1; }
+    out="$(CHECKPOINT_DISABLE=1 PRISMA_HIDE_UPDATE_MESSAGE=1 "${bin}/${name}" --version 2>&1)" \
+      || { echo "Deployed launcher ${bin}/${name} did not run (${name} --version failed): ${out}" >&2; return 1; }
+  done
+}
+
+# run_api_deploy API_DIR STRAY_DIR CMD...: runs CMD (`pnpm deploy` into
+# API_DIR) and prints its output afterwards, never through a pipe, so CMD's own
+# exit status decides. If CMD fails, or the deployed launchers fail
+# verify_launchers, all of CMD's output is printed unchanged and this fails.
+# Otherwise two kinds of line are left out:
+#   - "Failed to create bin at STRAY_DIR/node_modules/.bin/..." (pnpm 9's
+#     second bin pass into the stray tree; see build_release);
+#   - exactly pnpm's "Failed to create bin at API_DIR/node_modules/.bin/prisma.
+#     ENOENT: ..., chmod '...'" warning. pnpm prints it intermittently (3 times
+#     in 14 CI runs up to 2026-11-03, always for prisma) while the launcher works
+#     right after; the cause inside pnpm is not established. It is hidden only
+#     because verify_launchers has just proved that launcher works, and a line
+#     says so. Any other launcher, path or error stays visible.
+run_api_deploy() {
+  local api stray="$2" out rc known hidden
+  api="$(realpath -m "$1")"
+  shift 2
+  out="$(mktemp)" || return 1
+  "$@" >"$out" 2>&1
+  rc=$?
+  if [ "$rc" -ne 0 ]; then
+    cat "$out"; rm -f "$out"
+    echo "The API deploy command failed (exit ${rc})." >&2
+    return "$rc"
+  fi
+  if ! verify_launchers "$api"; then
+    cat "$out"; rm -f "$out"
+    return 1
+  fi
+  known="Failed to create bin at ${api}/node_modules/.bin/prisma. ENOENT: no such file or directory, chmod '${api}/node_modules/.bin/prisma'"
+  # One rule for both counting and hiding: after removing colour codes, turning
+  # pnpm's thin spaces (U+2009, as in " <ts>WARN<ts> ") into spaces and trimming
+  # trailing whitespace, the line must be exactly optional leading whitespace,
+  # "WARN", whitespace, then $known. Appended or prefixed text, the message
+  # inside another diagnostic, or a missing WARN prefix all stay visible.
+  local classify='
+    function known_line(l) {
+      gsub(esc "\\[[0-9;]*m", "", l)
+      gsub(ts, " ", l)
+      sub(/[ \t\r]+$/, "", l)
+      if (sub(/^[ \t]*WARN[ \t]+/, "", l) != 1) return 0
+      return l == k
+    }
+    index($0, s) { next }
+    known_line($0) { n++; next }
+    mode == "filter" { print }
+    END { if (mode == "count") print n + 0 }'
+  local -a vars=(-v s="Failed to create bin at ${stray}/node_modules/.bin/" -v k="$known"
+    -v esc="$(printf '\033')" -v ts="$(printf '\342\200\211')")
+  if ! hidden="$(awk "${vars[@]}" -v mode=count "$classify" "$out")" \
+      || ! awk "${vars[@]}" -v mode=filter "$classify" "$out"; then
+    rm -f "$out"
+    echo "Could not print the API deploy output." >&2
+    return 1
+  fi
+  rm -f "$out"
+  if [ "$hidden" -gt 0 ]; then
+    log "pnpm printed its transient launcher warning for .bin/prisma (${hidden} line(s), hidden): prisma and tsx were verified to exist, be executable and run, so the deployed tree is usable."
+  fi
+  log "Deployed launchers verified: prisma, tsx."
 }
 
 # build_release SRC_DIR RELEASES_DIR -> prints the new release dir path on stdout
@@ -212,13 +313,14 @@ build_release() {
     # /opt/openestate-src/apps/openestate/releases/<id>/api. It prints "Failed to
     # create bin at <stray>/node_modules/.bin/<name>" for the dev-only tools that
     # are not there (browserslist, webpack, vite, terser). The real release tree
-    # is not affected. Hide exactly those lines and remove the stray tree.
-    local rel stray hide tail
+    # is not affected. run_api_deploy hides exactly those lines (and, once the
+    # real tree's launchers are verified, pnpm's transient .bin/prisma warning),
+    # and the stray tree is removed below.
+    local rel stray tail
     rel="$(realpath -m --relative-to="$(pwd)" "${release_dir}/api")"
     stray="$(realpath -m "apps/api/${rel}")"
-    hide="Failed to create bin at ${stray}/node_modules/.bin/"
-    pnpm --filter @openestate/api deploy --prod "${release_dir}/api" 2>&1 \
-      | awk -v h="$hide" 'index($0, h) == 0' || exit 1
+    run_api_deploy "${release_dir}/api" "$stray" \
+      pnpm --filter @openestate/api deploy --prod "${release_dir}/api" || exit 1
     if [ "${rel#../}" != "$rel" ] && [ "$stray" != "$(realpath -m "${release_dir}/api")" ] && [ -d "$stray" ]; then
       # The stray tree mirrors the path below the common ancestor, ending in
       # this build's new release id, so nothing else can live in it. Its

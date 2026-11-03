@@ -174,7 +174,7 @@ commission summaries, and more — every report exports to CSV.
 
 ## What OpenEstate deliberately does not do (yet)
 
-Honesty matters more than a feature list. As of v0.8.4:
+Honesty matters more than a feature list. As of v0.8.5:
 - No native mobile app (the portals are mobile-web, not App Store apps).
 - No built-in accounting/GL beyond the receivables ledger — it's not a
   full accounting system; export to your accountant's tool.

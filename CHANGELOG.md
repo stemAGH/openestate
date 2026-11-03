@@ -46,9 +46,76 @@ missing rule). No new environment variable.
 ### Upgrade notes
 
 - `postsales.interest.manage` reaches existing Accounts and Company Admin roles
-  only on an install that has been on v0.8.4. From v0.8.3 or older it is listed
-  under "System roles that differ from their default permissions"; grant it in
-  Admin → Roles.
+  only on an install that has been on v0.8.4 or later (v0.8.4 or v0.8.5), which
+  recorded each role's permission baseline. Upgrading straight from v0.8.3 or older
+  records the baseline without widening any role: the permission is listed under
+  "System roles that differ from their default permissions", and a Super Admin grants it
+  in Admin → Roles (steps in the v0.9.0 release notes). Super Admin always receives it.
+
+## [0.8.5] - 2026-11-03
+
+A security release. **Every install should upgrade.** No migrations, no new
+environment variable, no permission changes, and no change to install, backup,
+restore or uninstall. **It needs a newer browser** (see "Browser support"). Release
+notes: [v0.8.5-release-notes.md](docs/releases/v0.8.5-release-notes.md). Advisory:
+[GHSA-vfmf-36cm-8fg7](https://github.com/stemAGH/openestate/security/advisories/GHSA-vfmf-36cm-8fg7).
+
+### How to upgrade
+
+```bash
+cd /opt/openestate-src/deploy/native
+sudo ./upgrade-native.sh --ref v0.8.5
+```
+
+Upgrading from v0.8.4 is supported. Always give a release tag, never a branch name.
+
+### Security
+
+Both problems need two people using the same browser profile, for example a shared
+office computer or a customer kiosk. Neither lets anyone reach another browser or
+device.
+
+- **A signed-in user could see the previous user's data in the same tab.** The staff
+  app and the customer/broker portal kept the data they had loaded (profiles,
+  bookings, payments, form drafts) in one in-memory store for as long as the page
+  stayed open. After one person signed out and another signed in without reloading,
+  the second person could briefly see the first person's data, and a slow reply
+  meant for the first person could appear on the second person's screen. Every
+  sign-in now gets its own empty store; signing out, or a session being ended,
+  throws the previous store away and cancels its requests, and a reply that still
+  arrives late is discarded.
+- **A tab could switch to another account and repeat a request as that account.**
+  The staff app keeps one sign-in cookie per browser, shared by all tabs, and the
+  portal does the same. If someone signed in as a different account in a second tab,
+  the first tab, once its short-lived access expired, renewed its sign-in with that
+  cookie, received the second account's access, and sent its waiting request again
+  as the second account (including saves), while still showing the first account's
+  screens. The tab now accepts renewed access only for the same user, company and
+  app (and on the portal, the same customer or broker). Otherwise it signs itself
+  out, shows "Your session has changed. Please sign in again.", and sends nothing
+  again. It does not sign out the other account or remove its cookie, so the other
+  tab keeps working.
+
+Affected: all versions up to 0.8.4.
+
+### Browser support
+
+The fix uses a browser feature (`AbortSignal.any`) that older browsers lack. Signed-in
+pages need **Chrome or Edge 116, Firefox 124, or Safari 17.4** or newer; on older
+browsers they fail to load data. Only Chromium was tested.
+
+### Known limitations
+
+- A tab notices that another tab changed the account only when it next renews its
+  access: on its first request after its access expires (15 minutes by default), or
+  on a reload. Until then it keeps working as its own account, because its access
+  really is that account's.
+- Signing out in one tab still ends the shared sign-in for the other tabs of the same
+  app in that browser, as before.
+- Entering a wrong 2FA code while another account is signed in in the same browser
+  shows "Your session has changed" instead of "Invalid TOTP code".
+- A few staff screens can show a "This operation was aborted" message after a sign-out
+  that interrupts one of their requests. No data is affected.
 
 ## [0.8.4] - 2026-10-15
 
