@@ -131,6 +131,36 @@ rehearsal 2026-10-19 (bookings 000006–000008). Also: the 400's reason isn't
 logged anywhere. Must be reproduced deterministically before fixing; the
 GST-inclusive cause is so far inferred.
 
+**Reproduced deterministically (2026-11-04, disposable install at v0.9.1).** Over
+HTTP, in the wizard's own order, with a 5% GST base line of ₹10,00,000:
+`POST /bookings` → 201, agreed ₹10,50,000; `POST /bookings/:id/plan/custom` with
+installments adding up to ₹10,00,000 → 400 "Installment amounts (100000000) must
+sum to the amount to schedule (105000000)"; the booking is left BOOKED with no
+plan and its unit BOOKED; booking the same unit again → 400 "only AVAILABLE or
+HELD units can be booked". A plan adding up to the GST-inclusive total → 201.
+**Cause confirmed:** the wizard's custom-plan step shows and collects amounts
+against the total **excluding** GST (`totalBeforeGstPaise`, "each line's tax rate
+is resolved server-side"), but the server requires the installments to equal the
+GST-inclusive agreed price, and it checks only after the booking exists. (The
+400's reason is shown on screen by the wizard; it's not written to the server
+log.)
+
+**Fix options (owner decision; one touches the frozen financial core):**
+- (a) **Percent installments in the wizard.** The plan API already accepts
+  `milestonePercent` and splits the agreed price by those shares exactly
+  (largest remainder; the shares aren't required to add up to 100). Frontend
+  only, no core change; but the person booking enters percentages, not rupee
+  amounts.
+- (b) **Show the GST-inclusive total before booking**, via a read-only "quote"
+  endpoint that runs the same cost-line and GST resolution without saving, and
+  validate the installments against it in the wizard. No change to how a booking
+  is created, but a new endpoint next to the frozen GST code.
+- (c) **Create the booking and its plan in one request** (one transaction), so a
+  refused plan creates nothing. The cleanest guarantee, but it changes
+  `BookingService`/the booking API: needs a written plan and owner approval.
+- In every option, planless bookings already created this way still need a way
+  out (today only cancellation, which posts ledger entries).
+
 ## v0.9 follow-up: compounding waits for the CA
 
 In v0.9 only SIMPLE interest rules can be attached to a booking (attaching a
