@@ -5,8 +5,23 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-Draft for v0.9.0; release notes draft:
-[v0.9.0](docs/releases/v0.9.0-release-notes.md). Two migrations: one adds
+## [0.9.1] - 2026-11-04
+
+A fix release on top of v0.9.0. No migrations, no new environment variable, no
+permission changes.
+Release notes: [v0.9.1-release-notes.md](docs/releases/v0.9.1-release-notes.md).
+
+### Fixed
+
+- **The cheque queue returned HTTP 500 for an unknown status.**
+  `GET /api/v1/receipts/cheque-queue?status=<not a real status>` now returns 400
+  with a message naming `status`. Missing, empty and the five valid statuses
+  behave as before; the screens were never affected. Already present in v0.8.5.
+
+## [0.9.0] - 2026-11-03
+
+Delayed-payment interest, plus a backup-security fix. Release notes:
+[v0.9.0-release-notes.md](docs/releases/v0.9.0-release-notes.md). Two migrations: one adds
 `bookings.interest_from_date`, and both switch the booking-to-interest-rule link
 to refuse deletes (added NOT VALID, then validated when no row points at a
 missing rule). No new environment variable.
