@@ -101,6 +101,20 @@ a data or money problem). Fix: validate `status` against the enum and return
 read the API journal around that time from the `v0.9.0-rc-349dcc37-verified`
 snapshot, or reproduce it on a disposable install.
 
+**Cause confirmed and fixed on branch `fix/cheque-queue-status-400` (from
+v0.9.0, not yet released).** Reproduced on a disposable install at v0.9.0:
+`PENDING`, `received`, `CLEARED ` (trailing space), an unknown value and a
+repeated `status` all returned 500, and the server log showed Prisma's
+`PrismaClientValidationError` ("Invalid value for argument `clearanceStatus`.
+Expected ChequeClearanceStatus."). The fix validates `status` with a zod query
+DTO (one of the five statuses, or empty for the default queue), so the
+validation pipe answers 400 naming the field before the handler runs.
+`apps/api/test/e2e-cheque-queue-status.test.ts` checks that over HTTP, plus that
+the handler (the only place the query runs) is never called for a bad value,
+and that omitted, empty and valid statuses, the BOUNCED tab, company scoping and
+the permission are unchanged. It fails on the v0.9.0 controller and passes with
+the fix. Remaining: review, merge and a release.
+
 ## Backups made before v0.9 are world-readable until secured
 
 v0.9's `backup-native.sh` writes root-only bundles, but bundles made by earlier

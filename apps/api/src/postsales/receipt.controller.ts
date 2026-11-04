@@ -15,7 +15,16 @@ import type { JwtPayload } from '@openestate/shared';
 import { RequirePermissions } from '../auth/guards/permissions.guard';
 import { SYSTEM_PRISMA } from '../database/database.module';
 import { ReceiptService } from './receipt.service';
+import { z } from 'zod';
 
+// An unknown status is a 400 from the validation pipe. Unvalidated, it reached
+// Prisma's enum filter and came back as a 500. Empty means "no filter", as the
+// Cheque Queue screen's "All" tab and an omitted status always have.
+export const chequeQueueQuerySchema = z.object({
+  status: z.union([z.nativeEnum(CHEQUE_CLEARANCE_STATUS), z.literal('')]).optional(),
+});
+
+class ChequeQueueQueryDto extends createZodDto(chequeQueueQuerySchema) {}
 class CreateReceiptDto extends createZodDto(createReceiptSchema) {}
 class ChequeEventDto extends createZodDto(chequeEventSchema) {}
 class ReverseReceiptDto extends createZodDto(reverseReceiptSchema) {}
@@ -33,8 +42,9 @@ export class ReceiptController {
   @Get('cheque-queue')
   @RequirePermissions(PERMISSIONS.POSTSALES_CHEQUE_VERIFY)
   @ApiOperation({ summary: 'Cheque/DD receipts awaiting clearance (RECEIVED/DEPOSITED), oldest first' })
-  chequeQueue(@Query('status') status: string | undefined, @Req() req: Request) {
+  chequeQueue(@Query() query: ChequeQueueQueryDto, @Req() req: Request) {
     const u = req.user as JwtPayload;
+    const status = query.status || undefined;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {
       companyId: u.companyId,
