@@ -15,10 +15,8 @@ Items 2–10 and 12 are not in v0.9.0 and stay open for later releases; the
 pilot-readiness plan as a whole is not done.
 
 1. **Delayed-payment interest can't be switched on for a booking** (next entry).
-   Built and in release candidate `349dcc3` (PR #78, not yet merged or
-   released): CI run 41664855406 green on all 10 jobs, and rehearsed on the VM
-   from `v0.8.5-verified` on 2026-11-03 (snapshot
-   `v0.9.0-rc-349dcc37-verified`). Remaining: merge, tag and release.
+   **Released in v0.9.0** (2026-11-03, tag `v0.9.0`), rehearsed on the VM from
+   `v0.8.5-verified` (snapshot `v0.9.0-rc-349dcc37-verified`).
 2. **Wizard: a refused payment plan leaves a booking with no plan** (the entry
    right after the top item's).
 3. **"Log out everywhere" should also end other devices' access tokens at once.**
@@ -71,8 +69,8 @@ simultaneous accruals, compound refused, deleting an attached rule refused, a
 role without the permission refused, and portal isolation. Not shown on the VM
 (one company, nothing overdue since attachment): a non-zero charge and
 cross-company access; the automated tests cover both. Evidence:
-`~textopen/oe-rehearsal/v090-20261103-155431/`. Remaining: merge, tag and
-release. Two notes for the release (both now in the release notes):
+`~textopen/oe-rehearsal/v090-20261103-155431/`. **Released in v0.9.0**
+(2026-11-03). Two notes for the release (both in the release notes):
 
 - `postsales.interest.manage` reaches existing `accounts` and `company_admin`
   roles only through the v0.8.4 seed baseline. An install that skips v0.8.4
@@ -113,7 +111,7 @@ validation pipe answers 400 naming the field before the handler runs.
 the handler (the only place the query runs) is never called for a bad value,
 and that omitted, empty and valid statuses, the BOUNCED tab, company scoping and
 the permission are unchanged. It fails on the v0.9.0 controller and passes with
-the fix. Remaining: review, merge and a release.
+the fix. **Released in v0.9.1** (2026-11-04, PR #81, tag `v0.9.1`).
 
 ## Backups made before v0.9 are world-readable until secured
 

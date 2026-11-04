@@ -5,12 +5,11 @@ with whatever a new session needs to pick up work immediately; prune stale facts
 rather than layering history on top of them. For *why* a decision was made, see
 CLAUDE.md's Decisions log; this file is only *what's true right now*.
 
-**Last updated: 2026-11-03. v0.8.5 is released (commit `3ae6d6da`, tag `v0.8.5`);
-master is `7b29363` (the post-release docs, release-aware upgrade CI and the
-deploy launcher check). In flight: v0.9 item 1, delayed-payment interest (PR #78,
-`v0.9-interest-rule`). Its integration with master is being prepared locally on
-`integrate/v0.9-on-7b29363` (not pushed); the original worktree's uncommitted work
-is backed up at `C:\Users\Ashis\oe-backups\pr78-20261103` (section 4).**
+**Last updated: 2026-11-04. v0.9.1 is released (commit `c29a157`, tag `v0.9.1`),
+on top of v0.9.0 (released 2026-11-03, tag `v0.9.0` → `b2bf1de`). Nothing is in
+flight; the next item is the booking-wizard "no plan" bug (section 4). PR #78's
+original worktree and its backup at `C:\Users\Ashis\oe-backups\pr78-20261103`
+are kept until the owner deletes them.**
 
 ## 1. How we work
 
@@ -138,22 +137,20 @@ is backed up at `C:\Users\Ashis\oe-backups\pr78-20261103` (section 4).**
 One box is in use: `192.168.1.20`, user `textopen`, Ubuntu 24.04, reached from the
 dev machine as `ssh openestate-vm` (no password). The alias lives in the dev
 machine's `~/.ssh/config` and uses the key `~/.ssh/id_ed25519_openestate_vm`,
-created 2026-10-15. **That key is installed only in the `v0.8.4-rehearsal` and
-`v0.8.4-verified` snapshots**; after a revert to any older snapshot the owner has
+created 2026-10-15. **That key is installed in `v0.8.4-verified` and the
+snapshots after it**; after a revert to any older snapshot the owner has
 to add it to `~textopen/.ssh/authorized_keys` again (one `echo ... >>` command,
 typing the password). IPs on this project drift, so confirm it before trusting it.
 Credentials are kept outside this repo; ask a maintainer.
 
-- **State now (confirmed 2026-11-03): running v0.8.5**, upgraded from a revert to
-  `v0.8.4-verified` with the installed v0.8.4 script: release
-  `20261103052619-3ae6d6da`, health 0.8.5, 42 migrations, all 283 foreign keys
-  validated, money totals unchanged from v0.8.4. The pre-upgrade backup is
-  `/var/backups/openestate/20261103-052618`. The temporary sudo rule was added for
-  the upgrade, then removed by the owner, and its removal was verified
-  (`sudo -n true` asks for a password). The private bundle and read-only SQL used
-  for the rehearsal are in `~textopen/oe-rehearsal/` (mode 700) and can be deleted.
-  This state is **not** saved as a snapshot; `v0.8.4-verified` is still the clean
-  base for the next release's rehearsal.
+- **State now (2026-11-04): powered off at the `v0.9.0-rc-349dcc37-verified`
+  snapshot**: v0.9.0's code (`349dcc3`, health 0.9.0, 44 migrations, all 283
+  foreign keys validated), the existing backups secured (folders 700, files 600),
+  and synthetic rehearsal data (bookings `BKG/2026-27/000005` and `000006`, rules
+  "V090 synthetic simple" and "V090 synthetic compound"). Evidence is in
+  `~textopen/oe-rehearsal/v090-20261103-155431/` (mode 700). No sudo rule was
+  added; the owner typed sudo for each step. v0.9.1 was not rehearsed on the VM
+  (one controller change, covered by CI's v0.9.0 → v0.9.1 upgrade).
 - **Known fixture states:** the `2fa` test account has **2FA turned off** in
   `v0.8.4-verified`, so a manual 2FA check needs it turned back on first (owner's
   approval: it changes a fixture). Two deactivated customer-role accounts with no
@@ -185,45 +182,31 @@ Credentials are kept outside this repo; ask a maintainer.
 - An older walkthrough box at `192.168.1.100` (user `newopen`, v0.4.0 as of
   2026-08-29) was not used in this release cycle; its state is unverified.
 
-#### Snapshots (VMware, tree as `vmrun listSnapshots` shows it)
+#### Snapshots (VMware, tree as `vmrun listSnapshots` shows it, 2026-11-04)
+
+VMX: `C:\Users\Ashis\Documents\Virtual Machines\testopen\testopen.vmx`
+(VMware Workstation 17.6). The six older snapshots (`pre-P7` to
+`pr78-state-2026-11-02-e92babe4`) were deleted on 2026-11-04 around 07:11 UTC,
+outside the coding sessions (owner to confirm).
 
 ```
 Snapshot 1                        2026-09-08 original install
   Snapshot 2                      2026-10-02
-    pre-P7                        2026-10-07 genuine v0.8.2: build ...d337a736,
-                                               35 migrations, plain HTTP,
-                                               sudo rule present
-      pre-v0.8.3                  2026-10-09 NOT clean: the VM had been moved onto
-                                               a release-candidate branch
-        staging-2026-10-09        2026-10-09 the VM as the owner works with it:
-                                               mobile staging setup, HTTPS, the
-                                               portal-fix rehearsal build
-      v0.8.3-clean                2026-10-10 v0.8.3 from the public tag: release
-                                               ...1f485336, 37 migrations, plain
-                                               HTTP, no sudo rule
-        v0.8.4-rehearsal          2026-10-15 v0.8.3-clean upgraded with v0.8.3's
-                                               own script to wip/v0.8.4 8e058a8c,
-                                               42 migrations, origin switched to
-                                               stemAGH, no sudo rule; holds the
-                                               new SSH key
-          v0.8.4-verified         2026-10-15 upgraded with the installed v0.8.4
-                                               script to the release commit
-                                               5891f99, v0.8.4 verified in the
-                                               browser, no sudo rule; the clean
-                                               base for the next rehearsal
-            pr78-state-2026-11-02-e92babe4
-                                  2026-11-03 the VM as the PR #78 (interest-rule)
-                                               work left it: build e92babe4,
-                                               version 0.9.0, 44 migrations (two
-                                               not on master), UIAUDIT data as
-                                               then; sudo rule removed before it
-                                               was taken. Kept separately; not a
-                                               base for a public release
+    v0.8.4-verified               2026-10-15 v0.8.4 release commit 5891f99,
+                                               verified in the browser; holds the
+                                               SSH key
+      v0.8.5-verified             2026-11-03 v0.8.5 (3ae6d6da), 42 migrations,
+                                               283 FKs validated, nginx valid; old
+                                               backups still world-readable
+        v0.9.0-rc-349dcc37-verified
+                                  2026-11-03 v0.9.0 rehearsal result (349dcc3),
+                                               backups secured, synthetic data
 ```
 
-`v0.8.4-verified` is the clean base for the next release's rehearsal (the previous
-release is then v0.8.4). The v0.8.4-verified checkout has no v0.8.4 tag (upgraded
-by sha before tagging); identify the base by HEAD 5891f99, not git describe. Before trusting any snapshot as a base, check the active
+`v0.9.0-rc-349dcc37-verified` is the base for the next release's rehearsal (it runs
+v0.9.0's code; the tagged v0.9.0 commit differs only in docs). After reverting to
+`v0.8.5-verified` or older, secure the backups again (command in the v0.9.0
+release notes). Before trusting any snapshot as a base, check the active
 build, the git tag and the migration count (`SELECT count(*) FROM
 _prisma_migrations`); never assume.
 
@@ -257,6 +240,23 @@ _prisma_migrations`); never assume.
   off from inside (`sudo shutdown -h +0`) before taking a snapshot.
 
 ## 3. Release history
+
+### v0.9.1: released 2026-11-04 (commit `c29a157`, tag `v0.9.1`)
+
+Release: https://github.com/stemAGH/openestate/releases/tag/v0.9.1. The cheque
+queue returned HTTP 500 for an unknown `status`; it now returns 400 (PR #81). No
+migrations, settings or permission changes. Master CI on the release commit
+(run 41762415635) passed 10/10, including a v0.9.0 → v0.9.1 upgrade with v0.9.0's
+own script.
+
+### v0.9.0: released 2026-11-03 (commit `b2bf1de`, tag `v0.9.0`)
+
+Release: https://github.com/stemAGH/openestate/releases/tag/v0.9.0.
+Delayed-payment interest (PR #78) and the backup-permission fix. Two migrations.
+Rehearsed on the VM from `v0.8.5-verified` (candidate `349dcc3`; later commits
+docs only); master CI on the release commit (run 41679467800) passed 10/10.
+Existing installs must secure old backup bundles once (command in the release
+notes).
 
 ### v0.8.5: released 2026-11-03 (commit `3ae6d6da`, tag `v0.8.5`)
 
@@ -327,23 +327,12 @@ Release: https://github.com/stemAGH/openestate/releases/tag/v0.8.4. Advisory
 
 ## 4. Next
 
-**PR #78 first.** The `v0.9-interest-rule` branch (PR #78; GitHub head
-`e92babe`, local worktree `C:\Users\Ashis\Desktop\Claude Code\openestate` at
-`d67c7ed` with 10 uncommitted files) is unfinished. It now conflicts with master
-(v0.8.5 changed the version fields and release docs), so bring the new master in
-with a merge, never a rebase, once the uncommitted work is committed or set aside.
-Then the v0.8.5 follow-ups in `docs/todo.md`: version-aware upgrade CI variants,
-and the three LOW session-isolation usability items.
-
 **v0.9, "pilot readiness".** Everything is written up in `docs/todo.md` (the
-"v0.9 'pilot readiness'" entry at the top lists it). In order:
+"v0.9 'pilot readiness'" entry at the top lists it). Item 1 (delayed-payment
+interest) shipped in v0.9.0, with the version-aware upgrade CI. Next, in order:
 
-1. **The interest-rule gap: built, waiting for the VM rehearsal.** Branch
-   `v0.9-interest-rule`, built to the owner's rulings (a)–(j) (see the
-   `docs/todo.md` entry). Next: the owner confirms no other session uses the VM
-   and puts the sudo rule in place, then the rehearsal from `v0.8.4-verified`
-   with the installed v0.8.4 `upgrade-native.sh`, upgrading by full commit sha.
-   CHANGELOG and release-notes drafts are in the branch.
+1. **Wizard: a refused payment plan leaves a booking with no plan** (its
+   `docs/todo.md` entry; reproduce it deterministically before fixing).
 2. "Log out everywhere" should also bump the session version, so other devices'
    access tokens end at once rather than within 15 minutes.
 3. The cookie-ordering follow-up (which cookie the browser keeps after two
@@ -378,9 +367,12 @@ and the three LOW session-isolation usability items.
 6. **Ask a lawyer about DPDP consent, erasure and retention.**
 7. **Re-check the CVE requests** (see section 3): the two from October, and
    GHSA-vfmf-36cm-8fg7's around 2026-11-10.
-8. **Decide whether to delete the v0.8.5 verification leftovers:** the containers
-   `t22-disposable-pg` and `t22-disposable-redis`, the clone `C:\oe-t23`, the
-   worktree for this docs branch, and `~textopen/oe-rehearsal/` on the VM.
+8. **Decide whether to delete the verification leftovers:** the containers
+   `t22-disposable-pg`, `t22-disposable-redis`, `t62-pg` and `t62-redis`; the
+   folders `C:\oe-t23` and `C:\oe-t47`; the worktrees `C:\oe-t62`, `C:\oe-t65`,
+   `C:\oe-t66`, `openestate-v09-integrate`, `oe-backup-perms` and `oe-v090-notes`;
+   PR #78's original worktree and its backup; and `~textopen/oe-rehearsal/` on the
+   VM. Also confirm the 2026-11-04 snapshot cleanup (section 2) was intended.
 9. **Decide whether to turn 2FA back on for the `2fa` test account** in the VM
    fixture, so 2FA can be checked by hand in a browser.
 
