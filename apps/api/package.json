@@ -46,7 +46,7 @@
     "passport-jwt": "^4.0.1",
     "pdfmake": "^0.3.11",
     "pino-http": "^10.3.0",
-    "prisma": "^6.1.0",
+    "prisma": "^7.10.0",
     "qrcode-generator": "2.0.4",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
