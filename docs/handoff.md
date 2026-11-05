@@ -185,9 +185,13 @@ Credentials are kept outside this repo; ask a maintainer.
 #### Snapshots (VMware, tree as `vmrun listSnapshots` shows it, 2026-11-04)
 
 VMX: `C:\Users\Ashis\Documents\Virtual Machines\testopen\testopen.vmx`
-(VMware Workstation 17.6). The six older snapshots (`pre-P7` to
-`pr78-state-2026-11-02-e92babe4`) were deleted on 2026-11-04 around 07:11 UTC,
-outside the coding sessions (owner to confirm).
+(VMware Workstation 17.6). Owner deleted pre-P7, staging-2026-10-09,
+pre-v0.8.3, v0.8.3-clean, v0.8.4-rehearsal and
+pr78-state-2026-11-02-e92babe4 on 2026-11-04 to free disk space (in the VMware
+UI, VM powered off, 07:11 UTC). Current tree: Snapshot 1 > Snapshot 2 >
+v0.8.4-verified > v0.8.5-verified > v0.9.0-rc-349dcc37-verified (clean base
+until a v0.9.1-verified exists). The mobile staging snapshot no longer exists.
+VMware keeps only the last 4 vmx logs per VM.
 
 ```
 Snapshot 1                        2026-09-08 original install
@@ -372,7 +376,7 @@ interest) shipped in v0.9.0, with the version-aware upgrade CI. Next, in order:
    folders `C:\oe-t23` and `C:\oe-t47`; the worktrees `C:\oe-t62`, `C:\oe-t65`,
    `C:\oe-t66`, `openestate-v09-integrate`, `oe-backup-perms` and `oe-v090-notes`;
    PR #78's original worktree and its backup; and `~textopen/oe-rehearsal/` on the
-   VM. Also confirm the 2026-11-04 snapshot cleanup (section 2) was intended.
+   VM.
 9. **Decide whether to turn 2FA back on for the `2fa` test account** in the VM
    fixture, so 2FA can be checked by hand in a browser.
 
