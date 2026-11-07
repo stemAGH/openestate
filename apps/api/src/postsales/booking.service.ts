@@ -8,16 +8,14 @@ import { PrismaClient, withTenantTx, runWithTenant } from '@openestate/db';
 import {
   BOOKING_STATUS,
   LEDGER_ENTRY_TYPE,
-  isIntraStateSupply,
   formatBookingNumber,
   type CreateBookingDto,
-  type CostLineKindValue,
 } from '@openestate/shared';
 import { TENANT_PRISMA, SYSTEM_PRISMA } from '../database/database.module';
 import { UnitStateMachineService } from '../inventory/unit-state-machine.service';
 import { LedgerService } from './ledger.service';
 import { NumberSequenceService } from './number-sequence.service';
-import { computeCostLineGst } from './gst.util';
+import { priceCostLines } from './booking-pricing';
 
 const BOOKABLE_FROM = new Set(['AVAILABLE', 'HELD']);
 
@@ -59,88 +57,14 @@ export class BookingService {
         const config = await tx.companyConfig.findFirst({ where: { companyId } });
         const fyStartMonth = config?.fyStartMonth ?? 4;
 
-        // Place of supply: explicit override, else the property's area-location
-        // state code (IGST Act §12(3)(a) — location of the immovable property).
-        const placeOfSupplyStateCode =
-          dto.placeOfSupplyStateCode ??
-          unit.project.areaLocation?.stateCode ??
-          null;
-        let intraState: boolean;
-        try {
-          intraState = isIntraStateSupply(config?.gstStateCode, placeOfSupplyStateCode);
-        } catch (e) {
-          throw new BadRequestException((e as Error).message);
-        }
-
-        // Compute the cost breakup with GST snapshots.
-        const costLines: Array<{
-          kind: CostLineKindValue;
-          chargeTypeId: string | null;
-          label: string;
-          baseAmountPaise: bigint;
-          gstRateId: string | null;
-          gstRatePercentSnapshot: number;
-          cgstPaise: bigint;
-          sgstPaise: bigint;
-          igstPaise: bigint;
-          lineTotalPaise: bigint;
-          sortOrder: number;
-        }> = [];
-
-        // GST-rate resolution order per line: its own gstRateId, else its
-        // charge type's gstRateId (ChargeType.gstRateId, set via Masters),
-        // else the booking's own BASE line rate. PLC lines never carry a
-        // chargeType (PlcType is unrelated to GstRate) so they always fall
-        // through to the base rate. A line that still has no resolvable
-        // rate after all three steps is a hard error, never an implicit
-        // 0% — an unset rate would silently understate an invoice, and
-        // the whole point of this resolution order is that a builder who
-        // sets a base-line rate never has to think about it again for
-        // PLC/OTHER lines that don't carry their own.
-        const baseLineGstRateId = dto.costLines.find((l) => l.kind === 'BASE')?.gstRateId ?? null;
-
-        for (let i = 0; i < dto.costLines.length; i++) {
-          const line = dto.costLines[i];
-
-          let effectiveGstRateId = line.gstRateId ?? null;
-          if (!effectiveGstRateId && line.chargeTypeId) {
-            const ct = await tx.chargeType.findFirst({ where: { id: line.chargeTypeId, companyId } });
-            if (!ct) throw new NotFoundException(`Charge type ${line.chargeTypeId} not found`);
-            effectiveGstRateId = ct.gstRateId ?? null;
-          }
-          effectiveGstRateId ??= baseLineGstRateId;
-
-          if (!effectiveGstRateId) {
-            throw new BadRequestException(
-              `Cannot determine GST for cost line "${line.label}": select a GST rate for the ` +
-                'base line (fixes every line that falls back to it), or set one for this charge ' +
-                'type in Masters.',
-            );
-          }
-
-          let ratePercent = 0;
-          {
-            const gr = await tx.gstRate.findFirst({ where: { id: effectiveGstRateId, companyId } });
-            if (!gr) throw new NotFoundException(`GST rate ${effectiveGstRateId} not found`);
-            ratePercent = Number(gr.rate);
-          }
-          const gst = computeCostLineGst(line.baseAmountPaise, ratePercent, intraState);
-          costLines.push({
-            kind: line.kind,
-            chargeTypeId: line.chargeTypeId ?? null,
-            label: line.label,
-            baseAmountPaise: line.baseAmountPaise,
-            gstRateId: effectiveGstRateId,
-            gstRatePercentSnapshot: ratePercent,
-            cgstPaise: gst.cgstPaise,
-            sgstPaise: gst.sgstPaise,
-            igstPaise: gst.igstPaise,
-            lineTotalPaise: gst.lineTotalPaise,
-            sortOrder: i,
-          });
-        }
-
-        const agreedPricePaise = costLines.reduce((s, l) => s + l.lineTotalPaise, 0n);
+        // Cost lines, GST and the agreed price (moved unchanged to booking-pricing.ts).
+        const { placeOfSupplyStateCode, costLines, agreedPricePaise } = await priceCostLines(
+          tx,
+          companyId,
+          unit,
+          config,
+          dto,
+        );
 
         const { seq, fyLabel } = await this.numbers.allocateForFy(
           tx,
