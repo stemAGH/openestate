@@ -416,6 +416,61 @@ export async function bookingsWithoutInterestRule(
   return rows.map((r) => ({ companyId: r.company_id, companyName: r.name, count: r.n }));
 }
 
+/**
+ * Read-only upgrade report: active bookings (BOOKED/ALLOTTED/REGISTERED) with
+ * no active payment plan, as the old two-step booking wizard could leave
+ * them when their plan was refused. Nothing is changed: an operator attaches a
+ * plan from the booking's installment schedule, or cancels the booking.
+ */
+export async function bookingsWithoutPlan(
+  client: PrismaClient = prisma,
+  scope: { companyId?: string } = {},
+): Promise<Array<{ companyId: string; companyName: string; count: number; bookingNumbers: string[] }>> {
+  const companyId = scope.companyId ?? null;
+  const rows = await client.$queryRaw<Array<{ company_id: string; name: string; numbers: string[] }>>`
+    SELECT c.id AS company_id, c.name, array_agg(b.booking_number ORDER BY b.booking_number) AS numbers
+      FROM bookings b JOIN companies c ON c.id = b.company_id
+     WHERE b.status IN ('BOOKED', 'ALLOTTED', 'REGISTERED')
+       AND NOT EXISTS (SELECT 1 FROM payment_plans p WHERE p.booking_id = b.id AND p.is_active)
+       AND (${companyId}::uuid IS NULL OR b.company_id = ${companyId}::uuid)
+     GROUP BY c.id, c.name
+     ORDER BY c.name`;
+  return rows.map((r) => ({ companyId: r.company_id, companyName: r.name, count: r.numbers.length, bookingNumbers: r.numbers }));
+}
+
+/**
+ * Read-only upgrade report: units with more than one active booking, which
+ * nothing stopped before the unit row lock. Nothing is changed: an operator
+ * decides which booking stands and cancels or transfers the other.
+ */
+export async function unitsWithMultipleActiveBookings(
+  client: PrismaClient = prisma,
+  scope: { companyId?: string } = {},
+): Promise<
+  Array<{ companyId: string; companyName: string; count: number; units: Array<{ unitNumber: string; bookingNumbers: string[] }> }>
+> {
+  const companyId = scope.companyId ?? null;
+  const rows = await client.$queryRaw<Array<{ company_id: string; name: string; unit_number: string; numbers: string[] }>>`
+    SELECT c.id AS company_id, c.name, u.number AS unit_number,
+           array_agg(b.booking_number ORDER BY b.booking_number) AS numbers
+      FROM bookings b
+      JOIN units u ON u.id = b.unit_id
+      JOIN companies c ON c.id = b.company_id
+     WHERE b.status IN ('BOOKED', 'ALLOTTED', 'REGISTERED')
+       AND (${companyId}::uuid IS NULL OR b.company_id = ${companyId}::uuid)
+     GROUP BY c.id, c.name, u.id, u.number
+    HAVING count(*) > 1
+     ORDER BY c.name, u.number`;
+  const byCompany = new Map<string, { companyId: string; companyName: string; count: number; units: Array<{ unitNumber: string; bookingNumbers: string[] }> }>();
+  for (const r of rows) {
+    const entry = byCompany.get(r.company_id) ?? { companyId: r.company_id, companyName: r.name, count: 0, units: [] };
+    entry.count++;
+    entry.units.push({ unitNumber: r.unit_number, bookingNumbers: r.numbers });
+    byCompany.set(r.company_id, entry);
+  }
+  return [...byCompany.values()];
+}
+
 // Exit codes this CLI entrypoint uses, inspected by
 // deploy/native/upgrade-native.sh (see its own comment at the call site):
 //   0 — clean, nothing skipped.
@@ -495,6 +550,35 @@ if (require.main === module) {
             "automatically; attach a rule from each booking's installment schedule (interest runs from that day).",
         );
         for (const r of noRule) console.log(`  ${r.companyName} (company ${r.companyId}): ${r.count}`);
+      }
+
+      const noPlan = await bookingsWithoutPlan();
+      const noPlanTotal = noPlan.reduce((sum, r) => sum + r.count, 0);
+      if (noPlanTotal === 0) {
+        console.log('Payment plans: every active booking has a payment plan.');
+      } else {
+        console.log(
+          `Payment plans: ${noPlanTotal} active booking(s) have no payment plan. Nothing was changed; ` +
+            "on each booking's installment schedule, create its payment plan or cancel the booking.",
+        );
+        for (const r of noPlan) {
+          console.log(`  ${r.companyName} (company ${r.companyId}): ${r.count}: ${r.bookingNumbers.join(', ')}`);
+        }
+      }
+
+      const doubled = await unitsWithMultipleActiveBookings();
+      const doubledTotal = doubled.reduce((sum, r) => sum + r.count, 0);
+      if (doubledTotal === 0) {
+        console.log('Units: no unit has more than one active booking.');
+      } else {
+        console.log(
+          `Units: ${doubledTotal} unit(s) have more than one active booking. Nothing was changed; ` +
+            'decide which booking stands, then cancel or transfer the other(s).',
+        );
+        for (const r of doubled) {
+          console.log(`  ${r.companyName} (company ${r.companyId}): ${r.count}`);
+          for (const u of r.units) console.log(`    unit ${u.unitNumber}: ${u.bookingNumbers.join(', ')}`);
+        }
       }
 
       const totalSkipped = superAdminSkipped + leadStagesSkipped + roles.skipped;
