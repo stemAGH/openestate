@@ -65,6 +65,9 @@ export default async function globalSetup() {
     // Its own company: interest-rule.spec.ts books the fixture's unit and
     // attaches a delay-interest rule to the booking.
     interestRule: await seedE2eFixture(DATABASE_URL_SYSTEM),
+    // Its own company: atomic-booking.spec.ts books units, changes a GST
+    // rate mid-test and creates a booking without a plan.
+    atomicBooking: await seedE2eFixture(DATABASE_URL_SYSTEM),
   };
   writeFileSync(path.join(__dirname, '.fixture-state.json'), JSON.stringify(fixtures, null, 2));
 }

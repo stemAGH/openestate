@@ -60,11 +60,13 @@ test('choose a rule when booking, accrue interest on an overdue installment, and
     await expect(page.getByText('Choose a delay-interest rule, or "No delay interest", before booking.')).toBeVisible();
 
     await interestChoice.selectOption({ label: `${ruleName} (18% simple)` });
-    const [putResponse] = await Promise.all([
-      page.waitForResponse((r) => r.url().includes('/interest-rule') && r.request().method() === 'PUT'),
+    // The rule is attached in the same request as the booking (one transaction).
+    const [bookingResponse] = await Promise.all([
+      page.waitForResponse((r) => r.url().endsWith('/bookings/with-plan') && r.request().method() === 'POST'),
       page.getByRole('button', { name: 'Confirm & Book' }).click(),
     ]);
-    expect(putResponse.ok()).toBe(true);
+    expect(bookingResponse.ok()).toBe(true);
+    expect(JSON.parse(bookingResponse.request().postData() ?? '{}').interestRuleId).toBeTruthy();
     await page.waitForURL(/\/postsales\/bookings\/.+\/installments/);
     const bookingId = /bookings\/([^/]+)\/installments/.exec(page.url())![1];
 

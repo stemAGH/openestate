@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { formatInr, computeBaseAmountPaise, toAreaScaled, PERMISSIONS, type AreaUnit } from '@openestate/shared';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
+import PlanInstallmentsEditor, { planMatchesTotal } from './PlanInstallmentsEditor';
 
 interface ApplicantRow {
   id: string;
@@ -72,6 +73,13 @@ interface PlanTemplateRow {
   id: string;
   name: string;
   description: string | null;
+}
+
+interface BookingQuote {
+  agreedPricePaise: string;
+  totalBeforeGstPaise: string;
+  gstPaise: string;
+  costLines: Array<{ label: string; baseAmountPaise: string; igstPaise: string; lineTotalPaise: string }>;
 }
 
 interface CustomInstallmentRow {
@@ -408,6 +416,29 @@ export default function BookingWizard() {
     }
   }, [activeGstRates.length]);
 
+  // The cost lines a booking of this unit gets; the quote prices them on the
+  // server (GST per line), and the booking itself recalculates.
+  const costLines = [
+    { kind: 'BASE', label: 'Base Sale Price', baseAmountPaise: draft.basePricePaise, gstRateId: draft.gstRateId },
+    ...(unitPlcs ?? []).map((p) => ({ kind: 'PLC', label: p.plcType.name, baseAmountPaise: p.amountPaise })),
+    ...(unitCharges ?? []).map((c) => ({
+      kind: 'OTHER',
+      chargeTypeId: c.chargeType.id,
+      label: c.chargeType.name,
+      baseAmountPaise: c.amountPaise,
+    })),
+  ];
+  const quoteReady =
+    !!draft.unitId && !!draft.basePricePaise && !!draft.gstRateId && unitPlcs !== undefined && unitCharges !== undefined;
+  const { data: quote, error: quoteError } = useQuery<BookingQuote>({
+    queryKey: ['booking-quote', draft.unitId, JSON.stringify(costLines)],
+    queryFn: ({ signal }) =>
+      api('/bookings/quote', { method: 'POST', body: JSON.stringify({ unitId: draft.unitId, costLines }), signal }),
+    enabled: quoteReady && draft.step >= 3,
+    retry: false,
+  });
+  const totalPayablePaise = quote ? BigInt(quote.agreedPricePaise) : null;
+
   async function persistDraft(next: DraftData) {
     try {
       if (draftId) {
@@ -451,7 +482,10 @@ export default function BookingWizard() {
     !!draft.primaryApplicantId,
     !!draft.unitId && !!draft.basePricePaise && !!draft.gstRateId,
     true,
-    draft.planMode === 'template' ? !!draft.paymentPlanTemplateId : draft.customInstallments.length > 0,
+    !!quote &&
+      (draft.planMode === 'template'
+        ? !!draft.paymentPlanTemplateId
+        : planMatchesTotal(draft.customInstallments, totalPayablePaise)),
     true,
   ];
 
@@ -473,82 +507,66 @@ export default function BookingWizard() {
       setError('Choose a delay-interest rule, or "No delay interest", before booking.');
       return;
     }
+    if (!quote) {
+      setError('The price has not been worked out yet. Wait a moment and try again.');
+      return;
+    }
     setSubmitting(true);
     try {
-      const booking = await api<{ id: string }>('/bookings', {
+      // One request, one transaction: if the plan or the interest rule is
+      // refused, nothing is booked and the unit stays free.
+      const { booking } = await api<{ booking: { id: string } }>('/bookings/with-plan', {
         method: 'POST',
         body: JSON.stringify({
           unitId: draft.unitId,
           primaryApplicantId: draft.primaryApplicantId,
           coApplicantIds: draft.coApplicantIds,
           bookingDate: draft.bookingDate,
-          paymentPlanTemplateId: draft.planMode === 'template' ? draft.paymentPlanTemplateId : undefined,
-          costLines: [
-            { kind: 'BASE', label: 'Base Sale Price', baseAmountPaise: draft.basePricePaise, gstRateId: draft.gstRateId },
-            ...(unitPlcs ?? []).map((p) => ({ kind: 'PLC', label: p.plcType.name, baseAmountPaise: p.amountPaise })),
-            ...(unitCharges ?? []).map((c) => ({
-              kind: 'OTHER',
-              chargeTypeId: c.chargeType.id,
-              label: c.chargeType.name,
-              baseAmountPaise: c.amountPaise,
-            })),
-          ],
+          costLines,
+          plan:
+            draft.planMode === 'template'
+              ? { mode: 'template', templateId: draft.paymentPlanTemplateId }
+              : {
+                  mode: 'custom',
+                  name: 'Custom Plan',
+                  installments: draft.customInstallments.map((i) => ({
+                    label: i.label,
+                    dueDate: i.dueDate,
+                    amountPaise: i.amountPaise,
+                  })),
+                },
+          expectedAgreedPricePaise: quote.agreedPricePaise,
+          interestRuleId:
+            canSetInterest && draft.interestChoice && draft.interestChoice !== NO_INTEREST ? draft.interestChoice : undefined,
         }),
       });
 
-      if (draft.planMode === 'template') {
-        await api(`/bookings/${booking.id}/plan/from-template`, {
-          method: 'POST',
-          body: JSON.stringify({ templateId: draft.paymentPlanTemplateId }),
-        });
-      } else {
-        await api(`/bookings/${booking.id}/plan/custom`, {
-          method: 'POST',
-          body: JSON.stringify({
-            name: 'Custom Plan',
-            isCustom: true,
-            installments: draft.customInstallments.map((i) => ({
-              label: i.label,
-              dueDate: i.dueDate,
-              amountPaise: i.amountPaise,
-            })),
-          }),
-        });
-      }
-
-      if (draft.brokerId) {
-        await api(`/bookings/${booking.id}/broker`, {
-          method: 'POST',
-          body: JSON.stringify({ brokerId: draft.brokerId }),
-        });
-      }
-
-      if (sourceInquiryId) {
-        await api(`/bookings/${booking.id}/source-inquiry`, {
-          method: 'POST',
-          body: JSON.stringify({ inquiryId: sourceInquiryId }),
-        });
-      }
-
-      // The booking exists by now, so a failure here must not send the user
-      // back to book again: the schedule page shows it and offers the choice.
-      let interestError: string | undefined;
-      if (canSetInterest && draft.interestChoice && draft.interestChoice !== NO_INTEREST) {
-        try {
-          await api(`/bookings/${booking.id}/interest-rule`, {
-            method: 'PUT',
-            body: JSON.stringify({ interestRuleId: draft.interestChoice }),
+      // The booking and its plan exist by now; a failure in these optional
+      // steps must not send the user back to book again.
+      let followUpError: string | undefined;
+      try {
+        if (draft.brokerId) {
+          await api(`/bookings/${booking.id}/broker`, {
+            method: 'POST',
+            body: JSON.stringify({ brokerId: draft.brokerId }),
           });
-        } catch (err) {
-          interestError = (err as Error).message;
         }
+
+        if (sourceInquiryId) {
+          await api(`/bookings/${booking.id}/source-inquiry`, {
+            method: 'POST',
+            body: JSON.stringify({ inquiryId: sourceInquiryId }),
+          });
+        }
+      } catch (err) {
+        followUpError = `The booking was created, but: ${(err as Error).message}`;
       }
 
       if (draftId) {
         await api(`/booking-drafts/${draftId}`, { method: 'DELETE' }).catch(() => {});
       }
 
-      navigate(`/postsales/bookings/${booking.id}/installments`, { state: interestError ? { interestError } : undefined });
+      navigate(`/postsales/bookings/${booking.id}/installments`, { state: followUpError ? { followUpError } : undefined });
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -557,13 +575,6 @@ export default function BookingWizard() {
   }
 
   const selectedUnit = units?.data?.find((u) => u.id === draft.unitId);
-  // Excl. GST — each line's actual tax rate (and any fallback to the base
-  // line's rate) is resolved server-side at booking creation, same as it
-  // already was for a plain base-only booking.
-  const totalBeforeGstPaise =
-    (draft.basePricePaise ? BigInt(draft.basePricePaise) : 0n) +
-    (unitPlcs ?? []).reduce((s, p) => s + BigInt(p.amountPaise), 0n) +
-    (unitCharges ?? []).reduce((s, c) => s + BigInt(c.amountPaise), 0n);
 
   return (
     <div className="max-w-2xl">
@@ -777,6 +788,13 @@ export default function BookingWizard() {
         {draft.step === 3 && (
           <div>
             <h2 className="text-sm font-semibold text-slate-900">Payment plan</h2>
+            <p className="mt-1 text-sm text-slate-600" data-testid="total-payable">
+              {quote
+                ? `Total payable (GST included): ${formatInr(BigInt(quote.agreedPricePaise))}`
+                : quoteError
+                  ? `The price couldn't be worked out: ${(quoteError as Error).message}`
+                  : 'Working out the price…'}
+            </p>
             <div className="mt-3 flex gap-4 text-sm">
               <label className="flex items-center gap-1.5">
                 <input
@@ -810,64 +828,12 @@ export default function BookingWizard() {
                 ))}
               </select>
             ) : (
-              <div className="mt-3 space-y-2">
-                {draft.customInstallments.map((inst, i) => (
-                  <div key={i} className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Label"
-                      value={inst.label}
-                      onChange={(e) => {
-                        const rows = [...draft.customInstallments];
-                        rows[i] = { ...rows[i], label: e.target.value };
-                        setDraft({ ...draft, customInstallments: rows });
-                      }}
-                      className="w-1/3 rounded-md border border-slate-300 px-2 py-1.5 text-sm"
-                    />
-                    <input
-                      type="date"
-                      value={inst.dueDate}
-                      onChange={(e) => {
-                        const rows = [...draft.customInstallments];
-                        rows[i] = { ...rows[i], dueDate: e.target.value };
-                        setDraft({ ...draft, customInstallments: rows });
-                      }}
-                      className="w-1/3 rounded-md border border-slate-300 px-2 py-1.5 text-sm"
-                    />
-                    <input
-                      type="number"
-                      placeholder="Amount (₹)"
-                      value={inst.amountPaise ? Number(inst.amountPaise) / 100 : ''}
-                      onChange={(e) => {
-                        const rows = [...draft.customInstallments];
-                        rows[i] = { ...rows[i], amountPaise: String(Math.round(Number(e.target.value) * 100)) };
-                        setDraft({ ...draft, customInstallments: rows });
-                      }}
-                      className="w-1/3 rounded-md border border-slate-300 px-2 py-1.5 text-sm"
-                    />
-                    <button
-                      onClick={() =>
-                        setDraft({ ...draft, customInstallments: draft.customInstallments.filter((_, idx) => idx !== i) })
-                      }
-                      className="text-xs text-red-600 hover:text-red-800"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() =>
-                    setDraft({
-                      ...draft,
-                      customInstallments: [...draft.customInstallments, { label: '', dueDate: draft.bookingDate, amountPaise: '' }],
-                    })
-                  }
-                  className="text-xs font-medium text-blue-600 hover:text-blue-800"
-                >
-                  + Add installment
-                </button>
-              </div>
+              <PlanInstallmentsEditor
+                rows={draft.customInstallments}
+                onChange={(rows) => setDraft({ ...draft, customInstallments: rows })}
+                totalPaise={totalPayablePaise}
+                defaultDueDate={draft.bookingDate}
+              />
             )}
           </div>
         )}
@@ -933,11 +899,26 @@ export default function BookingWizard() {
               {unitCharges?.map((c) => (
                 <div key={c.id} className="flex justify-between"><dt className="text-slate-500">{c.chargeType.name}</dt><dd className="font-medium">{formatInr(BigInt(c.amountPaise))}</dd></div>
               ))}
-              {((unitPlcs?.length ?? 0) > 0 || (unitCharges?.length ?? 0) > 0) && (
-                <div className="flex justify-between border-t border-slate-100 pt-1.5">
-                  <dt className="font-medium text-slate-700">Total (excl. GST)</dt>
-                  <dd className="font-semibold">{formatInr(totalBeforeGstPaise)}</dd>
-                </div>
+              {quote && (
+                <>
+                  <div className="flex justify-between border-t border-slate-100 pt-1.5">
+                    <dt className="text-slate-500">Total (excl. GST)</dt>
+                    <dd className="font-medium">{formatInr(BigInt(quote.totalBeforeGstPaise))}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-slate-500">GST</dt>
+                    <dd className="font-medium">
+                      {formatInr(BigInt(quote.gstPaise))}
+                      {quote.costLines.some((l) => BigInt(l.igstPaise) > 0n) ? ' (IGST)' : ' (CGST + SGST)'}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="font-medium text-slate-700">Total payable (GST included)</dt>
+                    <dd className="font-semibold" data-testid="confirm-total-payable">
+                      {formatInr(BigInt(quote.agreedPricePaise))}
+                    </dd>
+                  </div>
+                </>
               )}
               <div className="flex justify-between"><dt className="text-slate-500">Booking date</dt><dd className="font-medium">{draft.bookingDate}</dd></div>
               <div className="flex justify-between">

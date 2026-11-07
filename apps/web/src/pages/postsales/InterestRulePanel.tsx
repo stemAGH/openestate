@@ -17,7 +17,6 @@ interface Props {
   interestFromDate: string | null;
   attachedInterestRule: (InterestRuleRow & { rateType: string }) | null;
   /** Set when the booking wizard created the booking but couldn't attach its rule. */
-  wizardError?: string;
 }
 
 // Mirrors ACCRUING_STATUSES in apps/api/src/postsales/interest.service.ts.
@@ -31,7 +30,7 @@ const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { tim
  * postsales.interest.manage attach, change or remove it, and lets manage or
  * waive holders accrue interest up to today.
  */
-export default function InterestRulePanel({ bookingId, status, interestRuleId, interestFromDate, attachedInterestRule, wizardError }: Props) {
+export default function InterestRulePanel({ bookingId, status, interestRuleId, interestFromDate, attachedInterestRule }: Props) {
   const qc = useQueryClient();
   const { user, hasPermission } = useAuth();
   const canManage = hasPermission(PERMISSIONS.POSTSALES_INTEREST_MANAGE);
@@ -91,11 +90,6 @@ export default function InterestRulePanel({ bookingId, status, interestRuleId, i
   return (
     <section aria-label="Delay interest" className="mt-4 rounded-lg border border-slate-200 bg-white p-4">
       <h2 className="text-sm font-semibold text-slate-900">Delay interest</h2>
-      {wizardError && (
-        <p role="alert" className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          The booking was created, but its interest rule wasn't attached: {wizardError}
-        </p>
-      )}
       <p className="mt-1 text-sm text-slate-700" data-testid="interest-rule-current">
         {interestRuleId
           ? `${current ? `${current.name} (${Number(current.ratePercent)}% ${current.rateType.toLowerCase()})` : 'A rule is attached'}` +

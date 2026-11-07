@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { formatInr } from '@openestate/shared';
+import { formatInr, PERMISSIONS } from '@openestate/shared';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import DataTable, { type Column } from '../../components/DataTable';
 import InterestRulePanel from './InterestRulePanel';
+import CreatePlanPanel from './CreatePlanPanel';
 
 interface Installment {
   id: string;
@@ -31,6 +32,8 @@ interface PlanVersion {
 
 interface BookingRow {
   brokerId: string | null;
+  agreedPricePaise: string;
+  bookingDate: string;
   status: string;
   interestRuleId: string | null;
   interestFromDate: string | null;
@@ -49,9 +52,10 @@ const STATUS_STYLE: Record<string, string> = {
 export default function InstallmentSchedule() {
   const { bookingId } = useParams<{ bookingId: string }>();
   const [showHistory, setShowHistory] = useState(false);
-  const wizardInterestError = (useLocation().state as { interestError?: string } | null)?.interestError;
+  // Set by the booking wizard when an optional step after booking failed.
+  const followUpError = (useLocation().state as { followUpError?: string } | null)?.followUpError;
   const qc = useQueryClient();
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
 
   const { data: versions, isLoading } = useQuery<PlanVersion[]>({
     queryKey: ['plan-history', bookingId],
@@ -173,9 +177,23 @@ export default function InstallmentSchedule() {
           interestRuleId={booking.interestRuleId}
           interestFromDate={booking.interestFromDate}
           attachedInterestRule={booking.attachedInterestRule}
-          wizardError={wizardInterestError}
         />
       )}
+
+      {followUpError && (
+        <div role="alert" className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          {followUpError}
+        </div>
+      )}
+
+      {booking &&
+        bookingId &&
+        versions &&
+        !versions.some((v) => v.isActive) &&
+        CANCELABLE_STATUSES.has(booking.status) &&
+        hasPermission(PERMISSIONS.POSTSALES_PLAN_EDIT) && (
+          <CreatePlanPanel bookingId={bookingId} agreedPricePaise={booking.agreedPricePaise} bookingDate={booking.bookingDate} />
+        )}
 
       {booking?.brokerId && (
         <div className="mt-4 flex items-center gap-3">

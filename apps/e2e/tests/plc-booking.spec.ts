@@ -117,11 +117,11 @@ test('assign a PLC and a GST-rated charge to a unit, book it, and confirm the to
   // v0.9: the wizard requires an explicit delay-interest choice.
   await page.getByLabel('Delay interest').selectOption('NONE');
   const [bookingResponse] = await Promise.all([
-    page.waitForResponse((r) => r.url().endsWith('/bookings') && r.request().method() === 'POST'),
+    page.waitForResponse((r) => r.url().endsWith('/bookings/with-plan') && r.request().method() === 'POST'),
     page.getByRole('button', { name: 'Confirm & Book' }).click(),
   ]);
   expect(bookingResponse.ok()).toBe(true);
-  const booking = (await bookingResponse.json()) as { id: string };
+  const { booking } = (await bookingResponse.json()) as { booking: { id: string } };
   await page.waitForURL(/\/postsales\/bookings\/.+\/installments/);
 
   // ── The regression check: agreedPricePaise really does include GST,

@@ -106,13 +106,13 @@ test('marking a lead Successful surfaces a Create Booking link that prefills the
   // v0.9: the wizard requires an explicit delay-interest choice.
   await page.getByLabel('Delay interest').selectOption('NONE');
   const [bookingResponse, sourceInquiryResponse] = await Promise.all([
-    page.waitForResponse((r) => r.url().endsWith('/bookings') && r.request().method() === 'POST'),
+    page.waitForResponse((r) => r.url().endsWith('/bookings/with-plan') && r.request().method() === 'POST'),
     page.waitForResponse((r) => r.url().includes('/source-inquiry') && r.request().method() === 'POST'),
     page.getByRole('button', { name: 'Confirm & Book' }).click(),
   ]);
   expect(bookingResponse.ok()).toBe(true);
   expect(sourceInquiryResponse.ok()).toBe(true);
-  const booking = (await bookingResponse.json()) as { id: string };
+  const { booking } = (await bookingResponse.json()) as { booking: { id: string } };
   await page.waitForURL(/\/postsales\/bookings\/.+\/installments/);
 
   // The regression check no browser assertion can substitute for: the
