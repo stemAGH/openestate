@@ -14,7 +14,7 @@ import {
   type CreateTransferDto,
 } from '@openestate/shared';
 import { TENANT_PRISMA } from '../database/database.module';
-import { UnitStateMachineService } from '../inventory/unit-state-machine.service';
+import { UnitStateMachineService, lockUnits } from '../inventory/unit-state-machine.service';
 import { LedgerService } from './ledger.service';
 import { NumberSequenceService } from './number-sequence.service';
 
@@ -149,6 +149,13 @@ export class TransferService {
         // Unit state moves (system): UNIT transfer releases the old unit and
         // books the new one. APPLICANT transfer keeps the same booked unit.
         if (dto.transferType === TRANSFER_TYPE.UNIT) {
+          // Both units, lower id first (lock order at
+          // UnitStateMachineService.transition), then re-check the destination.
+          await lockUnits(tx, companyId, [from.unitId, toUnitId]);
+          const dest = await tx.unit.findFirst({ where: { id: toUnitId, companyId } });
+          if (!dest || !['AVAILABLE', 'HELD'].includes(dest.status)) {
+            throw new BadRequestException(`Destination unit is ${dest?.status}; must be AVAILABLE or HELD`);
+          }
           await this.stateMachine.transition(companyId, from.unitId, 'CANCELLED', 'system', actorId, `Transfer ${from.bookingNumber}`);
           await this.stateMachine.transition(companyId, from.unitId, 'AVAILABLE', 'system', actorId, `Transfer ${from.bookingNumber}`);
           await this.stateMachine.transition(companyId, toUnitId, 'BOOKED', 'system', actorId, `Transfer ${toBooking.bookingNumber}`);

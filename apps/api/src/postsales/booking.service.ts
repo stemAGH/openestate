@@ -12,7 +12,7 @@ import {
   type CreateBookingDto,
 } from '@openestate/shared';
 import { TENANT_PRISMA, SYSTEM_PRISMA } from '../database/database.module';
-import { UnitStateMachineService } from '../inventory/unit-state-machine.service';
+import { UnitStateMachineService, lockUnits } from '../inventory/unit-state-machine.service';
 import { LedgerService } from './ledger.service';
 import { NumberSequenceService } from './number-sequence.service';
 import { priceCostLines } from './booking-pricing';
@@ -74,6 +74,17 @@ export class BookingService {
           fyStartMonth,
         );
         const bookingNumber = formatBookingNumber(fyLabel, seq);
+
+        // Lock the unit (after the number: see the lock order at
+        // UnitStateMachineService.transition) and re-check its status, so two
+        // concurrent bookings of one unit can't both pass the check above.
+        await lockUnits(tx, companyId, [dto.unitId]);
+        const locked = await tx.unit.findFirst({ where: { id: dto.unitId, companyId } });
+        if (!locked || !BOOKABLE_FROM.has(locked.status)) {
+          throw new BadRequestException(
+            `Unit ${unit.number} is ${locked?.status}; only AVAILABLE or HELD units can be booked`,
+          );
+        }
 
         const booking = await tx.booking.create({
           data: {
