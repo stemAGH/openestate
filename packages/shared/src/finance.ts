@@ -254,6 +254,41 @@ export const createPaymentPlanSchema = z
   .strict();
 export type CreatePaymentPlanDto = z.infer<typeof createPaymentPlanSchema>;
 
+/** A booking's price preview: the same cost lines a booking would get, nothing written. */
+export const bookingQuoteSchema = z
+  .object({
+    unitId: z.string().uuid(),
+    placeOfSupplyStateCode: z.string().length(2).optional(),
+    costLines: z.array(bookingCostLineInputSchema).min(1),
+  })
+  .strict();
+export type BookingQuoteDto = z.infer<typeof bookingQuoteSchema>;
+
+/**
+ * A booking and its payment plan in one request (one transaction): a refused
+ * plan creates nothing. `expectedAgreedPricePaise` is the GST-inclusive total
+ * the client was shown (from the quote); if the price has changed since, the
+ * booking is refused. `interestRuleId` needs postsales.interest.manage.
+ */
+export const createBookingWithPlanSchema = createBookingSchema
+  .omit({ paymentPlanTemplateId: true })
+  .extend({
+    plan: z.discriminatedUnion('mode', [
+      z.object({ mode: z.literal('template'), templateId: z.string().uuid() }).strict(),
+      z
+        .object({
+          mode: z.literal('custom'),
+          name: z.string().min(1).max(255).default('Custom Plan'),
+          installments: z.array(installmentInputSchema).min(1),
+        })
+        .strict(),
+    ]),
+    expectedAgreedPricePaise: paise().optional(),
+    interestRuleId: z.string().uuid().optional(),
+  })
+  .strict();
+export type CreateBookingWithPlanDto = z.infer<typeof createBookingWithPlanSchema>;
+
 /** Bulk-raise a STAGE_LINKED milestone for every eligible booking in one
  * project. See internal plan construction-linked-demand-fix.md §1.5-1.6. */
 export const raiseStageSchema = z

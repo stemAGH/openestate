@@ -1,12 +1,14 @@
 /**
- * Reproduction of the booking-wizard "no plan" defect, through the wire.
- * The wizard's custom-plan step collects installments against the total
- * EXCLUDING GST, but the server requires them to add up to the GST-inclusive
- * agreed price, and the wizard creates the booking before the plan.
+ * The booking-wizard "no plan" defect, through the wire. The wizard used to
+ * collect installments against the total EXCLUDING GST and create the
+ * booking before its plan: a refused plan left a booking with no plan, the
+ * unit held and every retry on the unit refused.
  *
- * This test asserts the defect as it stands: the plan is refused, the
- * booking is left BOOKED with no plan, the unit stays BOOKED and a retry on
- * the unit is refused. It must fail once the wizard books atomically.
+ * The first version of this test asserted that defect against the two-step
+ * requests and passed; it failed as soon as `bookLikeTheWizard` sent what
+ * the wizard sends now (one POST /bookings/with-plan). It now asserts the
+ * fixed behaviour: refused with the reason, nothing booked, the unit free,
+ * and a retry with the GST-inclusive total succeeds.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { INestApplication } from '@nestjs/common';
@@ -44,7 +46,7 @@ describeIf('booking wizard: installments that add up to the pre-GST price', () =
     await systemPrisma.$disconnect();
   });
 
-  it('leaves a booking with no plan, the unit held, and a retry refused', async () => {
+  it('is refused with the reason, books nothing, and a retry with the GST-inclusive total succeeds', async () => {
     const unitId = await makeUnit(systemPrisma, fx);
     const primaryApplicantId = await makeApplicant(systemPrisma, fx.companyId);
     const input = {
@@ -53,7 +55,7 @@ describeIf('booking wizard: installments that add up to the pre-GST price', () =
       bookingDate: '2026-06-15',
       basePricePaise: 10_00_000_00n,
       gstRateId: gst5,
-      // What the wizard shows and collects: the total EXCLUDING GST.
+      // What the wizard used to show and collect: the total EXCLUDING GST.
       installments: [
         { label: 'Booking amount', dueDate: '2026-06-15', amountPaise: 2_00_000_00n },
         { label: 'On possession', dueDate: '2027-06-15', amountPaise: 8_00_000_00n },
@@ -62,20 +64,17 @@ describeIf('booking wizard: installments that add up to the pre-GST price', () =
 
     const first = await bookLikeTheWizard(s, input);
     expect(first.status).toBe(400);
-    expect(first.body.message).toContain('must sum to the amount to schedule');
-
-    const bookings = await systemPrisma.booking.findMany({ where: { unitId }, include: { paymentPlans: true } });
-    expect(bookings).toHaveLength(1);
-    expect(bookings[0].status).toBe('BOOKED');
-    expect(bookings[0].paymentPlans).toHaveLength(0);
-    expect(bookings[0].agreedPricePaise).toBe(10_50_000_00n);
-    expect((await systemPrisma.unit.findUnique({ where: { id: unitId } })).status).toBe('BOOKED');
+    expect(first.body.message).toContain('the GST-inclusive total is ₹10,50,000.00');
+    expect(await systemPrisma.booking.count({ where: { unitId } })).toBe(0);
+    expect((await systemPrisma.unit.findUnique({ where: { id: unitId } })).status).toBe('AVAILABLE');
 
     const retry = await bookLikeTheWizard(s, {
       ...input,
       installments: [{ label: 'Full', dueDate: '2026-06-15', amountPaise: 10_50_000_00n }],
     });
-    expect(retry.status).toBe(400);
-    expect(retry.body.message).toContain('only AVAILABLE or HELD units can be booked');
+    expect(retry.status).toBe(201);
+    const booking = await systemPrisma.booking.findUnique({ where: { id: retry.body.id }, include: { paymentPlans: true } });
+    expect(booking.paymentPlans).toHaveLength(1);
+    expect((await systemPrisma.unit.findUnique({ where: { id: unitId } })).status).toBe('BOOKED');
   });
 });

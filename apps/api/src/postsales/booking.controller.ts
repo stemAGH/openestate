@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Param, Post, Put, Req } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, Inject, Param, Post, Put, Req } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { createZodDto } from 'nestjs-zod';
@@ -6,6 +6,8 @@ import { z } from 'zod';
 import { withTenantTx, runWithTenant } from '@openestate/db';
 import {
   createBookingSchema,
+  bookingQuoteSchema,
+  createBookingWithPlanSchema,
   createPaymentPlanSchema,
   extraChargeSchema,
   interestWaiverSchema,
@@ -23,6 +25,7 @@ import { PaymentPlanService } from './payment-plan.service';
 import { ExtraChargeService } from './extra-charge.service';
 import { InterestService } from './interest.service';
 import { BookingInterestRuleService } from './booking-interest-rule.service';
+import { BookingWithPlanService } from './booking-with-plan.service';
 import { TransferService } from './transfer.service';
 import { CancellationService } from './cancellation.service';
 import { BrokerService } from '../brokers/broker.service';
@@ -32,6 +35,8 @@ import { BookingCostLineVerifier } from './booking-cost-line-verifier.service';
 import { InquiryService } from '../presales/inquiry.service';
 
 class CreateBookingDto extends createZodDto(createBookingSchema) {}
+class BookingQuoteDto extends createZodDto(bookingQuoteSchema) {}
+class CreateBookingWithPlanDto extends createZodDto(createBookingWithPlanSchema) {}
 class AssignBrokerDto extends createZodDto(z.object({ brokerId: z.string().uuid() }).strict()) {}
 class AttachSourceInquiryDto extends createZodDto(z.object({ inquiryId: z.string().uuid() }).strict()) {}
 class CreatePaymentPlanDto extends createZodDto(createPaymentPlanSchema) {}
@@ -63,11 +68,16 @@ export class BookingController {
     private readonly costLineVerifier: BookingCostLineVerifier,
     private readonly inquiries: InquiryService,
     private readonly interestRules: BookingInterestRuleService,
+    private readonly withPlan: BookingWithPlanService,
   ) {}
 
   @Post()
   @RequirePermissions(PERMISSIONS.POSTSALES_BOOKING_CREATE)
-  @ApiOperation({ summary: 'Create a booking (books the unit; posts the cost breakup to the ledger)' })
+  @ApiOperation({
+    deprecated: true,
+    summary:
+      'Create a booking without a payment plan (books the unit; posts the cost breakup to the ledger). Deprecated: use POST /bookings/with-plan, which creates the booking and its plan in one transaction.',
+  })
   async create(@Body() dto: CreateBookingDto, @Req() req: Request) {
     const u = req.user as JwtPayload;
     // Precondition check on the DTO, upstream of the frozen BookingService
@@ -75,6 +85,34 @@ export class BookingController {
     // inside the service itself (plotted-farmhouse-inventory.md §7.4).
     await this.costLineVerifier.verifyForCreate(u.companyId, dto.unitId, dto.costLines);
     return this.bookings.createBooking(u.companyId, dto, u.sub);
+  }
+
+  @Post('quote')
+  @RequirePermissions(PERMISSIONS.POSTSALES_BOOKING_CREATE)
+  @ApiOperation({
+    summary:
+      'Price preview: the cost lines with GST and the GST-inclusive total a booking of this unit would get. Writes nothing; the booking recalculates.',
+  })
+  async quote(@Body() dto: BookingQuoteDto, @Req() req: Request) {
+    const u = req.user as JwtPayload;
+    await this.costLineVerifier.verifyForCreate(u.companyId, dto.unitId, dto.costLines);
+    return this.withPlan.quote(u.companyId, dto);
+  }
+
+  @Post('with-plan')
+  @RequirePermissions(PERMISSIONS.POSTSALES_BOOKING_CREATE, PERMISSIONS.POSTSALES_PLAN_EDIT)
+  @ApiOperation({
+    summary:
+      'Create a booking and its payment plan (and optionally its delay-interest rule) in one transaction: a refused plan or rule creates nothing. Installments must add up to the GST-inclusive price; interestRuleId needs postsales.interest.manage.',
+  })
+  async createWithPlan(@Body() dto: CreateBookingWithPlanDto, @Req() req: Request) {
+    const u = req.user as JwtPayload;
+    // The same permission the separate PUT /bookings/:id/interest-rule needs.
+    if (dto.interestRuleId && !u.permissions.includes(PERMISSIONS.POSTSALES_INTEREST_MANAGE)) {
+      throw new ForbiddenException('Insufficient permissions');
+    }
+    await this.costLineVerifier.verifyForCreate(u.companyId, dto.unitId, dto.costLines);
+    return this.withPlan.createWithPlan(u.companyId, dto, u.sub);
   }
 
   @Get('interest-rules/attachable')

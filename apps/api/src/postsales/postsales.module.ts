@@ -20,6 +20,7 @@ import { ReceiptService } from './receipt.service';
 import { ExtraChargeService } from './extra-charge.service';
 import { InterestService } from './interest.service';
 import { BookingInterestRuleService } from './booking-interest-rule.service';
+import { BookingWithPlanService } from './booking-with-plan.service';
 import { InterestScheduler, InterestProcessor } from './interest.scheduler';
 import { TransferService } from './transfer.service';
 import { CancellationService } from './cancellation.service';
@@ -40,6 +41,7 @@ import { BookingCostLineVerifier } from './booking-cost-line-verifier.service';
     ExtraChargeService,
     InterestService,
     BookingInterestRuleService,
+    BookingWithPlanService,
     InterestScheduler,
     InterestProcessor,
     TransferService,

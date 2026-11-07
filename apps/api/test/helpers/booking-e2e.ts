@@ -109,15 +109,16 @@ export function costLinesFor(input: WizardInput) {
 }
 
 /**
- * The requests the booking wizard sends for a custom plan. Returns the
- * status of the step that decided the outcome and its body.
+ * The request the booking wizard sends for a custom plan: one POST
+ * /bookings/with-plan (the booking and its plan in one transaction).
+ * Returns its status and body.
  */
 export async function bookLikeTheWizard(
   s: Session,
   input: WizardInput,
 ): Promise<{ status: number; body: { id?: string; message?: string } }> {
-  const booking = await s.agent
-    .post('/api/v1/bookings')
+  const res = await s.agent
+    .post('/api/v1/bookings/with-plan')
     .set(s.auth)
     .send({
       unitId: input.unitId,
@@ -125,15 +126,11 @@ export async function bookLikeTheWizard(
       coApplicantIds: [],
       bookingDate: input.bookingDate,
       costLines: costLinesFor(input),
+      plan: {
+        mode: 'custom',
+        name: 'Custom Plan',
+        installments: input.installments.map((i) => ({ ...i, amountPaise: i.amountPaise.toString() })),
+      },
     });
-  if (booking.status !== 201) return { status: booking.status, body: booking.body };
-  const plan = await s.agent
-    .post(`/api/v1/bookings/${booking.body.id}/plan/custom`)
-    .set(s.auth)
-    .send({
-      name: 'Custom Plan',
-      isCustom: true,
-      installments: input.installments.map((i) => ({ ...i, amountPaise: i.amountPaise.toString() })),
-    });
-  return { status: plan.status, body: plan.status === 201 ? { id: booking.body.id } : plan.body };
+  return { status: res.status, body: res.status === 201 ? { id: res.body.booking.id } : res.body };
 }
