@@ -39,7 +39,7 @@ export class PortalAccountService {
         // merely sorted safely. This code path is `tenantPrisma: any`, so
         // TypeScript's own null-check on the schema's now-nullable dueDate
         // does NOT catch this site — it was found by manual audit, not by
-        // tsc. See docs/plans/construction-linked-demand-fix.md §2 (consumer #6).
+        // tsc. See internal plan construction-linked-demand-fix.md §2 (consumer #6).
         const nextDue = installments
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .filter((i: any) => i.status !== 'PAID' && i.dueDate !== null)

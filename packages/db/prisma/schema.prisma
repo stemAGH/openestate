@@ -699,7 +699,7 @@ model PaymentPlanTemplate {
 /// Whether a milestone becomes due by calendar offset from booking date
 /// (current, original behaviour) or only once a staff user marks the
 /// underlying construction stage complete and raises it. See
-/// docs/plans/construction-linked-demand-fix.md — this distinction is the
+/// internal plan construction-linked-demand-fix.md — this distinction is the
 /// entire point of that fix: previously EVERY milestone behaved as
 /// DATE_LINKED, which is what let a customer be shown overdue against a
 /// construction stage the builder had never reached.
@@ -743,7 +743,7 @@ model PaymentPlanMilestone {
 
 /// The audit-trail record for one "stage completed, raise its demands"
 /// event. Exactly one row per raise action, whether it touched one
-/// installment or hundreds — see docs/plans/construction-linked-demand-fix.md
+/// installment or hundreds — see internal plan construction-linked-demand-fix.md
 /// §1.4. `templateId`/`milestoneSeq` identify the stage being raised
 /// (a PaymentPlanMilestone is template-scoped, not project-scoped, so the
 /// stage's true identity within one project is the pair (templateId,
@@ -782,7 +782,7 @@ enum UnitStatus {
 }
 
 /// The inventory hierarchy shape a Project uses. Two values, not six —
-/// see docs/plans/plotted-farmhouse-inventory.md §3.2 for the argument
+/// see internal plan plotted-farmhouse-inventory.md §3.2 for the argument
 /// that APARTMENT/COMMERCIAL_TOWER share a shape (HIGH_RISE), and
 /// PLOTTED/COMMERCIAL_PLOT/FARMHOUSE/VILLA share a shape (LAND_BASED).
 /// Category (residential vs commercial, apartment vs villa) is separate
@@ -1415,7 +1415,7 @@ model InquiryStageHistory {
   @@map("inquiry_stage_history")
 }
 
-/// Follow-Up Page spec gap #2 (docs/plans/followup-spec-gap-analysis.md,
+/// Follow-Up Page spec gap #2 (internal plan followup-spec-gap-analysis.md,
 /// SOP rule 5): "the SOP screenshot shows a reason-selection control with
 /// multiple possible reasons, but the textual SOP does not provide a
 /// canonical complete list ... treated as configurable master data."
@@ -1857,7 +1857,7 @@ model Installment {
   /// share a percent (the seed's own Excavation/Plinth are both 15%).
   milestoneSeq     Int?              @map("milestone_seq")
   /// NULL means "not yet due" — true only for an unraised STAGE_LINKED
-  /// installment. See docs/plans/construction-linked-demand-fix.md §2 for
+  /// installment. See internal plan construction-linked-demand-fix.md §2 for
   /// the full, enumerated list of every consumer's null-handling.
   dueDate          DateTime?         @map("due_date") @db.Date
   amountPaise      BigInt            @map("amount_paise")

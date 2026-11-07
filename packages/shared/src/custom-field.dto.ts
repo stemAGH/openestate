@@ -28,7 +28,7 @@ export type CustomFieldEntity = (typeof CUSTOM_FIELD_ENTITIES)[number];
  *
  * BOOKING is in CUSTOM_FIELD_ENTITIES but not here yet: `bookings` has no
  * `custom_fields` column. It is planned for v0.8.0 PR 2
- * (docs/plans/uploaded-documents-plan.md §2f), which adds the column and
+ * (internal plan uploaded-documents-plan.md §2f), which adds the column and
  * writes it from BookingController without editing BookingService. Until
  * then, rather than let an admin define a BOOKING field that silently does
  * nothing, definition creation for an unsupported entity is rejected at

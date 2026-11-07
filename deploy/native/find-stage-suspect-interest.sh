@@ -29,7 +29,7 @@
 # have no source milestone row to join against at all.
 #
 # DELIBERATELY EXCLUDES "possession": On Possession is STAGE_LINKED in
-# the new model (see docs/plans/construction-linked-demand-fix.md §5),
+# the new model (see internal plan construction-linked-demand-fix.md §5),
 # but "On Possession" is also the generic, unaffected, always-DATE_LINKED
 # terminal milestone of plans like Down Payment Plan. Matching that
 # label would flood this report with installments that were never

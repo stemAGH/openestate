@@ -1,5 +1,5 @@
 /**
- * Follow-Up Page spec gap #2 (docs/plans/followup-spec-gap-analysis.md,
+ * Follow-Up Page spec gap #2 (internal plan followup-spec-gap-analysis.md,
  * SOP rule 5): Dump requires a reason (from configurable master data)
  * and remarks, and every InquiryStatus transition — not just Dump —
  * now writes an InquiryDispositionHistory row, closing the one axis of

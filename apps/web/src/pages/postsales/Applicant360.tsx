@@ -128,7 +128,7 @@ export default function Applicant360() {
   // an unraised STAGE_LINKED installment (dueDate === null) has nothing
   // due to demand payment against, so it must not be offered as a demand/
   // reminder-letter target. See
-  // docs/plans/construction-linked-demand-fix.md revision 2, clarification 1.
+  // internal plan construction-linked-demand-fix.md revision 2, clarification 1.
   const dueInstallments = (planVersions?.find((v) => v.isActive)?.installments ?? []).filter(
     (i) => i.dueDate !== null && BigInt(i.amountPaise) - BigInt(i.allocatedPaise) > 0n,
   );

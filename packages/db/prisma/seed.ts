@@ -275,7 +275,7 @@ async function main() {
   //
   // "Construction-Linked Plan"'s stage milestones are STAGE_LINKED, not
   // DATE_LINKED — this is the fix for a real correctness bug (see
-  // docs/plans/construction-linked-demand-fix.md): every milestone here
+  // internal plan construction-linked-demand-fix.md): every milestone here
   // used to get a hardcoded dueOffsetDays from booking date regardless of
   // whether the underlying construction stage had actually happened,
   // which meant a customer could be shown overdue — and accrue delay

@@ -4,11 +4,11 @@
 > document — **"SOP: LeadSync – Lead Follow-up and Disposition
 > Management"** — supplied by the user. Treat its content as a source of
 > truth about how the underlying sales team's follow-up process actually
-> works, the same way `docs/plans/` treats other planning inputs. It is
-> saved here verbatim (no edits below this note) so it can be referenced
-> by file path rather than only existing as a chat attachment. See
-> `docs/plans/followup-spec-gap-analysis.md` for how this compares
-> against what OpenEstate already has.
+> works, the same way the project's internal plans treat other planning
+> inputs. It is saved here verbatim (no edits below this note) so it can be
+> referenced by file path rather than only existing as a chat attachment.
+> The comparison against what OpenEstate already has is kept in the
+> project's internal plans.
 
 ---
 

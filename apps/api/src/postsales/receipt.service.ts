@@ -92,7 +92,7 @@ export class ReceiptService {
           // "customer paid early, nowhere raised to put it yet" is a
           // suspense account (competitive-gap-analysis.md names this gap;
           // not built in this pass) — see
-          // docs/plans/construction-linked-demand-fix.md §revision 2 for
+          // internal plan construction-linked-demand-fix.md §revision 2 for
           // why this rejection is deliberately narrow and where a future
           // suspense sweep would hook in.
           if (inst.dueDate === null) {

@@ -4,7 +4,7 @@ import { readFixture } from '../fixtures/state';
 import { login, controlAfterLabel } from '../fixtures/actions';
 import { DATABASE_URL_SYSTEM } from '../playwright.config';
 
-// Follow-Up Page spec gap #3 (docs/plans/followup-spec-gap-analysis.md):
+// Follow-Up Page spec gap #3 (internal plan followup-spec-gap-analysis.md):
 // linking a Successful lead to the real booking it converted to
 // (Booking.sourceInquiryId). Real-browser coverage for the part only a
 // rendered UI can prove — the "Create Booking" link only appearing once

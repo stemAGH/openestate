@@ -1,7 +1,7 @@
 /**
  * Aadhaar guard for custom fields (v0.8.0) — deterrence against
  * ACCIDENTAL storage, not prevention. See
- * docs/plans/uploaded-documents-plan.md §2h.
+ * internal plan uploaded-documents-plan.md §2h.
  *
  * - Layer (a), `containsAadhaarKeyword`: refuses custom-field keys and
  *   labels that name Aadhaar. Known false positive: आधार is also the
@@ -16,7 +16,7 @@
  * Verhoeff tables: Wikipedia "Verhoeff algorithm", citing Verhoeff (1969).
  * UIDAI's numbering document names Verhoeff but does not pin the
  * permutation, so v0.8.0 is not tagged until a human has checked this
- * against real numbers (docs/release-plan.md).
+ * against real numbers (the internal release plan).
  */
 
 // d[a][b]: the dihedral group D5 — element i < 5 is the rotation

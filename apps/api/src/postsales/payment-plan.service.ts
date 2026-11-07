@@ -67,7 +67,7 @@ export class PaymentPlanService {
             // second manual raise of an already-raised stage finds
             // nothing left to do (idempotent by design, see
             // StageRaiseService). See
-            // docs/plans/construction-linked-demand-fix.md §1.7.1.
+            // internal plan construction-linked-demand-fix.md §1.7.1.
             const existingRaise = await findStageRaise(tx, companyId, booking.projectId, templateId, m.seq);
             await tx.installment.create({
               data: {
@@ -140,7 +140,7 @@ export class PaymentPlanService {
               // Explicit, not the schema default — a human choosing a
               // specific due date on a custom-plan row IS date-linked
               // semantics. See
-              // docs/plans/construction-linked-demand-fix.md revision 2,
+              // internal plan construction-linked-demand-fix.md revision 2,
               // clarification 2: relying on the column default here would
               // be exactly how a future change (e.g. adding STAGE_LINKED
               // support to custom plans) could silently reintroduce this

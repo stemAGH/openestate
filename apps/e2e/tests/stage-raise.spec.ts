@@ -7,7 +7,7 @@ import { DATABASE_URL_SYSTEM } from '../playwright.config';
 // Construction-linked demand fix — proves what a server-side test can't:
 // the schedule view actually renders "not yet due" (new Date(null) would
 // otherwise silently render 1970-01-01, no crash, no error — see
-// docs/plans/construction-linked-demand-fix.md §2, consumer #10), and
+// internal plan construction-linked-demand-fix.md §2, consumer #10), and
 // the "Construction Stages" raise UI genuinely calls the real endpoint
 // and the schedule genuinely updates afterward. Reuses the 'mastersCrud'
 // fixture for its login/project context; builds its own template +

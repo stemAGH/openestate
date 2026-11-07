@@ -84,7 +84,7 @@ export default function ReceiptEntry() {
   // itself is never refused (a customer paying ahead of a milestone is
   // normal); what's refused is applying that money against a stage the
   // builder hasn't reached yet, since nothing is actually due against it.
-  // See docs/plans/construction-linked-demand-fix.md revision 2,
+  // See internal plan construction-linked-demand-fix.md revision 2,
   // clarification 1.
   const dueInstallments = useMemo(
     () =>

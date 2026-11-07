@@ -6,7 +6,7 @@ import { computeRaisedDueDate, findStageRaise } from './stage-raise.util';
 
 /**
  * Bulk per-project-stage demand raising. See
- * docs/plans/construction-linked-demand-fix.md §1.5-1.6 for why this is
+ * internal plan construction-linked-demand-fix.md §1.5-1.6 for why this is
  * bulk (a construction stage is a project-wide physical fact — the slab
  * gets poured once, for every customer on it) rather than per-booking,
  * and why no separate single-installment raise action exists: a booking

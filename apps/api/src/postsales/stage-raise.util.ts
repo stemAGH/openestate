@@ -4,7 +4,7 @@ import { Prisma } from '@prisma/client';
  * The one date-computation formula for a STAGE_LINKED installment's due
  * date, used by both raise paths (the bulk per-project-stage endpoint and
  * self-raise-at-instantiation) so there is exactly one place this math
- * lives. See docs/plans/construction-linked-demand-fix.md §1.2 — this is
+ * lives. See internal plan construction-linked-demand-fix.md §1.2 — this is
  * NOT dueOffsetDays (that stays booking-date-anchored, DATE_LINKED only).
  */
 export function computeRaisedDueDate(stageCompletedOn: Date, graceDaysAfterRaise: number): Date {

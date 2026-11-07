@@ -1,6 +1,6 @@
 /**
  * Through-the-wire coverage for the Follow-Up Page spec's item #2 fix
- * (docs/plans/followup-spec-gap-analysis.md): Dump requires a reason
+ * (internal plan followup-spec-gap-analysis.md): Dump requires a reason
  * and remarks (SOP rule 5), enforced through the real ZodValidationPipe/
  * guard chain, not just the service.
  */

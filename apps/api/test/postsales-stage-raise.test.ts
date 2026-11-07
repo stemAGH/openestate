@@ -1,6 +1,6 @@
 /**
  * Construction-linked demand fix — regression tests for the core claims
- * in docs/plans/construction-linked-demand-fix.md §7:
+ * in internal plan construction-linked-demand-fix.md §7:
  *   - an unraised STAGE_LINKED installment never appears overdue and
  *     never accrues interest, however far the clock advances;
  *   - raising sets the due date correctly and interest accrues only from
@@ -137,7 +137,7 @@ describeIf('Construction-linked demand fix', () => {
     });
     // Postgres's own NULL-comparison semantics exclude the STAGE_LINKED
     // row from `dueDate: { lt: ... }` — see
-    // docs/plans/construction-linked-demand-fix.md §2/§3.
+    // internal plan construction-linked-demand-fix.md §2/§3.
     expect(overdue).toHaveLength(1);
     expect(overdue[0].milestoneType).toBe('DATE_LINKED');
   });

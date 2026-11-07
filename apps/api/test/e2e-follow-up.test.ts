@@ -1,6 +1,6 @@
 /**
  * Through-the-wire coverage for the Follow-Up Page spec's item #1 fix
- * (docs/plans/followup-spec-gap-analysis.md): nextActionAt required
+ * (internal plan followup-spec-gap-analysis.md): nextActionAt required
  * while a lead is active (SOP rule 2), and interactionAt as a field
  * distinct from createdAt/nextActionAt (Collision 3). A direct-service
  * test can prove the service logic; only a real HTTP request proves the

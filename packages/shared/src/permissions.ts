@@ -135,7 +135,7 @@ export const PERMISSIONS = {
   // Raising a construction-linked stage (setting real due dates, starting
   // the interest clock) — deliberately separate from DEMAND_GENERATE,
   // which only renders an already-due installment's letter PDF. See
-  // docs/plans/construction-linked-demand-fix.md.
+  // internal plan construction-linked-demand-fix.md.
   POSTSALES_DEMAND_RAISE: 'postsales.demand.raise',
   POSTSALES_RECEIPT_READ: 'postsales.receipt.read',
   POSTSALES_RECEIPT_CREATE: 'postsales.receipt.create',

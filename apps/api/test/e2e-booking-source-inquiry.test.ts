@@ -1,7 +1,7 @@
 /**
  * Through-the-wire HTTP coverage for POST /bookings/:id/source-inquiry
  * (Booking.sourceInquiryId — item 3 of the Follow-Up Page spec work,
- * docs/plans/followup-spec-gap-analysis.md): proves the real route is
+ * internal plan followup-spec-gap-analysis.md): proves the real route is
  * registered, gated by POSTSALES_BOOKING_CREATE, and that the inquiry
  * actually flips to SUCCESSFUL over a real request — the same "a
  * controller-method-direct-call test proves the handler, not that the

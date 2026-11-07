@@ -12,7 +12,7 @@ interface Installment {
   seq: number;
   label: string;
   /** Null for an unraised STAGE_LINKED installment — see
-   * docs/plans/construction-linked-demand-fix.md §2. */
+   * internal plan construction-linked-demand-fix.md §2. */
   dueDate: string | null;
   amountPaise: string;
   allocatedPaise: string;
@@ -117,7 +117,7 @@ export default function InstallmentSchedule() {
       header: 'Due Date',
       // new Date(null) silently resolves to 1970-01-01 in JavaScript — it
       // does NOT throw — so this branch is not defensive decoration, it's
-      // the actual fix. See docs/plans/construction-linked-demand-fix.md
+      // the actual fix. See internal plan construction-linked-demand-fix.md
       // §2, consumer #10.
       render: (i) =>
         i.dueDate ? (

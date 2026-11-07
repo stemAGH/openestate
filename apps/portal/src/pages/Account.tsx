@@ -108,7 +108,7 @@ export default function Account() {
                     {/* new Date(null) silently resolves to 1970-01-01 in
                         JS rather than throwing — this branch is the fix,
                         not decoration. See
-                        docs/plans/construction-linked-demand-fix.md §2. */}
+                        internal plan construction-linked-demand-fix.md §2. */}
                     {i.dueDate ? new Date(i.dueDate).toLocaleDateString('en-IN') : 'not yet due'}
                   </span>
                   <span className={i.status === 'PAID' ? 'text-green-600' : ''}>

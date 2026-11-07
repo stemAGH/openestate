@@ -105,7 +105,7 @@ export class InterestService {
     // installment (dueDate NULL) invisible to accrual: Postgres evaluates
     // `NULL < asOf` as NULL, which WHERE treats as false, so it never
     // enters this result set at all — see
-    // docs/plans/construction-linked-demand-fix.md §2/§3. The non-null
+    // internal plan construction-linked-demand-fix.md §2/§3. The non-null
     // assertion on inst.dueDate below is therefore always safe: every row
     // reaching this loop has already passed that filter.
     const installments = await tx.installment.findMany({

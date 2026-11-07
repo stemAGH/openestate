@@ -1,6 +1,6 @@
 /**
  * Through-the-wire HTTP coverage for the new StageRaiseController
- * (docs/plans/construction-linked-demand-fix.md) — per this codebase's
+ * (internal plan construction-linked-demand-fix.md) — per this codebase's
  * standing rule that a new controller needs at least one real-HTTP test,
  * not just direct-service-call tests, to prove the route is actually
  * registered and the guard chain (permission guard, CSRF on POST) gates it.

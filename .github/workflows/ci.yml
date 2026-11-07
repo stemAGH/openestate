@@ -935,8 +935,8 @@ jobs:
           # Assertion 3 above only proves the permission ROWS arrived; it
           # says nothing about whether any role can actually USE them.
           # That gap shipped for four consecutive releases, each with this
-          # job green: on a real v0.1.2 -> v0.2.3 upgrade of the
-          # 192.168.1.2 VM, `permissions` had all 142 rows while
+          # job green: on a real v0.1.2 -> v0.2.3 upgrade of a
+          # verification VM, `permissions` had all 142 rows while
           # super_admin still held only the 140 it was seeded with,
           # silently making v0.2.0's PLC pricing UI unreachable on every
           # upgraded install. super_admin is the only role this is

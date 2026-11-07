@@ -5,7 +5,7 @@
  * the client actually entered (`landAreaEntered`, `landAreaEnteredUnit`).
  * The entered pair is the source of truth for pricing; the sqft column
  * is a derived projection for reports, filters and sorting. See the plan
- * document (`docs/plans/plotted-farmhouse-inventory.md` §7.1) for the
+ * document (`internal plan plotted-farmhouse-inventory.md` §7.1) for the
  * two-column rationale.
  *
  * Every function here is BigInt-exact for the four integer-factor units

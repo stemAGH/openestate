@@ -2,7 +2,7 @@
  * Authorization regression tests: a portal session must never be able to
  * use a staff route, whatever permissions its role happens to hold.
  *
- * Suspected finding SF-01 (docs/testing/ui-audit-plan.md): the seeded
+ * Suspected finding SF-01 (internal ui-audit-plan.md): the seeded
  * `broker` portal role holds `reports.broker.view`, which is the only
  * permission `BrokerReportsController` (reports/broker-reports.controller.ts)
  * checks, and `JwtStrategy` does not tell a portal token from a staff one.

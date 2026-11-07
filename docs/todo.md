@@ -4,130 +4,12 @@ Cross-phase follow-ups that were consciously deferred, with the phase where
 they're expected to land. Each entry should say *what*, *why deferred*, and
 *what unblocks it*.
 
-## v0.9 "pilot readiness": what is planned
-
-The top item comes first; the rest are each written up in their own entry below
-(search the heading) and are not ordered.
-
-**Scope of v0.9.0:** only item 1 (delayed-payment interest) plus the backup
-permission fix ("Backups made before v0.9" below), and the CI work in item 11.
-Items 2–10 and 12 are not in v0.9.0 and stay open for later releases; the
-pilot-readiness plan as a whole is not done.
-
-1. **Delayed-payment interest can't be switched on for a booking** (next entry).
-   **Released in v0.9.0** (2026-11-03, tag `v0.9.0`), rehearsed on the VM from
-   `v0.8.5-verified` (snapshot `v0.9.0-rc-349dcc37-verified`).
-2. **Wizard: a refused payment plan leaves a booking with no plan** (the entry
-   right after the top item's).
-3. **"Log out everywhere" should also end other devices' access tokens at once.**
-4. **Which cookie the browser keeps after two overlapping refreshes.**
-5. **Indexes on the 70 unindexed foreign-key columns** (in "Deferred from v0.8.4
-   items A and G").
-6. **The erasure CLI hard-delete tool (item Q)** (in "Erasure").
-7. **Upgrades refresh the installed systemd unit.**
-8. **Lint the root `scripts/` folder.**
-9. **A fragile super_admin test.**
-10. **Upgrade audit rows list permission keys; the Roles screen's list ids.**
-11. **Make the previous-release upgrade CI variants version-aware** (found at the
-    v0.8.5 release). Done in PR #78 (five variants, see its entry); lands on
-    master with the merge.
-12. **Three LOW usability items left by the v0.8.5 session-isolation fix.**
-
-## v0.9 TOP ITEM: delayed-payment interest can't be switched on for a booking
-
-Found in the v0.8.4 VM rehearsal (2026-10-15). Interest rules can be set up
-under Masters and `InterestService` accrues correctly, but nothing writes
-`Booking.interestRuleId`: no DTO field, no service, no screen. Accrual skips a
-booking without a rule, so no interest is ever charged, and the v0.8.4
-installment/interest-rule refusals (the `ON DELETE RESTRICT` links) can't be
-reached through the app. v0.8.4 states this as a known limitation. The fix
-touches the frozen financial core (`Booking`, `BookingService`, the booking
-wizard, and how a rule change affects accruals already posted), so it needs a
-written plan and owner approval before any code. Decide with it: whether a rule
-may be attached after booking, and whether changing it is allowed once interest
-has been charged.
-
-**Built (branch `v0.9-interest-rule`, 2026-10-16), to the owner's rulings:** a
-rule can be attached at booking (the wizard requires a choice: a rule or "No
-delay interest") or later (`PUT /bookings/:id/interest-rule`, permission
-`postsales.interest.manage`); interest runs only from the attach date
-(`bookings.interest_from_date`); a change or removal settles up to today under
-the old rule first, and past interest is never recalculated; no rule is
-attached on upgrade (the upgrade prints how many active bookings have none); a
-rule in use can't be re-rated or deleted (`bookings_interest_rule_id_fkey` is
-now `ON DELETE RESTRICT`); a transfer copies the rule from the transfer date.
-Also fixed: two accrual runs at once double-posted a period, and the manual
-accrue action charged interest on a cancelled booking.
-
-**Status (2026-11-03):** release candidate `349dcc3` (PR #78). CI run
-41664855406 passed all 10 jobs. VM rehearsal from `v0.8.5-verified` with the
-installed v0.8.5 script and the full SHA: 42 → 44 migrations, 283 foreign keys
-validated, every pre-existing financial record identical (content checksums),
-the permission on accounts/company_admin/super_admin only; in the browser,
-attach / change / remove, accrue (₹0, interest runs from the attach date), five
-simultaneous accruals, compound refused, deleting an attached rule refused, a
-role without the permission refused, and portal isolation. Not shown on the VM
-(one company, nothing overdue since attachment): a non-zero charge and
-cross-company access; the automated tests cover both. Evidence:
-`~textopen/oe-rehearsal/v090-20261103-155431/`. **Released in v0.9.0**
-(2026-11-03). Two notes for the release (both in the release notes):
-
-- `postsales.interest.manage` reaches existing `accounts` and `company_admin`
-  roles only through the v0.8.4 seed baseline. An install that skips v0.8.4
-  (v0.8.3 or older straight to v0.9) records its first baseline instead, adds
-  nothing, and lists the key under "roles that differ from their defaults"; an
-  admin grants it in Roles. Say so in the release notes.
-- A user without the permission (a sales manager, by default) books without
-  the interest choice; the wizard says Accounts sets it from the schedule.
-
-## Cheque queue returns HTTP 500 for an unknown status (already in v0.8.5)
-
-Seen in the v0.9 VM rehearsal (2026-11-03, about 16:05 UTC), signed in as the
-UIAUDIT accounts user: `GET /api/v1/receipts/cheque-queue?status=PENDING`
-returned 500, while `CLEARED`, `DEPOSITED` and `BOUNCED` returned 200.
-`PENDING` is not a status (the enum is `NOT_APPLICABLE`, `RECEIVED`,
-`DEPOSITED`, `CLEARED`, `BOUNCED`); the request was hand-made, and the Cheque
-Queue screen only sends valid values. Likely cause, from the code (the server
-log for that request was not read): `ReceiptController.chequeQueue` puts the raw
-`?status=` string into the Prisma `where`, with no zod validation, so Prisma
-rejects the unknown enum value and the default exception filter turns it into a
-500. The file is identical in v0.8.5, so it's not a v0.9 regression. It is a
-read, so nothing is written or changed and no data is returned. Severity: low
-(an input-validation gap against the "validate every input with zod" rule, not
-a data or money problem). Fix: validate `status` against the enum and return
-400; add a through-the-wire test with an unknown value. To confirm the cause,
-read the API journal around that time from the `v0.9.0-rc-349dcc37-verified`
-snapshot, or reproduce it on a disposable install.
-
-**Cause confirmed and fixed on branch `fix/cheque-queue-status-400` (from
-v0.9.0, not yet released).** Reproduced on a disposable install at v0.9.0:
-`PENDING`, `received`, `CLEARED ` (trailing space), an unknown value and a
-repeated `status` all returned 500, and the server log showed Prisma's
-`PrismaClientValidationError` ("Invalid value for argument `clearanceStatus`.
-Expected ChequeClearanceStatus."). The fix validates `status` with a zod query
-DTO (one of the five statuses, or empty for the default queue), so the
-validation pipe answers 400 naming the field before the handler runs.
-`apps/api/test/e2e-cheque-queue-status.test.ts` checks that over HTTP, plus that
-the handler (the only place the query runs) is never called for a bad value,
-and that omitted, empty and valid statuses, the BOUNCED tab, company scoping and
-the permission are unchanged. It fails on the v0.9.0 controller and passes with
-the fix. **Released in v0.9.1** (2026-11-04, PR #81, tag `v0.9.1`).
-
-## Backups made before v0.9 are world-readable until secured
-
-v0.9's `backup-native.sh` writes root-only bundles, but bundles made by earlier
-versions stay `644` inside `755` folders until the one-time command in the
-v0.9.0 release notes is run. Done on the verification VM during the rehearsal.
-Still exposed: copies of old bundles made off the server, and the VM snapshots
-taken before 2026-11-03 (`v0.8.5-verified` and older), which contain the old
-permissions; re-run the command after reverting to one of them.
-
 ## v0.9: wizard: a refused payment plan leaves a booking with no plan
 
 Wizard: booking is created before the payment plan; if the plan is refused
 (e.g. installments not equal to the GST-inclusive total) the booking is left
-with no plan and holds its unit, and retries on that unit fail. Seen on the VM
-rehearsal 2026-10-19 (bookings 000006–000008). Also: the 400's reason isn't
+with no plan and holds its unit, and retries on that unit fail. Seen in a
+verification-VM rehearsal 2026-10-19 (bookings 000006–000008). Also: the 400's reason isn't
 logged anywhere. Must be reproduced deterministically before fixing; the
 GST-inclusive cause is so far inferred.
 
@@ -221,7 +103,7 @@ say so in the upgrade output.
 ## v0.8.4: items found during the v0.8.3 release
 
 Each is written up, with its fix and tests, in
-[`docs/testing/v0.8.3-plan.md`](testing/v0.8.3-plan.md) (the v0.8.4 parts):
+the project's internal v0.8.3 plan (the v0.8.4 parts):
 
 - **Parts M, N, O, P and I: DONE, released in v0.8.4 (2026-10-15).**
   M: the API listens on 127.0.0.1 (API_HOST to change) and trusts only loopback
@@ -229,9 +111,8 @@ Each is written up, with its fix and tests, in
   checkout. O: CI upgrades from the previous release tag with its own script
   (clean, orphan, lock-timeout). P: pnpm deploy's stray bin warnings hidden and
   the stray tree removed. I: system-role permission sync with a per-role seed
-  baseline. The VM rehearsal from `v0.8.3-clean` passed on 2026-10-15 (snapshot
-  `v0.8.4-rehearsal`); see CLAUDE.md's v0.8.4 rehearsal entry. The final check
-  of the release commit also passed (snapshot `v0.8.4-verified`).
+  baseline. The verification-VM rehearsal from v0.8.3 passed on 2026-10-15; the final
+  check of the release commit also passed.
 
 ## Deferred from v0.8.4 items A and G (architect decisions, 2026-10-10)
 
@@ -259,23 +140,6 @@ Each is written up, with its fix and tests, in
   them; nothing resolves them yet (see "No orphan-fix script" above). The scan
   was run on the verification VM before release and found none (all 71 links
   validated).
-
-## CVE numbers are pending for three advisories
-
-- **GHSA-vfmf-36cm-8fg7** (v0.8.5, Low 3.3, published 2026-11-03): a CVE was
-  requested at publication on 2026-11-03; no number was confirmed then. Check
-  https://github.com/stemAGH/openestate/security/advisories/GHSA-vfmf-36cm-8fg7
-  around 2026-11-10 and re-request if there is still none.
-- **GHSA-gq5m-m6q6-x32p** (v0.8.3, published 2026-10-10): a CVE was requested
-  while it was a draft, no number was assigned at publication, and it was
-  re-requested on 2026-10-15.
-- **GHSA-x58f-9wjq-rjgj** (v0.8.4, Low 3.3, published 2026-10-15): a CVE was
-  requested at publication on 2026-10-15.
-
-Re-check both around 2026-10-22 on the advisory pages
-(https://github.com/stemAGH/openestate/security/advisories/GHSA-gq5m-m6q6-x32p and
-https://github.com/stemAGH/openestate/security/advisories/GHSA-x58f-9wjq-rjgj);
-re-request any that still have no number.
 
 ## v0.9: make the previous-release upgrade CI variants version-aware
 
@@ -342,19 +206,11 @@ questions: test Firefox and Safari, and decide whether to set an explicit Vite
 build target or add a fallback for older browsers (either would need a full
 re-test).
 
-## Test fixture: the `2fa` account has 2FA turned off
-
-In the VM's `v0.8.4-verified` snapshot, the UIAUDIT `2fa` staff account has 2FA
-off (most likely reset during an earlier admin-2FA-reset check), so the v0.8.5
-browser check could not test 2FA by hand; the automated suite covers it. Turning
-it back on changes a fixture and needs the owner's approval. Do not change the
-account otherwise.
-
 ## Done (v0.8.4): the two flaky test races
 
 DONE, released in v0.8.4 (2026-10-15). Both fixed at their cause, each shown by a
 forced-interleaving test that failed 5 of 5 on the old code and passed 5 of 5
-after the fix (CLAUDE.md, "Every writer of a user's refresh tokens takes the
+after the fix (the internal decisions log, "Every writer of a user's refresh tokens takes the
 per-user lock").
 
 1. **`syncLeadStages` (`packages/db`).** The cause was not two syncs at once
@@ -545,7 +401,7 @@ which and silence or fix it.
 
 The guard still infers a session's surface from `applicantId`/`brokerId` for
 tokens issued before v0.8.1 had a `surface` claim. Removal is in
-`docs/testing/v0.8.3-plan.md`. Not before 2026-10-04 (7 days after v0.8.1
+the project's internal v0.8.3 plan. Not before 2026-10-04 (7 days after v0.8.1
 shipped), and removing it forces a one-time re-login for any session older than
 that and for any install that upgraded straight from v0.8.0.
 
@@ -656,7 +512,7 @@ ALTER INDEX "inquiry_disposition_history_company_id_inquiry_id_changed__idx"
 
 The two foreign keys are deliberate: both columns follow the scalar-FK
 policy (a plain `@db.Uuid` column in the schema, the constraint added in
-the migration; CLAUDE.md Phase 4, "Relation policy"). Prisma can't see
+the migration; the internal decisions log, Phase 4, "Relation policy"). Prisma can't see
 them, so it proposes dropping them. The index rename is Postgres
 truncating a 63+ character name differently from Prisma's own
 truncation. The practical risk: running `prisma migrate dev` would
@@ -682,7 +538,7 @@ tolerance) would surface it.
 
 **Why deferred:** not observed in production. Found on a test VM that had
 been suspended and resumed a week behind while `timedatectl` still said
-"System clock synchronized: yes" (`docs/handoff.md`, 192.168.1.20).
+"System clock synchronized: yes" (on a verification VM).
 
 **What unblocks it:** deciding what to compare against without adding a
 mandatory external dependency (CLAUDE.md principle 1: self-hostable, no
@@ -697,7 +553,7 @@ note.
 `WARN Failed to create bin at .../.bin/<name>. ENOENT: no such file or
 directory` for `browserslist`, `webpack`, `vite` and `terser`, with the
 release directory's path appearing twice in different forms
-(observed on the 192.168.1.20 upgrade to `b83ef31`, 2026-09-24). The
+(observed on a verification-VM upgrade to `b83ef31`, 2026-09-24). The
 upgrade still completed, migrated and passed its health check.
 
 **Why deferred:** cosmetic; cause unknown. The shims are dev-tooling
@@ -708,88 +564,6 @@ printed them too.
 `native-install` job's log) to see whether it's specific to upgrading in
 place, then tracing `pnpm deploy`'s bin linking against the release
 directory's layout.
-
-## Verify on VM at next deployment
-
-Items deferred to real-hardware testing. **Status as of the v0.6.0
-verification session on 192.168.1.20 (2026-09-17)**, real browser
-click-throughs via `claude-in-chrome`, disposable test accounts:
-
-- **2FA/TOTP enrolment and recovery codes — DONE, staff and portal,
-  with one real bug found (logged separately, see "SECURITY-RELEVANT
-  (staff-only): the staff TOTP-verify code input has a hardcoded
-  `maxLength={6}`" above).** Staff: enrollment, TOTP-code login, and
-  forced-password-change all verified with real outcomes (a disposable
-  `company_admin` user). Portal: enrollment, TOTP-code login, and — this
-  is the one genuinely new information the portal pass produced —
-  full-recovery-code login **succeeded** (typed with real keystrokes,
-  landed on the real broker dashboard) and the same code was correctly
-  **rejected on reuse**, confirming the portal field has no equivalent
-  `maxLength` bug and one-time consumption works on both surfaces.
-- **Broker NOC → cancel → clawback → statement PDF — PARTIALLY
-  VERIFIED, not fully verified.** Every step that has real UI was
-  exercised and passed with real, cross-checked outcomes: broker
-  creation, a `FLAT_PERCENT` commission rule, a booking with the broker
-  attached (via `BookingWizard`'s confirm-step broker select), commission
-  accrual (₹10,500 on a ₹5,25,000 GST-inclusive booking), a partial
-  ₹4,000 payment (request → approve → pay), cancellation correctly
-  **blocked** with the exact expected error before an NOC existed,
-  the broker portal's real Approve click, cancellation **succeeding**
-  after approval, the resulting Outstanding balance flipping to exactly
-  **−₹4,000.00** (matching the hand-derived clawback formula:
-  `CLAWBACK_REVERSAL = -(accrued-paid)` then `CLAWBACK_RECOVERY = -paid`
-  under the default `RECOVER` policy — not ₹0, not still positive), and
-  the downloaded broker statement PDF matching that figure exactly,
-  row-for-row (ACCRUAL → PAYMENT → CLAWBACK_REVERSAL →
-  CLAWBACK_RECOVERY). **The one step NOT exercised through real UI:
-  requesting the NOC itself** — see the new entry below, "Staff has no
-  UI to call `POST /bookings/:id/noc/request`" — which was done via an
-  authenticated in-page `fetch()` (the real access token captured from
-  the app's own outgoing request, not fabricated) because no button for
-  it exists anywhere in `apps/web`. Because of that one substitution,
-  this item is not a full "verified in a real browser" claim per this
-  file's own primary lesson — everything downstream of the NOC existing
-  (approve, cancel, clawback, statement) is fully real-browser-verified;
-  the request step itself is not.
-- **The live cross-origin click between the staff and portal login
-  screens — DONE, both directions, from genuinely logged-out state.**
-  Staff `/login` (unauthenticated) → "Customer or broker? Go to the
-  portal" → landed on the real portal (in this case the already-
-  authenticated broker's own dashboard, since a portal session was
-  still live from the 2FA pass — a valid pass per the code's own
-  documented "authenticated visitor skips the redirect" behavior, not
-  the blank-page/404 the link was built to catch). Then, after
-  explicitly signing out of the portal too: portal `/portal/login`
-  (unauthenticated) → "Staff member? Go to the staff login" → landed on
-  the real, rendered staff `/login` form — the strictest possible signal,
-  confirming the historical basename bug does not recur.
-
-- **v0.6.1's staff recovery-code fix — NOT YET DONE, due after the VM is
-  upgraded to v0.6.1.** Playwright covers it end to end, but no human has
-  looked at it. On 192.168.1.20: sign in to a 2FA-enabled staff account
-  whose recovery codes you hold, with a full recovery code typed on a real
-  keyboard; check the "Lost your
-  phone? Use a recovery code" toggle's wording on staff and portal, and on
-  a real phone confirm the keyboard each mode brings up (number pad for the
-  6-digit code, full keyboard with letters and a dash in recovery mode).
-  The keyboard part is reasoned from `inputMode`, not verified.
-
-- **v0.7.0's admin 2FA reset and `--clear-2fa` — NOT YET DONE.** CI's
-  native-install job runs the script on a fresh install, and Playwright
-  covers both in-app resets, but neither has been run on a real, upgraded
-  install. On the VM: turn 2FA on for a disposable staff user and a
-  portal user; reset each from the staff app and sign in with the
-  password alone; confirm the audit rows on Admin → Audit Log; run
-  `reset-admin-password.sh` without the flag on a 2FA account and read the
-  warning, then with `--clear-2fa`.
-
-**Not yet restored**: the claim removed from `docs/docs/installation.md`
-(see the "User-facing docs had drifted from this log" entry in
-CLAUDE.md's decisions log for why it was removed) — the NOC item above
-is only partially verified, so this stays deferred until a session
-either builds the missing "Request NOC" UI and re-verifies through it,
-or makes a deliberate, documented decision that the `fetch()` substitution
-is an acceptable permanent verification method for a UI-less endpoint.
 
 ## Staff has no UI to call `POST /bookings/:id/noc/request` — a genuine gap, not a "look elsewhere" case
 
@@ -906,7 +680,7 @@ allow bypassing" is off.
 pipe (`import { ZodValidationPipe } from 'nestjs-zod'`). `apps/api/src/main.ts`
 uses the app's own pipe in `apps/api/src/common/pipes/zod-validation.pipe.ts`
 instead, which reports what failed (e.g. `code: Invalid code format`) rather
-than a generic `Validation failed` (see CLAUDE.md's toast-audit entry).
+than a generic `Validation failed` (see the internal decisions log's toast-audit entry).
 The same bad recovery code showed both:
 - the API test got `"message":"Validation failed"`
 - the Playwright harness, which runs the real `main.ts`, got
@@ -933,7 +707,7 @@ touches it."
 
 **This is behind the stale lockfile flag** (same investigation as the entry
 above). After the v0.6.0 release rewrote `pnpm-lock.yaml` with identical
-bytes (see CLAUDE.md's note under "v0.6.0 released" on why
+bytes (see the internal decisions log's note under "v0.6.0 released" on why
 `pnpm install --lockfile-only` is a no-op here), the file kept showing as
 modified until its cached timestamp was refreshed with
 `git update-index --refresh`. Every hash and size matched, and `git diff` was
@@ -974,7 +748,7 @@ minutes.
 
 **Why not sharded now**: this exact tradeoff was already considered once
 and deliberately deferred in favor of the time-based 500/2000 PR-vs-nightly
-split (see CLAUDE.md's Phase 4 decisions, "Ledger property test:
+split (see the internal decisions log's Phase 4 decisions, "Ledger property test:
 nightly-2000 / PR-500 split, not CI-matrix sharding") — the reasoning there
 was that a 4-way matrix (400–500/shard) would 4x the runner minutes for the
 same total coverage per run (sharding parallelizes wall time, not cost),
@@ -1001,7 +775,7 @@ that question rather than sharding on wall-clock time alone.
 ## Three known-timing-sensitive test failures, not re-investigated (contention-class, evidence already in hand)
 
 Found in a real full-`pnpm test` run on the walkthrough VM (2 CPU cores,
-live production traffic sharing the box — see CLAUDE.md's `scripts/
+live production traffic sharing the box — see the internal decisions log's `scripts/
 test-setup.sh` verification entry for the full context): `e2e-portal-
 throttle.test.ts`'s "throttle state survives a fresh app instance" test and
 `webhook-delivery.test.ts`'s "N concurrent exhausted deliveries produce
@@ -1077,19 +851,6 @@ Found while shipping 0.8.1: `pgrep` is not installed in the Git Bash shell
 on the dev machine, so `pgrep -f vitest 2>/dev/null` printed nothing
 because it failed, and several earlier "nothing running" checks proved
 nothing. The same rule is in CLAUDE.md's working habits.
-
-## Local test containers: two pairs claim the same ports
-
-This development machine has two Postgres+Redis container pairs that both
-bind 5432 and 6379: `oe-test-pg`/`oe-test-redis` (the throwaway test
-infrastructure `.test-env` points at) and `openestate-manual-pg`/
-`openestate-manual-redis`. Only one pair can run at a time. After Docker
-Desktop restarts, neither is running, and starting the wrong pair means the
-tests connect to a database that isn't the provisioned test database —
-failures there look like application bugs. Start `oe-test-pg` and
-`oe-test-redis` explicitly. Either rename the manual pair's ports or delete
-it; the repo itself uses no containers (see CLAUDE.md), so this is a
-machine setup issue, not a repo one.
 
 ## Test-infra flakiness from `syncLeadStages`' unscoped scan — timeboxed, root cause not fixed
 
@@ -1188,7 +949,7 @@ capping would help or hurt should be carried forward from it either way.
 ## `BrokerBankDetail.isPrimary` has a real, still-open race condition
 
 Found while designing `LeadStage.isDefault`'s enforcement (Phase 0 of
-feature-completion-plan.md — see CLAUDE.md's decisions entry). Verified
+feature-completion-plan.md — see the internal decisions log's decisions entry). Verified
 by reading the code directly, not assumed: `BrokerBankDetail.isPrimary`
 is enforced only by a transactional clear-then-set (`updateMany` inside
 a transaction), with no database constraint backing it. Two concurrent
@@ -1208,7 +969,7 @@ anything starts trusting it as a hard invariant.
 ## Built: lead ownership & manager hierarchy (v0.4) — what's still open from that work
 
 `User.managerId` + `TeamScopeService` + the CI guard landed in v0.4 (see
-CLAUDE.md's "v0.4 — lead ownership and manager hierarchy" decisions entry
+the internal decisions log's "v0.4 — lead ownership and manager hierarchy" decisions entry
 for the full writeup). Three things that entry deliberately left open:
 
 - **`managerWiseInteractions()` (`presales/reports.service.ts`) is now
@@ -1374,13 +1135,6 @@ CHANGELOG.md's `[Unreleased]` entry for the full writeup, including how
 already-created zero-GST bookings are surfaced (boot-time log + admin
 banner + a "Zero-GST bookings" CSV report) rather than silently altered.
 
-**Pilot checklist (operations).** Check these before a pilot server goes live:
-
-- **The server clock must be NTP-synced** (`timedatectl` says `System clock
-  synchronized: yes`, and `date` matches a trusted clock). 2FA codes and
-  password-reset links fail otherwise, and a virtual machine resumed from a
-  snapshot can say "synchronized" while hours behind. See the clock-skew entry
-  above and the 0.8.3 section of the installation guide.
 
 ## `Project.isActive` has no enforced meaning anywhere
 
@@ -1429,9 +1183,8 @@ this note once it has a real, tested effect.
   hardcoded `maxLength={6}`, which makes recovery-code login through the
   real UI impossible.** v0.6.1 removed the limit, added a recovery-code
   toggle on both surfaces, and made `totpVerifySchema` trim and uppercase
-  the code; see CLAUDE.md's "v0.6.1 — staff recovery-code input" entry.
-  Still owed: a manual pass after the VM is upgraded (see "Verify on VM at
-  next deployment" above), and a check on a real phone of the keyboard each
+  the code; see the internal decisions log's "v0.6.1 — staff recovery-code input" entry.
+  Still owed: a manual pass after the VM is upgraded (on a verification VM), and a check on a real phone of the keyboard each
   mode brings up. A staff user who has lost **both** their authenticator
   and their recovery codes now has a way back in: the admin 2FA reset
   (v0.7.0). The original report follows, unedited.
@@ -1439,7 +1192,7 @@ this note once it has a real, tested effect.
   sets `maxLength={6}`, but a real recovery code
   (`TotpService.generateRecoveryCodes()`) is `XXXXX-XXXXX` — 11 characters.
   Typing a full recovery code with real keystrokes truncates it to 6
-  (confirmed live on 192.168.1.20's v0.6.0 install: `FA897-AF930` became
+  (confirmed live on a verification VM's v0.6.0 install: `FA897-AF930` became
   `FA897-`), which then fails the client-side zod resolver
   (`totpVerifySchema`'s `code` regex, `^(\d{6}|[0-9A-F]{5}-[0-9A-F]{5})$`)
   before the request ever reaches the network — the login attempt never
@@ -1451,7 +1204,7 @@ this note once it has a real, tested effect.
   contradicts its own backend contract.
   `apps/portal/src/pages/Login.tsx`'s equivalent TOTP field has **no**
   `maxLength` at all — so this is staff-only, and is a violation of
-  CLAUDE.md's mirrored-auth standing rule (a defect found on one surface
+  the internal decisions log's mirrored-auth standing rule (a defect found on one surface
   is a question about the other) in one specific direction. **Combined
   with the "planned admin-side 2FA reset" noted in the next entry below —
   which doesn't exist yet, confirmed by reading `AuthController`/
@@ -1464,7 +1217,7 @@ this note once it has a real, tested effect.
   real keystrokes into the field — a scripted `.value=` set (bypassing
   the DOM's own `maxLength` enforcement) would have silently passed the
   full value through and never revealed the truncation, exactly the
-  "real typing vs. scripted value-set" gap CLAUDE.md's own "Boundary of
+  "real typing vs. scripted value-set" gap the internal decisions log's own "Boundary of
   browser-automation verification" section warns about. Fix is
   presumably just removing/widening the `maxLength` (and possibly
   loosening `inputMode="numeric"`, which some mobile keyboards use as a
@@ -1475,7 +1228,7 @@ this note once it has a real, tested effect.
   2FA and password-change events write no audit row.** Every 2FA and
   password event on both surfaces now writes one row through
   `authAuditData` (`apps/api/src/auth/auth-audit.ts`) in the transaction
-  that makes the change; the admin 2FA reset shipped with it. See CLAUDE.md's
+  that makes the change; the admin 2FA reset shipped with it. See the internal decisions log's
   v0.7.0 entries. The original report follows, unedited.
   `AuthService` and `PortalAuthService` use `SYSTEM_PRISMA`, which
   carries no audit extension, so `User`'s `AUDITED_MODELS` registration
@@ -1527,7 +1280,7 @@ this note once it has a real, tested effect.
   accounts, and portal 2FA verify refuses staff accounts. This also
   covers the related finding that a portal session could call staff API
   routes (the broker role's `reports.broker.view` let brokers read the
-  staff broker reports). See CLAUDE.md's 0.8.1 entry. The original report
+  staff broker reports). See the internal decisions log's 0.8.1 entry. The original report
   follows, unedited.
   A pending-2FA token issued by one surface is accepted by the
   other surface's `totp/verify` — portal verify will issue a staff user a
@@ -1688,7 +1441,7 @@ this note once it has a real, tested effect.
   of the reviewer's: `runWithTenant()` throws if a same-company call
   would replace an active portal scope, and `runScoped()` (promoted to
   `packages/db`, was private to `NocService`) is the blessed helper for
-  any future dual-purpose service. See CLAUDE.md Phase 6 commit 4
+  any future dual-purpose service. See the internal decisions log, Phase 6 commit 4
   decisions for the full audit of every currently portal-reachable
   service (all clean, only `NocService` needed the fix) and the
   guardrail's test coverage.
@@ -1705,7 +1458,7 @@ this note once it has a real, tested effect.
 - **Plugin execution has no worker-thread/process isolation — a genuine
   synchronous infinite loop in a plugin hook blocks the single Node event
   loop and cannot be preempted by `PluginRuntimeService.invoke()`'s
-  `Promise.race` timeout.** Stated plainly in CLAUDE.md Phase 7 decisions
+  `Promise.race` timeout.** Stated plainly in the internal decisions log, Phase 7 decisions
   and in the plan's Trust Model section: first-party plugins ship as
   reviewed npm workspace packages inside this repo, not untrusted code in
   a marketplace, so the isolation boundary (package-boundary — no
@@ -1774,7 +1527,7 @@ and in `role_permissions`.
 documents, and reusing them would silently widen roles on upgrade: every
 existing sales_executive would gain access to KYC scans, and every
 customer a portal upload capability, with no admin decision. The uploaded-
-documents plan (`docs/plans/uploaded-documents-plan.md`, §2d) uses new
+documents plan (internal plan `uploaded-documents-plan.md`, §2d) uses new
 `postsales.uploaded-document.*` names for exactly that reason.
 
 **Why deferred:** deleting a constant from the code removes nothing from
@@ -1800,7 +1553,7 @@ permission ids — including permissions the caller's own role doesn't hold.
 There is no check anywhere in the method that the grantor's current
 permission set is a superset of what they're about to grant. Found while
 scoping the uploaded-documents plan
-(`docs/plans/uploaded-documents-plan.md`), which needed to reason about who
+(internal plan `uploaded-documents-plan.md`), which needed to reason about who
 can reach a newly-added permission.
 
 **Severity, reasoned, not assumed:** grepped `packages/shared/src/roles.ts`
@@ -1962,7 +1715,7 @@ React Router client-side transition) — it remounts the whole SPA and
 re-fires `AuthProvider`'s mount-time `/auth/refresh` call. This project
 already documents and partially mitigates this exact race
 (`REFRESH_REUSE_GRACE_SECONDS`, the "rapid-reload-logout" fix in
-CLAUDE.md's Decisions log) — the new finding is that under **real CI
+the internal decisions log) — the new finding is that under **real CI
 concurrency** (many spec files' own logins and page reloads landing in
 the same narrow window, not just React StrictMode's double-effect
 pattern the original fix targeted), the existing grace window can still
@@ -2007,7 +1760,7 @@ heaviest specs (`team-scope`, `user-role-edit`, `ticket-reply`,
 of each doing several sequential fresh logins in one test, the same
 "extend an existing fixture's login, don't add a new one" discipline
 this file's own portal-auth-throttle entry already established for a
-different bucket. Either way, per CLAUDE.md's standing rule, a real
+different bucket. Either way, per the internal decisions log's standing rule, a real
 change to the refresh/auth path needs its own real-browser
 click-through on both staff and portal before it ships — a materially
 bigger undertaking than this entry, and deliberately not attempted as a

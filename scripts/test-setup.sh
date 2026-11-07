@@ -90,10 +90,9 @@ run_pnpm() {
   if ! node -e "fetch('https://registry.npmjs.org/', { signal: AbortSignal.timeout(5000) })" >/dev/null 2>&1; then
     die "pnpm $* failed, and this machine cannot reach registry.npmjs.org over
 HTTPS right now (checked directly just now, not inferred from the error
-above). If this is the walkthrough VM (192.168.1.100), its system clock is
-known to drift and break TLS certificate validation for exactly this host
-— see docs/handoff.md's \"192.168.1.100's system clock\" section for the
-fix. Otherwise, check your own network/proxy/firewall.
+above). If this is a virtual machine resumed from a snapshot, its system
+clock may have drifted and broken TLS certificate validation for exactly this
+host; sync the clock and retry. Otherwise, check your own network/proxy/firewall.
 The original pnpm error is above this message."
   fi
   die "pnpm $* failed (exit ${status}) — see the output above."

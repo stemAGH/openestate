@@ -6,7 +6,7 @@
  * `floor` is null for a LAND_BASED unit (Phase A), so a customer whose
  * booking is against a floorless unit got a raw 500 on their own
  * property page, not a degraded page. See
- * docs/plans/plotted-farmhouse-inventory.md §13.1 for the full
+ * internal plan plotted-farmhouse-inventory.md §13.1 for the full
  * breakdown of what else this audit found and fixed vs. deliberately
  * left alone.
  *

@@ -1,5 +1,5 @@
 /**
- * Regression test for a real upgrade-path bug found on the 192.168.1.2
+ * Regression test for a real upgrade-path bug found on a
  * verification VM while taking it from v0.1.2 to v0.2.3.
  *
  * `permissions` had all 142 rows (syncPermissions did its job), but

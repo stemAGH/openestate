@@ -11,7 +11,7 @@ class RaiseStageDto extends createZodDto(raiseStageSchema) {}
 
 /**
  * Bulk per-project-stage demand raising. See
- * docs/plans/construction-linked-demand-fix.md §1.5/§6.1. Mounted under
+ * internal plan construction-linked-demand-fix.md §1.5/§6.1. Mounted under
  * /projects — a project-scoped resource — even though StageRaiseService
  * lives in the postsales module, since it writes Installment/PaymentPlan
  * rows that module owns; NestJS controllers route independently of their

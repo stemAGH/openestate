@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { readFixture } from '../fixtures/state';
 import { login, controlAfterLabel, openMasterTable } from '../fixtures/actions';
 
-// Follow-Up Page spec gap #2 (docs/plans/followup-spec-gap-analysis.md,
+// Follow-Up Page spec gap #2 (internal plan followup-spec-gap-analysis.md,
 // SOP rule 5): Dump used to be a single-click status button with no
 // reason or remarks captured at all. Real-browser coverage for the
 // parts that can only be proven by an actual rendered UI, not already

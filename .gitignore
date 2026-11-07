@@ -38,3 +38,6 @@ apps/e2e/.fixture-state.json
 # .claude/settings.json (the shared, committed one) and .claude/skills/
 # are unaffected; this pattern only matches the local-override filename.
 .claude/settings.local.json
+
+# Local-only instruction file that imports the private internal repo; see that repo's README
+CLAUDE.local.md

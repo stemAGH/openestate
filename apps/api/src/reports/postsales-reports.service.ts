@@ -54,7 +54,7 @@ export class PostsalesReportsService {
     // ascending sort would put them at the very top of the dues list, and
     // .getTime() on a null dueDate below would throw. Nothing is "due" for
     // an unraised installment, so it must not appear in a dues report at
-    // all. See docs/plans/construction-linked-demand-fix.md §2.
+    // all. See internal plan construction-linked-demand-fix.md §2.
     const installments = await this.systemPrisma.installment.findMany({
       where: {
         companyId,
@@ -344,7 +344,7 @@ export class PostsalesReportsService {
     // no separate `not: null` needed here, unlike installmentDues() above
     // whose query had no date filter at all. Confirmed by an explicit
     // regression test, not just this comment. See
-    // docs/plans/construction-linked-demand-fix.md §2.
+    // internal plan construction-linked-demand-fix.md §2.
     const overdue = await this.systemPrisma.installment.findMany({
       where: { companyId, bookingId: { in: bookingIds }, isActive: true, status: { not: 'PAID' }, dueDate: { lt: now } },
       select: { dueDate: true },

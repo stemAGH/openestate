@@ -13,7 +13,7 @@ const SIMPLE_MASTERS = [
   { modelName: 'PlcType', routePath: 'plc-types', apiTag: 'PLC Types' },
   { modelName: 'InquirySource', routePath: 'inquiry-sources', apiTag: 'Inquiry Sources' },
   // No seeded defaults, deliberately — see DumpReason's own schema doc
-  // comment (docs/plans/followup-spec-gap-analysis.md gap #2): the SOP
+  // comment (internal plan followup-spec-gap-analysis.md gap #2): the SOP
   // gives no canonical reason list to seed from, unlike LeadStage.
   { modelName: 'DumpReason', routePath: 'dump-reasons', apiTag: 'Dump Reasons' },
   { modelName: 'InquiryType', routePath: 'inquiry-types', apiTag: 'Inquiry Types' },

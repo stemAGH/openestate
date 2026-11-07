@@ -277,7 +277,7 @@ export default function ProjectDetailPage() {
     enabled: !!id && !!pricingUnitId,
   });
   // Distinct STAGE_LINKED milestones currently unraised somewhere in this
-  // project. See docs/plans/construction-linked-demand-fix.md §6.1.
+  // project. See internal plan construction-linked-demand-fix.md §6.1.
   const { data: pendingStages } = useQuery<
     Array<{ templateId: string; milestoneSeq: number; label: string; pendingCount: number }>
   >({

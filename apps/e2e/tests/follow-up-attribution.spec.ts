@@ -13,7 +13,7 @@ import { login, controlAfterLabel } from '../fixtures/actions';
 // passwordHash/totpSecret included — over the wire; both are now scoped
 // selects (covered by a backend test, e2e-inquiry-assignment.test.ts).
 
-// Follow-Up Page spec gap #1 (docs/plans/followup-spec-gap-analysis.md):
+// Follow-Up Page spec gap #1 (internal plan followup-spec-gap-analysis.md):
 // nextActionAt is now required while a lead is active (SOP rule 2) — a
 // follow-up with no next-action date used to save silently; it now 400s.
 // Reusing this exact flow (rather than adding a new spec/login) for that

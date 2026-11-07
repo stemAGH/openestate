@@ -1,6 +1,6 @@
 /**
  * Follow-Up Page spec's Successful -> Booking gap (item 3,
- * docs/plans/followup-spec-gap-analysis.md): InquiryService.attachBooking
+ * internal plan followup-spec-gap-analysis.md): InquiryService.attachBooking
  * links a real Booking back to its source inquiry (Booking.sourceInquiryId),
  * flipping the inquiry to SUCCESSFUL in the same transaction — the SOP says
  * Successful MEANS a confirmed booking, the booking causes the disposition,
