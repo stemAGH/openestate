@@ -4,44 +4,29 @@ Cross-phase follow-ups that were consciously deferred, with the phase where
 they're expected to land. Each entry should say *what*, *why deferred*, and
 *what unblocks it*.
 
-## v0.9: wizard: a refused payment plan leaves a booking with no plan
+## Fixed (unreleased): wizard: a refused payment plan left a booking with no plan
 
-Wizard: booking is created before the payment plan; if the plan is refused
-(e.g. installments not equal to the GST-inclusive total) the booking is left
-with no plan and holds its unit, and retries on that unit fail. Seen in a
-verification-VM rehearsal 2026-10-19 (bookings 000006–000008). Also: the 400's reason isn't
-logged anywhere. Must be reproduced deterministically before fixing; the
-GST-inclusive cause is so far inferred.
+Fixed with option (c), owner-approved: `POST /bookings/with-plan` creates the
+booking, its plan and its optional interest rule in one transaction, and
+`POST /bookings/quote` lets the wizard show the GST-inclusive total (option b)
+before booking. The refusal reason is now logged. Planless bookings already
+created get a "Create payment plan" panel on the installment schedule, and the
+upgrade prints how many there are. Found alongside it and fixed in the same
+change: nothing stopped two active bookings on one unit (unit status changes
+now lock the unit row; the upgrade also counts units with more than one active
+booking). See the CHANGELOG `[Unreleased]` entry and
+`docs/releases/next-release-notes.md`.
 
-**Reproduced deterministically (2026-11-04, disposable install at v0.9.1).** Over
-HTTP, in the wizard's own order, with a 5% GST base line of ₹10,00,000:
-`POST /bookings` → 201, agreed ₹10,50,000; `POST /bookings/:id/plan/custom` with
-installments adding up to ₹10,00,000 → 400 "Installment amounts (100000000) must
-sum to the amount to schedule (105000000)"; the booking is left BOOKED with no
-plan and its unit BOOKED; booking the same unit again → 400 "only AVAILABLE or
-HELD units can be booked". A plan adding up to the GST-inclusive total → 201.
-**Cause confirmed:** the wizard's custom-plan step shows and collects amounts
-against the total **excluding** GST (`totalBeforeGstPaise`, "each line's tax rate
-is resolved server-side"), but the server requires the installments to equal the
-GST-inclusive agreed price, and it checks only after the booking exists. (The
-400's reason is shown on screen by the wizard; it's not written to the server
-log.)
-
-**Fix options (owner decision; one touches the frozen financial core):**
-- (a) **Percent installments in the wizard.** The plan API already accepts
-  `milestonePercent` and splits the agreed price by those shares exactly
-  (largest remainder; the shares aren't required to add up to 100). Frontend
-  only, no core change; but the person booking enters percentages, not rupee
-  amounts.
-- (b) **Show the GST-inclusive total before booking**, via a read-only "quote"
-  endpoint that runs the same cost-line and GST resolution without saving, and
-  validate the installments against it in the wizard. No change to how a booking
-  is created, but a new endpoint next to the frozen GST code.
-- (c) **Create the booking and its plan in one request** (one transaction), so a
-  refused plan creates nothing. The cleanest guarantee, but it changes
-  `BookingService`/the booking API: needs a written plan and owner approval.
-- In every option, planless bookings already created this way still need a way
-  out (today only cancellation, which posts ledger entries).
+Still open from this work:
+- Broker assignment and the source-inquiry link stay separate calls after the
+  booking. A failure there leaves a valid booking with its plan and shows a
+  message on the schedule page, but they could join the atomic call.
+- `POST /bookings` is deprecated (it creates a booking without a plan); remove
+  it in a later release once API clients have moved.
+- A partial unique index on active bookings per unit would stop duplicates at
+  the database level too. Not added: it needs a migration, and an install that
+  already has a duplicate would fail that upgrade (the upgrade report lists
+  them first).
 
 ## v0.9 follow-up: compounding waits for the CA
 

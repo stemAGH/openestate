@@ -324,6 +324,15 @@ upgrade with `restore-native.sh`. After an upgrade, `check-foreign-keys.sh`
 (in the same folder) lists any database links left unchecked because existing
 rows point at something that no longer exists; it only reads.
 
+**Read the reports at the end of the upgrade output.** Besides the permission
+and interest-rule lines, it counts, per company, active bookings that have **no
+payment plan** and units with **more than one active booking**, with their
+numbers. Nothing is changed for you. For a booking with no plan, open its
+installment schedule and use **Create payment plan** (the installments must add
+up to the agreed price including GST), or **Cancel Booking**. For a unit with two
+active bookings, decide which booking stands (check its receipts) and cancel or
+transfer the other.
+
 This: takes an automatic backup first (same as `backup-native.sh`, unless
 you pass `--no-backup`), checks out the given tag/branch in the source
 checkout, builds a **new** versioned release without touching the one

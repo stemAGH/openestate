@@ -68,7 +68,12 @@ This is OpenEstate's core differentiator. Once a lead converts:
 - **Booking wizard**: applicant + co-applicants, unit selection, a
   cost breakup (base price + preferential-location charges + parking +
   club + maintenance + GST), and a payment plan (down-payment,
-  construction-linked, or custom).
+  construction-linked, or custom). The wizard shows the total payable
+  including GST before you book, and checks a custom schedule against it.
+  The booking, its plan and its delay-interest rule are created together:
+  if any part is refused, nothing is booked and the screen says why. A
+  booking that has no payment plan shows **Create payment plan** on its
+  installment schedule.
 - **Auto-generated installment schedule** from the payment plan.
 - **Receipt entry** — fast, keyboard-first, with automatic oldest-dues-first
   allocation across installments, cheque lifecycle tracking (received →

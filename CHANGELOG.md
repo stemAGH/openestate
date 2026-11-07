@@ -5,6 +5,37 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+No migrations, no new environment variable, no permission changes.
+Release notes (draft): [next-release-notes.md](docs/releases/next-release-notes.md).
+
+### Fixed
+
+- **A refused payment plan left a booking with no plan.** The wizard created
+  the booking, then the plan in a second request, and collected installments
+  against the price excluding GST while the server requires the GST-inclusive
+  price. The plan was refused, the booking stayed BOOKED with no plan, and its
+  unit could not be booked again. The wizard now shows the GST-inclusive total,
+  checks the plan against it, and books the booking, plan and interest rule in
+  one transaction: a refusal creates nothing and says why.
+- **Two bookings of one unit at the same moment could both succeed**, as could
+  a booking racing a manual block, or a transfer into a unit racing a booking
+  of it. Unit status changes now lock the unit row first.
+
+### Added
+
+- `POST /api/v1/bookings/quote` (price preview, writes nothing) and
+  `POST /api/v1/bookings/with-plan` (booking, plan and optional interest rule
+  in one transaction; same permissions as the separate calls).
+- A "Create payment plan" panel on the installment schedule of an active
+  booking that has none.
+- Upgrade output: read-only counts of active bookings with no payment plan and
+  of units with more than one active booking.
+
+### Deprecated
+
+- `POST /api/v1/bookings` (creates a booking without a plan). Use
+  `POST /api/v1/bookings/with-plan`.
+
 ## [0.9.1] - 2026-11-04
 
 A fix release on top of v0.9.0. No migrations, no new environment variable, no
