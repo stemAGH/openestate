@@ -1774,3 +1774,7 @@ the suspect code and confirming the failure persists unchanged in kind),
 not assumed from "E2E is flaky" folklore. This entry documents one
 specific, evidenced instance of pre-existing contention; it does not mean
 future E2E red is presumed innocent.
+
+## Fresh Windows checkouts break `lint-migration-drops.test.ts` (CRLF shebang)
+
+Fresh Windows checkouts get CRLF in scripts/*.mjs (no .gitattributes), which breaks the shebang for vite-node: lint-migration-drops.test.ts fails at load. Fix: a narrow .gitattributes forcing eol=lf for *.mjs and *.sh only (docs and CHANGELOG use CRLF on purpose). Separate PR; check which tracked scripts would be renormalised.
