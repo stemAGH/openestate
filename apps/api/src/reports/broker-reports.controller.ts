@@ -1,4 +1,7 @@
-import { Controller, Get, Param, Query, Req, Res } from '@nestjs/common';
+import { Controller, Get, Inject, Param, Query, Req, Res } from '@nestjs/common';
+import { PrismaClient } from '@openestate/db';
+import { SYSTEM_PRISMA } from '../database/database.module';
+import { auditExport, maskColumn, requireExport } from './export-gate';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { createZodDto } from 'nestjs-zod';
@@ -28,7 +31,29 @@ async function collect<T>(iter: AsyncIterable<T>): Promise<T[]> {
 @ApiTags('Broker Reports')
 @Controller('reports/brokers')
 export class BrokerReportsController {
-  constructor(private readonly reports: BrokerReportsService) {}
+  constructor(
+    private readonly reports: BrokerReportsService,
+    @Inject(SYSTEM_PRISMA) private readonly prisma: PrismaClient,
+  ) {}
+
+  /**
+   * CSV: full data leaves the system, so it needs presales.report.export and
+   * writes an audit row. JSON (on screen) stays on the view permission, with
+   * any Phone column masked, as in every list view.
+   */
+  private async respond(
+    u: JwtPayload, req: Request, res: Response, format: string | undefined,
+    reportKey: string, filename: string, headers: string[], rows: AsyncIterable<unknown[]>, filters: object,
+  ) {
+    if (format === 'csv') requireExport(u);
+    const all = await collect(rows);
+    if (format === 'csv') {
+      await auditExport(this.prisma, { user: u, entityType: 'BrokerReport', reportKey, filters, rowCount: all.length, ip: req.ip });
+      return streamCsv(res, filename, headers, all);
+    }
+    const phone = headers.indexOf('Phone');
+    res.json(phone >= 0 ? maskColumn(all, phone) : all);
+  }
 
   @Get('sold-units')
   @RequirePermissions(PERMISSIONS.REPORTS_BROKER_VIEW)
@@ -37,8 +62,7 @@ export class BrokerReportsController {
     const u = req.user as JwtPayload;
     const headers = ['Broker', 'Booking No.', 'Applicant', 'Unit', 'Agreed Price', 'Status'];
     const gen = this.reports.soldUnits(u.companyId, q.brokerId);
-    if (q.format === 'csv') return streamCsv(res, 'broker-sold-units.csv', headers, gen);
-    res.json(await collect(gen));
+    return this.respond(u, req, res, q.format, 'sold-units', 'broker-sold-units.csv', headers, gen, q);
   }
 
   @Get('commission-summary')
@@ -48,8 +72,7 @@ export class BrokerReportsController {
     const u = req.user as JwtPayload;
     const headers = ['Broker', 'Accrued', 'Paid', 'TDS Withheld', 'Clawed Back', 'Outstanding'];
     const gen = this.reports.commissionSummary(u.companyId);
-    if (q.format === 'csv') return streamCsv(res, 'broker-commission-summary.csv', headers, gen);
-    res.json(await collect(gen));
+    return this.respond(u, req, res, q.format, 'commission-summary', 'broker-commission-summary.csv', headers, gen, q);
   }
 
   @Get('dues')
@@ -59,8 +82,7 @@ export class BrokerReportsController {
     const u = req.user as JwtPayload;
     const headers = ['Broker', 'Phone', 'Outstanding'];
     const gen = this.reports.dues(u.companyId);
-    if (q.format === 'csv') return streamCsv(res, 'broker-dues.csv', headers, gen);
-    res.json(await collect(gen));
+    return this.respond(u, req, res, q.format, 'dues', 'broker-dues.csv', headers, gen, q);
   }
 
   @Get(':brokerId/customer-detail')
@@ -70,8 +92,7 @@ export class BrokerReportsController {
     const u = req.user as JwtPayload;
     const headers = ['Applicant', 'Booking No.', 'Unit', 'Agreed Price', 'Commission Accrued', 'Commission Paid', 'Outstanding'];
     const gen = this.reports.customerDetail(u.companyId, brokerId);
-    if (q.format === 'csv') return streamCsv(res, `broker-${brokerId}-customer-detail.csv`, headers, gen);
-    res.json(await collect(gen));
+    return this.respond(u, req, res, q.format, 'customer-detail', `broker-${brokerId}-customer-detail.csv`, headers, gen, { ...q, brokerId });
   }
 
   @Get('summary')

@@ -1,4 +1,7 @@
-import { Controller, Get, Param, Query, Req, Res } from '@nestjs/common';
+import { Controller, Get, Inject, Param, Query, Req, Res } from '@nestjs/common';
+import { PrismaClient } from '@openestate/db';
+import { SYSTEM_PRISMA } from '../database/database.module';
+import { auditExport, maskColumn, requireExport } from './export-gate';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { createZodDto } from 'nestjs-zod';
@@ -24,6 +27,7 @@ export class PostsalesReportsController {
   constructor(
     private readonly reports: PostsalesReportsService,
     private readonly teamScope: TeamScopeService,
+    @Inject(SYSTEM_PRISMA) private readonly prisma: PrismaClient,
   ) {}
 
   private async scopeFor(user: JwtPayload): Promise<ReportScope> {
@@ -197,8 +201,14 @@ export class PostsalesReportsController {
     const u = req.user as JwtPayload;
     const days = withinDays ? Number(withinDays) : 30;
     const headers = ['Name', 'Phone', 'Birthday (MM-DD)', 'Days Away'];
-    const gen = this.reports.birthdayList(u.companyId, days);
-    if (format === 'csv') return streamCsv(res, 'birthday-list.csv', headers, gen);
-    res.json(await collect(gen));
+    if (format === 'csv') requireExport(u); // before any query runs
+    const rows = await collect(this.reports.birthdayList(u.companyId, days));
+    if (format === 'csv') {
+      // Full numbers leave the system: export permission (above) and an audit row.
+      await auditExport(this.prisma, { user: u, entityType: 'PostsalesReport', reportKey: 'birthday-list', filters: { withinDays: days }, rowCount: rows.length, ip: req.ip });
+      return streamCsv(res, 'birthday-list.csv', headers, rows);
+    }
+    // On screen it is a list view: the phone column is masked.
+    res.json(maskColumn(rows, headers.indexOf('Phone')));
   }
 }

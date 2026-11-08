@@ -1,4 +1,4 @@
-import { Controller, ForbiddenException, Get, Post, Body, Query, Req, Res } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, Req, Res } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { z } from 'zod';
@@ -10,6 +10,7 @@ import { ReportsService, type ReportScope, type DateRange } from './reports.serv
 import { TeamScopeService } from '../team-scope/team-scope.service';
 import { toCsv } from './csv.util';
 import { streamCsv } from '../reports/csv-stream.util';
+import { maskColumn, requireExport } from '../reports/export-gate';
 
 // Exported at module scope (not just used inline) because a controller-
 // method-direct-call test bypasses Nest's validation pipe entirely — only
@@ -39,11 +40,6 @@ async function collect<T>(iter: AsyncIterable<T>): Promise<T[]> {
   return out;
 }
 
-function requireExport(user: JwtPayload): void {
-  if (!user.permissions.includes(PERMISSIONS.PRESALES_REPORT_EXPORT)) {
-    throw new ForbiddenException('Missing presales.report.export permission');
-  }
-}
 
 @ApiTags('Presales Reports')
 @Controller('reports/presales')
@@ -186,7 +182,9 @@ export class ReportsController {
       const rowCount = await this.reportsService.inquiriesExportCount(user.companyId, scope, this.range(q), q.projectId);
       return this.streamRespond(user, req, res, 'inquiries-export', q, headers, rowCount, gen);
     }
-    res.json(await collect(gen));
+    // On screen it is a list view: the phone column is masked. The CSV
+    // above (export permission, audited) keeps the full number.
+    res.json(maskColumn(await collect(gen), headers.indexOf('Applicant Phone')));
   }
 
   // ── new reports ─────────────────────────────────────────────────
