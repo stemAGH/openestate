@@ -5,8 +5,15 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-No migrations, no new environment variable, no permission changes.
-Release notes (draft): [next-release-notes.md](docs/releases/next-release-notes.md).
+Nothing yet. Release notes (draft): [next-release-notes.md](docs/releases/next-release-notes.md).
+
+## [0.10.0] - date of the tag
+
+Atomic booking, the unit lock, a new look for the staff app, reworked sales screens,
+the IST day for due and overdue follow-ups, and phone masking. No migrations, no new
+environment variable, no role changes; the birthday-list and broker-report CSVs now
+also need `presales.report.export`. Release notes:
+[v0.10.0-release-notes.md](docs/releases/v0.10.0-release-notes.md).
 
 ### Fixed
 
@@ -39,6 +46,10 @@ Release notes (draft): [next-release-notes.md](docs/releases/next-release-notes.
 
 ### Changed
 
+- Staff app: a new visual foundation (one set of colour tokens with dark values
+  defined but not yet switchable, the Inter typeface, shared components, a focus
+  ring, a skip link, named icon buttons, WCAG contrast). Layouts and behaviour
+  are unchanged.
 - "Due today", "overdue" and My Day count by the IST calendar day on any
   server, not the server's own time zone (no change on a server set to IST).
 - `GET /api/v1/inquiries` refuses unknown query parameters (400), and `sortBy`
