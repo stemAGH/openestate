@@ -323,7 +323,7 @@ export default function InquiriesPage() {
     { key: 'status', header: 'Status', render: (i) => <InquiryStatusBadge status={i.status} /> },
     { key: 'next', header: 'Next follow-up', render: (i) => <FollowUpDue at={i.nextFollowupAt} /> },
     { key: 'owner', header: 'Owner', render: (i) => i.assignedTo?.name ?? '—' },
-    { key: 'contact', header: 'Contact', render: (i) => <ContactActions name={i.applicant.name} phone={i.applicant.primaryPhone} /> },
+    { key: 'contact', header: 'Contact', render: (i) => <ContactActions name={i.applicant.name} inquiryId={i.id} /> },
   ];
 
   const total = data?.meta?.total;

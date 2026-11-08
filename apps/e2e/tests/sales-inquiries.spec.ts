@@ -126,12 +126,12 @@ test('search and filters narrow the list and live in the URL', async ({ page }) 
   await expect(page).toHaveURL(/\/presales\/inquiries$/);
 });
 
-test('each row has named Call and WhatsApp links with a single 91 country code', async ({ page }) => {
+test('each row has named Call and WhatsApp buttons (pressing them: phone-masking.spec.ts)', async ({ page }) => {
   await signIn(page, org.repEmail);
   await page.goto(`/presales/inquiries?q=${encodeURIComponent(lead.today)}`);
   const r = row(page, lead.today);
-  await expect(r.getByRole('link', { name: `Call ${lead.today}` })).toHaveAttribute('href', `tel:+91${phones.today}`);
-  await expect(r.getByRole('link', { name: `WhatsApp ${lead.today}` })).toHaveAttribute('href', `https://wa.me/91${phones.today}`);
+  await expect(r.getByRole('button', { name: `Call ${lead.today}` })).toBeVisible();
+  await expect(r.getByRole('button', { name: `WhatsApp ${lead.today}` })).toBeVisible();
 });
 
 test('a dashboard tile opens the list filtered to what it counts', async ({ page }) => {

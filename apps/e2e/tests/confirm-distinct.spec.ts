@@ -60,7 +60,9 @@ test('creating a second inquiry with a duplicate phone shows the candidate; conf
     await expect(page.getByText('possible duplicate applicant(s) were found')).toBeVisible();
     const candidateRow = page.locator('li', { hasText: firstName });
     await expect(candidateRow).toBeVisible();
-    await expect(candidateRow).toContainText(phone);
+    // The candidate is someone else's record, listed: last 4 digits only.
+    await expect(candidateRow).toContainText(`••••••${phone.slice(-4)}`);
+    await expect(candidateRow).not.toContainText(phone);
 
     const confirmButton = candidateRow.getByRole('button', { name: 'Confirm distinct' });
     const [confirmRes] = await Promise.all([

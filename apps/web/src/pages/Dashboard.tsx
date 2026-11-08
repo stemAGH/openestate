@@ -232,7 +232,7 @@ export default function Dashboard() {
                     </div>
                     <div className="flex items-center gap-3">
                       <FollowUpDue at={inq.nextFollowupAt} />
-                      <ContactActions name={inq.applicant.name} phone={inq.applicant.primaryPhone} />
+                      <ContactActions name={inq.applicant.name} inquiryId={inq.id} />
                     </div>
                   </li>
                 ))
