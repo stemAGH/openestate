@@ -124,7 +124,7 @@ function AsyncSelectField({ f, value, onChange }: { f: FieldDef; value: string; 
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+      className="mt-1 input"
     >
       <option value="">Select…</option>
       {data?.data?.map((item) => (
@@ -416,7 +416,7 @@ export default function MastersPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-slate-900">Masters</h1>
+      <h1 className="page-title">Masters</h1>
 
       <div className="mt-4 space-y-3">
         {MASTER_CATEGORIES.map((category) => {
@@ -475,12 +475,12 @@ export default function MastersPage() {
       </div>
 
       <div className="mt-4 flex items-center justify-between">
-        <h2 className="text-lg font-medium text-slate-800">
+        <h2 className="section-title">
           {MASTER_TABLES.find((t) => t.key === selectedTable)?.label}
         </h2>
         <button
           onClick={openCreate}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+          className="btn btn-md btn-primary"
         >
           Add Item
         </button>
@@ -496,7 +496,7 @@ export default function MastersPage() {
                   type="text"
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
-                  className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="mt-1 input"
                 />
               </div>
             )}
@@ -519,7 +519,7 @@ export default function MastersPage() {
                       <select
                         value={(formValues[f.key] as string) ?? ''}
                         onChange={(e) => setFormValues((p) => ({ ...p, [f.key]: e.target.value }))}
-                        className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                        className="mt-1 input"
                       >
                         <option value="">Select…</option>
                         {f.options?.map((o) => (
@@ -539,14 +539,14 @@ export default function MastersPage() {
                         value={(formValues[f.key] as string) ?? ''}
                         onChange={(e) => setFormValues((p) => ({ ...p, [f.key]: e.target.value }))}
                         rows={4}
-                        className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                        className="mt-1 input"
                       />
                     ) : (
                       <input
                         type={f.type === 'date' ? 'date' : f.type === 'number' ? 'number' : 'text'}
                         value={(formValues[f.key] as string) ?? ''}
                         onChange={(e) => setFormValues((p) => ({ ...p, [f.key]: e.target.value }))}
-                        className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                        className="mt-1 input"
                       />
                     )}
                     {f.key === 'entityType' &&
@@ -567,7 +567,7 @@ export default function MastersPage() {
           <div className="mt-3 flex gap-3">
             <button
               onClick={handleSave}
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+              className="btn btn-md btn-primary"
             >
               {editItem ? 'Update' : 'Create'}
             </button>
@@ -576,7 +576,7 @@ export default function MastersPage() {
                 setShowForm(false);
                 setEditItem(null);
               }}
-              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="btn btn-md btn-secondary"
             >
               Cancel
             </button>

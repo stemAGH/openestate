@@ -275,14 +275,14 @@ function ApplicantSearch({
               type="button"
               disabled={!newName || !newPhone}
               onClick={createApplicant}
-              className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              className="btn btn-sm btn-primary"
             >
               Create & select
             </button>
             <button
               type="button"
               onClick={() => setShowCreate(false)}
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+              className="btn btn-sm btn-secondary"
             >
               Cancel
             </button>
@@ -578,7 +578,7 @@ export default function BookingWizard() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-2xl font-semibold text-slate-900">New Booking</h1>
+      <h1 className="page-title">New Booking</h1>
 
       {resumeOffer && (
         <div className="mt-4 flex items-center justify-between rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
@@ -706,7 +706,7 @@ export default function BookingWizard() {
                     min={1}
                     value={draft.basePricePaise ? Number(draft.basePricePaise) / 100 : ''}
                     onChange={(e) => setDraft({ ...draft, basePricePaise: String(Math.round(Number(e.target.value) * 100)) })}
-                    className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="mt-1 input"
                   />
                 </div>
               )}
@@ -717,7 +717,7 @@ export default function BookingWizard() {
                   <select
                     value={draft.gstRateId ?? ''}
                     onChange={(e) => setDraft({ ...draft, gstRateId: e.target.value || undefined })}
-                    className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="mt-1 input"
                   >
                     <option value="">Select…</option>
                     {activeGstRates.map((r) => (
@@ -739,7 +739,7 @@ export default function BookingWizard() {
                   type="date"
                   value={draft.bookingDate}
                   onChange={(e) => setDraft({ ...draft, bookingDate: e.target.value })}
-                  className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="mt-1 input"
                 />
               </div>
             </div>
@@ -846,7 +846,7 @@ export default function BookingWizard() {
               <select
                 value={draft.brokerId ?? ''}
                 onChange={(e) => setDraft({ ...draft, brokerId: e.target.value || undefined })}
-                className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="mt-1 input"
               >
                 <option value="">No broker</option>
                 {brokers?.data?.map((b) => (
@@ -862,7 +862,7 @@ export default function BookingWizard() {
                     id="interest-choice"
                     value={draft.interestChoice ?? ''}
                     onChange={(e) => setDraft({ ...draft, interestChoice: e.target.value || undefined })}
-                    className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="mt-1 input"
                   >
                     <option value="" disabled>Choose…</option>
                     <option value={NO_INTEREST}>No delay interest</option>

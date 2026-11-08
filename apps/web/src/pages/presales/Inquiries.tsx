@@ -210,21 +210,21 @@ export default function InquiriesPage() {
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-slate-900">Inquiries</h1>
+        <h1 className="page-title">Inquiries</h1>
         <div className="flex gap-2">
           <button
             onClick={() => downloadFile('/reports/presales/inquiries-export?format=csv', 'inquiries-export.csv')}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+            className="btn btn-sm btn-secondary"
           >
             Export CSV
           </button>
           <button
             onClick={() => setShowImport((v) => !v)}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+            className="btn btn-sm btn-secondary"
           >
             Bulk Import
           </button>
-          <button onClick={() => setShowForm(true)} className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700">
+          <button onClick={() => setShowForm(true)} className="btn btn-md btn-primary">
             Add Inquiry
           </button>
         </div>
@@ -257,7 +257,7 @@ export default function InquiriesPage() {
             <button
               onClick={handleImport}
               disabled={!importFile || importing}
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              className="btn btn-md btn-primary"
             >
               {importing ? 'Uploading…' : 'Upload'}
             </button>
@@ -328,29 +328,29 @@ export default function InquiriesPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-slate-700">Applicant Name</label>
-              <input type="text" value={applicantName} onChange={(e) => setApplicantName(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+              <input type="text" value={applicantName} onChange={(e) => setApplicantName(e.target.value)} className="mt-1 input" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">Phone</label>
-              <input type="text" value={applicantPhone} onChange={(e) => setApplicantPhone(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+              <input type="text" value={applicantPhone} onChange={(e) => setApplicantPhone(e.target.value)} className="mt-1 input" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">Project</label>
-              <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+              <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="mt-1 input">
                 <option value="">Select…</option>
                 {projects?.data?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">Source</label>
-              <select value={sourceId} onChange={(e) => setSourceId(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+              <select value={sourceId} onChange={(e) => setSourceId(e.target.value)} className="mt-1 input">
                 <option value="">Select…</option>
                 {sources?.data?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">Temperature</label>
-              <select value={temperatureId} onChange={(e) => setTemperatureId(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+              <select value={temperatureId} onChange={(e) => setTemperatureId(e.target.value)} className="mt-1 input">
                 <option value="">Select…</option>
                 {temperatures?.data?.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
@@ -379,8 +379,8 @@ export default function InquiriesPage() {
           )}
 
           <div className="mt-3 flex gap-3">
-            <button onClick={handleCreate} className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Create</button>
-            <button onClick={() => setShowForm(false)} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+            <button onClick={handleCreate} className="btn btn-md btn-primary">Create</button>
+            <button onClick={() => setShowForm(false)} className="btn btn-md btn-secondary">Cancel</button>
           </div>
           {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
         </div>

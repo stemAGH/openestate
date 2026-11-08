@@ -117,8 +117,8 @@ export default function LeadStagesPage() {
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-slate-900">Lead Stages</h1>
-        <button onClick={() => setShowCreateForm(true)} className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700">
+        <h1 className="page-title">Lead Stages</h1>
+        <button onClick={() => setShowCreateForm(true)} className="btn btn-md btn-primary">
           Add Stage
         </button>
       </div>
@@ -131,11 +131,11 @@ export default function LeadStagesPage() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
               <label className="block text-sm font-medium text-slate-700">Name</label>
-              <input value={createName} onChange={(e) => setCreateName(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+              <input value={createName} onChange={(e) => setCreateName(e.target.value)} className="mt-1 input" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">Sort Order</label>
-              <input type="number" value={createSortOrder} onChange={(e) => setCreateSortOrder(Number(e.target.value))} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+              <input type="number" value={createSortOrder} onChange={(e) => setCreateSortOrder(Number(e.target.value))} className="mt-1 input" />
             </div>
             <div className="flex items-end pb-2">
               <label className="flex items-center gap-2 text-sm text-slate-700">
@@ -145,8 +145,8 @@ export default function LeadStagesPage() {
             </div>
           </div>
           <div className="mt-3 flex gap-3">
-            <button onClick={handleCreate} className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Create</button>
-            <button onClick={() => setShowCreateForm(false)} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+            <button onClick={handleCreate} className="btn btn-md btn-primary">Create</button>
+            <button onClick={() => setShowCreateForm(false)} className="btn btn-md btn-secondary">Cancel</button>
           </div>
           {createError && <p className="mt-2 text-sm text-red-600">{createError}</p>}
         </div>
@@ -157,11 +157,11 @@ export default function LeadStagesPage() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
               <label className="block text-sm font-medium text-slate-700">Name</label>
-              <input value={editName} onChange={(e) => setEditName(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+              <input value={editName} onChange={(e) => setEditName(e.target.value)} className="mt-1 input" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">Sort Order</label>
-              <input type="number" value={editSortOrder} onChange={(e) => setEditSortOrder(Number(e.target.value))} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+              <input type="number" value={editSortOrder} onChange={(e) => setEditSortOrder(Number(e.target.value))} className="mt-1 input" />
             </div>
             <div className="flex items-end gap-4 pb-2">
               <label className="flex items-center gap-2 text-sm text-slate-700">
@@ -187,18 +187,18 @@ export default function LeadStagesPage() {
                 ))}
               </select>
               <div className="mt-3 flex gap-3">
-                <button onClick={handleSaveEdit} disabled={!reassignToStageId} className="rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50">
+                <button onClick={handleSaveEdit} disabled={!reassignToStageId} className="btn btn-md btn-warning">
                   Reassign and deactivate
                 </button>
-                <button onClick={() => setOccupantCount(null)} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+                <button onClick={() => setOccupantCount(null)} className="btn btn-md btn-secondary">Cancel</button>
               </div>
             </div>
           )}
 
           {occupantCount === null && (
             <div className="mt-3 flex gap-3">
-              <button onClick={handleSaveEdit} className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Save</button>
-              <button onClick={() => setEditItem(null)} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+              <button onClick={handleSaveEdit} className="btn btn-md btn-primary">Save</button>
+              <button onClick={() => setEditItem(null)} className="btn btn-md btn-secondary">Cancel</button>
             </div>
           )}
           {editError && <p className="mt-2 text-sm text-red-600">{editError}</p>}

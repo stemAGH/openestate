@@ -14,7 +14,7 @@ interface Me {
 export default function Settings() {
   return (
     <div className="max-w-lg space-y-6">
-      <h1 className="text-2xl font-semibold text-slate-900">Security</h1>
+      <h1 className="page-title">Security</h1>
       <ChangePasswordCard />
       <TwoFactorCard />
     </div>
@@ -69,7 +69,7 @@ function ChangePasswordCard() {
             type="password"
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
-            className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="mt-1 input"
           />
         </div>
         <div>
@@ -78,7 +78,7 @@ function ChangePasswordCard() {
             type="password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
-            className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="mt-1 input"
           />
         </div>
         <button
@@ -214,7 +214,7 @@ function TwoFactorCard() {
               inputMode="numeric"
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 input"
             />
           </div>
           <button

@@ -47,8 +47,8 @@ export default function LetterTemplatesPage() {
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-slate-900">Letter Templates</h1>
-        <button onClick={() => setShowForm(true)} className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700">
+        <h1 className="page-title">Letter Templates</h1>
+        <button onClick={() => setShowForm(true)} className="btn btn-md btn-primary">
           Add Template
         </button>
       </div>
@@ -58,14 +58,14 @@ export default function LetterTemplatesPage() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="block text-sm font-medium text-slate-700">Name</label>
-              <input value={name} onChange={(e) => setName(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+              <input value={name} onChange={(e) => setName(e.target.value)} className="mt-1 input" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">Type</label>
               <select
                 value={entityType}
                 onChange={(e) => setEntityType(e.target.value as typeof entityType)}
-                className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="mt-1 input"
               >
                 {LETTER_TEMPLATE_ENTITY_TYPES.map((t) => (
                   <option key={t} value={t}>{t}</option>
@@ -74,7 +74,7 @@ export default function LetterTemplatesPage() {
             </div>
             <div className="sm:col-span-2">
               <label className="block text-sm font-medium text-slate-700">Subject</label>
-              <input value={subject} onChange={(e) => setSubject(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+              <input value={subject} onChange={(e) => setSubject(e.target.value)} className="mt-1 input" />
             </div>
             <div className="sm:col-span-2">
               <label className="block text-sm font-medium text-slate-700">Body</label>
@@ -90,8 +90,8 @@ export default function LetterTemplatesPage() {
             </div>
           </div>
           <div className="mt-3 flex gap-3">
-            <button onClick={handleCreate} className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Create</button>
-            <button onClick={() => setShowForm(false)} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+            <button onClick={handleCreate} className="btn btn-md btn-primary">Create</button>
+            <button onClick={() => setShowForm(false)} className="btn btn-md btn-secondary">Cancel</button>
           </div>
           {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
         </div>

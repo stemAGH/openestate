@@ -134,7 +134,7 @@ export default function CompanyConfigPage() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-2xl font-semibold text-slate-900">Company Configuration</h1>
+      <h1 className="page-title">Company Configuration</h1>
 
       {error && (
         <div className="mt-4 rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">
@@ -144,7 +144,7 @@ export default function CompanyConfigPage() {
 
       <div className="mt-6 space-y-6">
         <section>
-          <h2 className="text-lg font-medium text-slate-800">Company Details</h2>
+          <h2 className="section-title">Company Details</h2>
           <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-slate-700">Company Name</label>
@@ -162,7 +162,7 @@ export default function CompanyConfigPage() {
         </section>
 
         <section>
-          <h2 className="text-lg font-medium text-slate-800">Terminology</h2>
+          <h2 className="section-title">Terminology</h2>
           <p className="text-sm text-slate-500">Customize labels used throughout the application</p>
           <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
             {['unit', 'project', 'tower', 'floor', 'booking', 'inquiry'].map((key) => (
@@ -176,7 +176,7 @@ export default function CompanyConfigPage() {
                   onChange={(e) =>
                     setLabels((prev) => ({ ...prev, [key]: e.target.value }))
                   }
-                  className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="mt-1 input"
                 />
               </div>
             ))}
@@ -184,7 +184,7 @@ export default function CompanyConfigPage() {
         </section>
 
         <section>
-          <h2 className="text-lg font-medium text-slate-800">Modules</h2>
+          <h2 className="section-title">Modules</h2>
           <div className="mt-3 space-y-2">
             {MODULES.map((mod) => (
               <label key={mod} className="flex items-center gap-2 cursor-pointer">
@@ -207,7 +207,7 @@ export default function CompanyConfigPage() {
         </section>
 
         <section>
-          <h2 className="text-lg font-medium text-slate-800">GST Registration</h2>
+          <h2 className="section-title">GST Registration</h2>
           <p className="text-sm text-slate-500">
             Your supplier-side GSTIN and registered state — determines whether a
             booking is charged CGST+SGST (intra-state) or IGST (inter-state).
@@ -243,7 +243,7 @@ export default function CompanyConfigPage() {
         </section>
 
         <section>
-          <h2 className="text-lg font-medium text-slate-800">Locale</h2>
+          <h2 className="section-title">Locale</h2>
           <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-slate-700">Currency</label>
@@ -251,7 +251,7 @@ export default function CompanyConfigPage() {
                 type="text"
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="mt-1 input"
               />
             </div>
             <div>
@@ -260,7 +260,7 @@ export default function CompanyConfigPage() {
                 type="text"
                 value={timezone}
                 onChange={(e) => setTimezone(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="mt-1 input"
               />
             </div>
             <div>
@@ -268,7 +268,7 @@ export default function CompanyConfigPage() {
               <select
                 value={fyStartMonth}
                 onChange={(e) => setFyStartMonth(Number(e.target.value))}
-                className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="mt-1 input"
               >
                 {MONTHS.map((m, i) => (
                   <option key={i} value={i + 1}>
@@ -282,7 +282,7 @@ export default function CompanyConfigPage() {
               <select
                 value={dateFormat}
                 onChange={(e) => setDateFormat(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="mt-1 input"
               >
                 <option value="DD-MM-YYYY">DD-MM-YYYY</option>
                 <option value="MM-DD-YYYY">MM-DD-YYYY</option>
@@ -293,7 +293,7 @@ export default function CompanyConfigPage() {
         </section>
 
         <section>
-          <h2 className="text-lg font-medium text-slate-800">Portal Branding</h2>
+          <h2 className="section-title">Portal Branding</h2>
           <p className="text-sm text-slate-500">Logo and accent color shown in the customer/broker portal (apps/portal)</p>
           <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -303,7 +303,7 @@ export default function CompanyConfigPage() {
                 placeholder="https://…/logo.png"
                 value={logoUrl}
                 onChange={(e) => setLogoUrl(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="mt-1 input"
               />
             </div>
             <div>
@@ -329,7 +329,7 @@ export default function CompanyConfigPage() {
         </section>
 
         <section>
-          <h2 className="text-lg font-medium text-slate-800">Project Media Storage</h2>
+          <h2 className="section-title">Project Media Storage</h2>
           <p className="text-sm text-slate-500">Per-project caps on layout plan/brochure/photo uploads. Leave blank to keep the current limit.</p>
           <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>

@@ -87,7 +87,7 @@ export default function PluginDetailPage() {
       </Link>
 
       <div className="mt-2 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-slate-900">{plugin.name}</h1>
+        <h1 className="page-title">{plugin.name}</h1>
         {plugin.installed && plugin.status === 'active' && (
           <button
             onClick={toggle}
@@ -155,7 +155,7 @@ export default function PluginDetailPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={saveConfig}
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+              className="btn btn-md btn-primary"
             >
               Save Configuration
             </button>

@@ -44,7 +44,7 @@ export default function PluginsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-slate-900">Plugins</h1>
+      <h1 className="page-title">Plugins</h1>
       <p className="mt-1 text-sm text-slate-500">
         First-party plugins ship as reviewed packages in this codebase — install and configure them per company here.
       </p>

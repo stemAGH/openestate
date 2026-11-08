@@ -1,0 +1,171 @@
+/*
+ * Design tokens (staff app). One place for every colour the UI uses.
+ *
+ * Values are space-separated RGB channels so Tailwind's opacity modifiers
+ * keep working (tailwind.config.js wraps them as rgb(var(--x) / <alpha>)).
+ *
+ * Two layers:
+ *  - semantic tokens (--bg, --surface, --fg, --primary, ...) for new code
+ *    and the components in src/ui/;
+ *  - the Tailwind scales the existing screens use (slate, blue, red, amber,
+ *    emerald, green, orange), pointed at the same palette so every screen
+ *    takes the new look without changing its markup.
+ *
+ * Contrast (WCAG 2.2, checked when chosen; see the 2026-11-08 UI audit):
+ * body text 17.7:1, secondary 7.7:1, hints 5.4:1 on white; every coloured
+ * text >= 4.5:1 on white and on its own soft background; input borders
+ * 3.6:1 on white (non-text minimum 3:1); white on primary 6.4:1.
+ *
+ * Dark values are defined under [data-theme='dark'] but nothing sets that
+ * attribute yet: the theme switch comes in a later change.
+ */
+:root {
+  /* semantic, light */
+  --bg: 245 246 248;            /* #F5F6F8 page */
+  --surface: 255 255 255;       /* #FFFFFF cards, tables, inputs */
+  --surface-muted: 238 241 245; /* #EEF1F5 table header, hover */
+  --line: 221 226 233;          /* #DDE2E9 dividers (decorative) */
+  --line-input: 125 136 153;    /* #7D8899 input outlines, 3.6:1 */
+  --fg: 17 24 39;               /* #111827 text, 17.7:1 */
+  --fg-2: 71 84 103;            /* #475467 secondary text, 7.7:1 */
+  --fg-3: 95 107 122;           /* #5F6B7A hints, placeholders, 5.4:1 */
+  --primary: 40 82 216;         /* #2852D8 white on it 6.4:1 */
+  --primary-hover: 31 67 184;   /* #1F43B8 */
+  --primary-soft: 235 240 254;  /* #EBF0FE */
+  --primary-fg: 30 64 175;      /* #1E40AF on soft 7.7:1 */
+  --on-primary: 255 255 255;
+  --success: 6 118 71;          /* #067647 5.7:1 */
+  --success-soft: 236 253 243;
+  --warning: 181 71 8;          /* #B54708 5.4:1 */
+  --warning-soft: 255 250 235;
+  --danger: 192 31 31;          /* #C01F1F 6.1:1 */
+  --danger-soft: 254 243 242;
+  --info: 11 106 162;           /* #0B6AA2 5.8:1 */
+  --info-soft: 239 248 255;
+  --focus: 40 82 216;           /* focus ring = primary, 6.4:1 on white */
+
+  /* elevation */
+  --shadow-e1: 0 1px 2px 0 rgb(16 24 40 / 0.06), 0 1px 3px 0 rgb(16 24 40 / 0.06);
+  --shadow-e2: 0 12px 24px -6px rgb(16 24 40 / 0.16), 0 4px 8px -4px rgb(16 24 40 / 0.08);
+
+  /* neutral scale (Tailwind "slate") */
+  --slate-50: 245 246 248;   /* = bg */
+  --slate-100: 238 241 245;  /* = surface-muted */
+  --slate-200: 221 226 233;  /* = line */
+  --slate-300: 125 136 153;  /* = line-input: only used for borders */
+  --slate-400: 99 112 129;   /* #637081 subtle text, 4.7:1 on bg */
+  --slate-500: 95 107 122;   /* = fg-3 */
+  --slate-600: 71 84 103;    /* = fg-2 */
+  --slate-700: 52 64 84;     /* #344054 */
+  --slate-800: 29 41 57;     /* #1D2939 */
+  --slate-900: 17 24 39;     /* = fg */
+  --slate-950: 11 17 32;
+
+  /* primary scale (Tailwind "blue") */
+  --blue-50: 235 240 254;
+  --blue-100: 220 228 253;
+  --blue-200: 191 205 251;
+  --blue-300: 147 171 247;
+  --blue-400: 101 133 240;
+  --blue-500: 60 100 227;    /* #3C64E3 focus borders, 5.1:1 */
+  --blue-600: 40 82 216;     /* = primary */
+  --blue-700: 31 67 184;     /* = primary-hover */
+  --blue-800: 30 64 175;     /* = primary-fg */
+  --blue-900: 27 53 132;
+  --blue-950: 19 36 90;
+
+  /* danger scale (Tailwind "red") */
+  --red-50: 254 243 242;
+  --red-100: 254 228 226;
+  --red-200: 254 205 202;
+  --red-300: 253 162 155;
+  --red-400: 214 69 69;      /* #D64545 */
+  --red-500: 202 46 46;
+  --red-600: 192 31 31;      /* = danger */
+  --red-700: 161 26 26;
+  --red-800: 134 24 24;
+  --red-900: 107 20 20;
+
+  /* warning scale (Tailwind "amber") */
+  --amber-50: 255 250 235;
+  --amber-100: 254 240 199;
+  --amber-200: 254 223 137;
+  --amber-300: 254 200 75;
+  --amber-400: 247 144 9;
+  --amber-500: 220 104 3;
+  --amber-600: 181 71 8;     /* = warning */
+  --amber-700: 147 55 13;
+  --amber-800: 122 46 14;
+  --amber-900: 95 37 10;
+
+  /* success scales (Tailwind "emerald" and "green") */
+  --emerald-50: 236 253 243;
+  --emerald-100: 209 250 223;
+  --emerald-200: 166 244 197;
+  --emerald-600: 6 118 71;   /* = success */
+  --emerald-700: 5 96 58;
+  --emerald-800: 5 79 49;
+
+  /* "orange" (one notice) follows warning */
+  --orange-50: 255 250 235;
+  --orange-700: 185 56 21;
+}
+
+[data-theme='dark'] {
+  --bg: 11 17 32;               /* #0B1120 */
+  --surface: 17 24 39;          /* #111827 */
+  --surface-muted: 26 35 53;    /* #1A2335 */
+  --line: 38 50 71;             /* #263247 */
+  --line-input: 102 117 143;    /* #66758F 3.8:1 */
+  --fg: 232 236 243;            /* #E8ECF3 15.0:1 */
+  --fg-2: 180 189 203;          /* #B4BDCB 9.4:1 */
+  --fg-3: 146 157 176;          /* #929DB0 6.5:1 */
+  --primary: 58 95 224;         /* #3A5FE0 white on it 5.4:1 */
+  --primary-hover: 59 99 230;
+  --primary-soft: 22 34 74;
+  --primary-fg: 157 180 255;    /* #9DB4FF 8.8:1 */
+  --success: 74 222 154;
+  --success-soft: 11 42 30;
+  --warning: 251 191 77;
+  --warning-soft: 44 33 16;
+  --danger: 249 128 128;
+  --danger-soft: 51 22 22;
+  --info: 108 195 245;
+  --info-soft: 14 37 54;
+  --focus: 157 180 255;         /* 8.8:1 on surface */
+  --shadow-e1: 0 1px 2px 0 rgb(0 0 0 / 0.4);
+  --shadow-e2: 0 12px 24px -6px rgb(0 0 0 / 0.6);
+
+  /* scales inverted so light-on-dark keeps each step's role */
+  --slate-50: 26 35 53;
+  --slate-100: 31 41 61;
+  --slate-200: 38 50 71;
+  --slate-300: 102 117 143;
+  --slate-400: 146 157 176;
+  --slate-500: 146 157 176;
+  --slate-600: 180 189 203;
+  --slate-700: 205 212 223;
+  --slate-800: 222 227 236;
+  --slate-900: 232 236 243;
+  --slate-950: 245 247 250;
+  --blue-50: 22 34 74;
+  --blue-100: 28 44 96;
+  --blue-500: 125 155 255;
+  --blue-600: 58 95 224;
+  --blue-700: 79 115 238;
+  --blue-800: 157 180 255;
+  --red-50: 51 22 22;
+  --red-200: 110 40 40;
+  --red-600: 249 128 128;
+  --red-700: 252 160 160;
+  --red-800: 254 190 190;
+  --amber-50: 44 33 16;
+  --amber-200: 110 80 30;
+  --amber-600: 251 191 77;
+  --amber-700: 252 205 110;
+  --amber-800: 253 220 150;
+  --emerald-50: 11 42 30;
+  --emerald-600: 74 222 154;
+  --emerald-700: 110 231 175;
+  --emerald-800: 150 240 196;
+}

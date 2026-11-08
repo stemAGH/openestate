@@ -77,7 +77,7 @@ export default function AuditLogPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-slate-900">Audit Log</h1>
+      <h1 className="page-title">Audit Log</h1>
 
       <div className="mt-4">
         <input

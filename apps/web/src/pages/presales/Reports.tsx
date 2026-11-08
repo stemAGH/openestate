@@ -132,12 +132,12 @@ export default function PresalesReportsPage() {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-slate-900">Pre-Sales Reports</h1>
+        <h1 className="page-title">Pre-Sales Reports</h1>
         <div className="flex gap-2 print:hidden">
           {canExport && (
             <button
               onClick={handleExport}
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+              className="btn btn-sm btn-secondary"
             >
               Export CSV
             </button>
@@ -145,7 +145,7 @@ export default function PresalesReportsPage() {
           {canPrint && (
             <button
               onClick={handlePrint}
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+              className="btn btn-sm btn-secondary"
             >
               Print
             </button>

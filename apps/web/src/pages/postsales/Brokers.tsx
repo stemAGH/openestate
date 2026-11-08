@@ -118,10 +118,10 @@ export default function BrokersPage() {
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-slate-900">Brokers</h1>
+        <h1 className="page-title">Brokers</h1>
         <button
           onClick={() => setShowForm((s) => !s)}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+          className="btn btn-md btn-primary"
         >
           {showForm ? 'Cancel' : 'Add Broker'}
         </button>
@@ -132,23 +132,23 @@ export default function BrokersPage() {
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
             <div>
               <label className="block text-sm font-medium text-slate-700">Name</label>
-              <input tabIndex={1} autoFocus value={name} onChange={(e) => setName(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+              <input tabIndex={1} autoFocus value={name} onChange={(e) => setName(e.target.value)} className="mt-1 input" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">Phone</label>
-              <input tabIndex={2} value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+              <input tabIndex={2} value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-1 input" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">Email</label>
-              <input tabIndex={3} value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+              <input tabIndex={3} value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 input" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">RERA Agent No.</label>
-              <input tabIndex={4} value={reraAgentNo} onChange={(e) => setReraAgentNo(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+              <input tabIndex={4} value={reraAgentNo} onChange={(e) => setReraAgentNo(e.target.value)} className="mt-1 input" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">PAN (encrypted at rest)</label>
-              <input tabIndex={5} value={pan} onChange={(e) => setPan(e.target.value)} placeholder="ABCDE1234F" className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+              <input tabIndex={5} value={pan} onChange={(e) => setPan(e.target.value)} placeholder="ABCDE1234F" className="mt-1 input" />
             </div>
           </div>
           <div className="mt-4 flex items-center gap-3">

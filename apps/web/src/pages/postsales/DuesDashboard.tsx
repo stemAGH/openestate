@@ -58,8 +58,8 @@ export default function DuesDashboard() {
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-slate-900">Dues Dashboard</h1>
-        <button onClick={exportCsv} className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+        <h1 className="page-title">Dues Dashboard</h1>
+        <button onClick={exportCsv} className="btn btn-sm btn-secondary">
           Export CSV
         </button>
       </div>

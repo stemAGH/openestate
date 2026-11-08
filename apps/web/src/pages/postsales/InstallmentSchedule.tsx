@@ -152,7 +152,7 @@ export default function InstallmentSchedule() {
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-slate-900">Installment Schedule</h1>
+        <h1 className="page-title">Installment Schedule</h1>
         {versions && versions.length > 1 && (
           <button
             onClick={() => setShowHistory((s) => !s)}
@@ -200,7 +200,7 @@ export default function InstallmentSchedule() {
           <button
             onClick={accrueCommission}
             disabled={accruing}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            className="btn btn-secondary px-3 py-1.5 text-sm"
           >
             {accruing ? 'Accruing…' : 'Accrue Broker Commission'}
           </button>

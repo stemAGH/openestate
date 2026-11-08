@@ -157,7 +157,7 @@ export default function UserForm() {
 
   return (
     <div className="max-w-lg">
-      <h1 className="text-2xl font-semibold text-slate-900">
+      <h1 className="page-title">
         {isEdit ? 'Edit User' : 'Add User'}
       </h1>
 
@@ -173,7 +173,7 @@ export default function UserForm() {
           <input
             type="text"
             {...register('name')}
-            className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="mt-1 input"
           />
           {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name.message}</p>}
         </div>
@@ -197,7 +197,7 @@ export default function UserForm() {
             <input
               type="email"
               {...register('email')}
-              className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 input"
             />
           )}
           {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>}
@@ -209,7 +209,7 @@ export default function UserForm() {
             <input
               type="password"
               {...register('password')}
-              className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 input"
             />
             {errors.password && (
               <p className="mt-1 text-xs text-red-600">{errors.password.message}</p>
@@ -223,7 +223,7 @@ export default function UserForm() {
           <input
             type="text"
             {...register('phone')}
-            className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="mt-1 input"
           />
           {errors.phone && <p className="mt-1 text-xs text-red-600">{errors.phone.message}</p>}
         </div>
@@ -232,7 +232,7 @@ export default function UserForm() {
           <label className="block text-sm font-medium text-slate-700">Role</label>
           <select
             {...register('roleId')}
-            className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="mt-1 input"
           >
             <option value="">Select a role</option>
             {roles?.map((r: Role) => (
@@ -253,7 +253,7 @@ export default function UserForm() {
               // the empty string an unset select gives back.
               setValueAs: (v) => (v === '' ? null : v),
             })}
-            className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="mt-1 input"
           >
             <option value="">No manager</option>
             {managerOptions.map((u) => (

@@ -100,10 +100,10 @@ export default function LeadApiKeysPage() {
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-slate-900">Lead API Keys</h1>
+        <h1 className="page-title">Lead API Keys</h1>
         <button
           onClick={() => setShowForm(true)}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+          className="btn btn-md btn-primary"
         >
           Create Key
         </button>
@@ -169,19 +169,19 @@ export default function LeadApiKeysPage() {
               min={1}
               value={rateLimitPerMinute}
               onChange={(e) => setRateLimitPerMinute(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="mt-1 input"
             />
           </div>
           <div className="flex gap-3">
             <button
               onClick={handleCreate}
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+              className="btn btn-md btn-primary"
             >
               Create
             </button>
             <button
               onClick={() => setShowForm(false)}
-              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="btn btn-md btn-secondary"
             >
               Cancel
             </button>

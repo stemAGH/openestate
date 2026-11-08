@@ -56,7 +56,7 @@ export default function PortalTwoFactorReset({
       <button
         onClick={reset}
         disabled={pending}
-        className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        className="btn btn-secondary px-3 py-1.5 text-sm"
       >
         {pending ? 'Resetting…' : 'Reset portal 2FA'}
       </button>

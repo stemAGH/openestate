@@ -117,7 +117,7 @@ export default function InterestRulePanel({ bookingId, status, interestRuleId, i
           <button
             onClick={applyChoice}
             disabled={busy || !choice}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            className="btn btn-secondary px-3 py-1.5 text-sm"
           >
             Apply
           </button>
@@ -132,7 +132,7 @@ export default function InterestRulePanel({ bookingId, status, interestRuleId, i
           <button
             onClick={accrue}
             disabled={busy}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            className="btn btn-secondary px-3 py-1.5 text-sm"
           >
             {busy ? 'Working…' : 'Accrue interest now'}
           </button>

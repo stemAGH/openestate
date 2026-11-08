@@ -97,7 +97,7 @@ export default function ChequeQueue() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-slate-900">Cheque / DD Verification Queue</h1>
+      <h1 className="page-title">Cheque / DD Verification Queue</h1>
 
       <div className="mt-4 flex gap-2">
         {['', 'RECEIVED', 'DEPOSITED', 'CLEARED', 'BOUNCED'].map((s) => (
@@ -131,7 +131,7 @@ export default function ChequeQueue() {
             <div className="mt-3 flex justify-end gap-2">
               <button
                 onClick={() => setBounceReasonFor(null)}
-                className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                className="btn btn-sm btn-secondary"
               >
                 Cancel
               </button>

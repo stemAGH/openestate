@@ -232,7 +232,7 @@ export default function Applicant360() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-slate-900">{applicant.name}</h1>
+      <h1 className="page-title">{applicant.name}</h1>
       <div className="mt-1 flex gap-4 text-sm text-slate-600">
         <span>{applicant.primaryPhone}</span>
         {applicant.email && <span>{applicant.email}</span>}
@@ -249,14 +249,14 @@ export default function Applicant360() {
             <button
               onClick={sendPortalInvite}
               disabled={sendingInvite}
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              className="btn btn-secondary px-3 py-1.5 text-sm"
             >
               {sendingInvite ? 'Sending…' : 'Send Portal Invite'}
             </button>
             <button
               onClick={resetPortalPassword}
               disabled={resettingPortalPassword}
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              className="btn btn-secondary px-3 py-1.5 text-sm"
             >
               {resettingPortalPassword ? 'Generating…' : 'Reset portal password'}
             </button>

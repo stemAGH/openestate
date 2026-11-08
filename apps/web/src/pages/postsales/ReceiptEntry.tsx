@@ -175,7 +175,7 @@ export default function ReceiptEntry() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-2xl font-semibold text-slate-900">Receipt Entry</h1>
+      <h1 className="page-title">Receipt Entry</h1>
       <p className="mt-1 text-xs text-slate-500">Tab moves through fields in order; Enter submits.</p>
 
       {success && (
@@ -212,7 +212,7 @@ export default function ReceiptEntry() {
                 value={phoneSearch}
                 onChange={(e) => setPhoneSearch(e.target.value)}
                 placeholder="98765xxxxx"
-                className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="mt-1 input"
               />
               {applicantResults && applicantResults.data.length > 0 && (
                 <div className="mt-1 max-h-40 overflow-y-auto rounded-md border border-slate-200 bg-white">
@@ -240,7 +240,7 @@ export default function ReceiptEntry() {
               tabIndex={2}
               value={bookingId}
               onChange={(e) => setBookingId(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 input"
             >
               <option value="">Select booking</option>
               {threeSixty?.bookings?.map((b) => (
@@ -260,7 +260,7 @@ export default function ReceiptEntry() {
               type="date"
               value={receiptDate}
               onChange={(e) => setReceiptDate(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 input"
             />
           </div>
           <div>
@@ -269,7 +269,7 @@ export default function ReceiptEntry() {
               tabIndex={4}
               value={mode}
               onChange={(e) => setMode(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 input"
             >
               {MODES.map((m) => (
                 <option key={m} value={m}>{m}</option>
@@ -282,25 +282,25 @@ export default function ReceiptEntry() {
           <div className="grid grid-cols-3 gap-4 rounded-md bg-slate-50 p-3">
             <div>
               <label className="block text-xs font-medium text-slate-700">Bank</label>
-              <select tabIndex={5} value={bankId} onChange={(e) => setBankId(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm">
+              <select tabIndex={5} value={bankId} onChange={(e) => setBankId(e.target.value)} className="mt-1 input px-2 py-1.5">
                 <option value="">—</option>
                 {banks?.data?.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-700">Instrument #</label>
-              <input tabIndex={6} type="text" value={instrumentNumber} onChange={(e) => setInstrumentNumber(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm" />
+              <input tabIndex={6} type="text" value={instrumentNumber} onChange={(e) => setInstrumentNumber(e.target.value)} className="mt-1 input px-2 py-1.5" />
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-700">Instrument date</label>
-              <input tabIndex={7} type="date" value={instrumentDate} onChange={(e) => setInstrumentDate(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm" />
+              <input tabIndex={7} type="date" value={instrumentDate} onChange={(e) => setInstrumentDate(e.target.value)} className="mt-1 input px-2 py-1.5" />
             </div>
           </div>
         )}
         {(mode === 'NEFT' || mode === 'RTGS' || mode === 'UPI') && (
           <div>
             <label className="block text-xs font-medium text-slate-700">UTR / reference</label>
-            <input tabIndex={5} type="text" value={utr} onChange={(e) => setUtr(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm" />
+            <input tabIndex={5} type="text" value={utr} onChange={(e) => setUtr(e.target.value)} className="mt-1 input px-2 py-1.5" />
           </div>
         )}
 
@@ -313,7 +313,7 @@ export default function ReceiptEntry() {
             min={0}
             value={grossRupees}
             onChange={(e) => setGrossRupees(e.target.value)}
-            className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="mt-1 input"
           />
         </div>
 

@@ -62,6 +62,9 @@ export async function seedVisualFixture(databaseUrlSystem: string): Promise<E2eF
       where: { companyId_email: { companyId: fixture.companyId, email: fixture.adminEmail } },
       data: { name: 'Asha Admin' },
     });
+    // Fixed display names, so screenshots don't change with the run tag.
+    await prisma.project.updateMany({ where: { companyId: fixture.companyId }, data: { name: 'Green Valley Residency' } });
+    await prisma.areaLocation.updateMany({ where: { companyId: fixture.companyId }, data: { name: 'Hinjewadi, Pune' } });
     return { ...fixture, roleUsers };
   } finally {
     await prisma.$disconnect();

@@ -91,10 +91,10 @@ export default function ProjectsPage() {
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-slate-900">Projects</h1>
+        <h1 className="page-title">Projects</h1>
         <button
           onClick={() => setShowForm(true)}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+          className="btn btn-md btn-primary"
         >
           Add Project
         </button>
@@ -105,26 +105,26 @@ export default function ProjectsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-slate-700">Name</label>
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="mt-1 input" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">Code</label>
-              <input type="text" value={code} onChange={(e) => setCode(e.target.value)} placeholder="e.g. GRW1" className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+              <input type="text" value={code} onChange={(e) => setCode(e.target.value)} placeholder="e.g. GRW1" className="mt-1 input" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">RERA Number</label>
-              <input type="text" value={reraNumber} onChange={(e) => setReraNumber(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+              <input type="text" value={reraNumber} onChange={(e) => setReraNumber(e.target.value)} className="mt-1 input" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">Project Type</label>
-              <select value={projectTypeId} onChange={(e) => setProjectTypeId(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+              <select value={projectTypeId} onChange={(e) => setProjectTypeId(e.target.value)} className="mt-1 input">
                 <option value="">Select…</option>
                 {projectTypes?.data?.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">Area/Location</label>
-              <select value={areaLocationId} onChange={(e) => setAreaLocationId(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+              <select value={areaLocationId} onChange={(e) => setAreaLocationId(e.target.value)} className="mt-1 input">
                 <option value="">Select…</option>
                 {areaLocations?.data?.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
@@ -134,7 +134,7 @@ export default function ProjectsPage() {
               <select
                 value={shape}
                 onChange={(e) => setShape(e.target.value as 'HIGH_RISE' | 'LAND_BASED')}
-                className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="mt-1 input"
               >
                 <option value="HIGH_RISE">High-rise (Tower / Floor / Unit)</option>
                 <option value="LAND_BASED">Land-based (plots, farmhouses, villas)</option>
@@ -147,7 +147,7 @@ export default function ProjectsPage() {
                 <select
                   value={landAreaDefaultUnit}
                   onChange={(e) => setLandAreaDefaultUnit(e.target.value as AreaUnit | '')}
-                  className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  className="mt-1 input"
                 >
                   <option value="">Select…</option>
                   {AREA_UNITS.map((u) => (
@@ -159,7 +159,7 @@ export default function ProjectsPage() {
             )}
             <div className="sm:col-span-2">
               <label className="block text-sm font-medium text-slate-700">Address</label>
-              <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+              <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} className="mt-1 input" />
             </div>
           </div>
           <CustomFieldInputs
@@ -168,8 +168,8 @@ export default function ProjectsPage() {
             onChange={(key, value) => setCustomFieldValues((prev) => ({ ...prev, [key]: value }))}
           />
           <div className="mt-3 flex gap-3">
-            <button onClick={handleCreate} className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700">Create</button>
-            <button onClick={() => setShowForm(false)} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+            <button onClick={handleCreate} className="btn btn-md btn-primary">Create</button>
+            <button onClick={() => setShowForm(false)} className="btn btn-md btn-secondary">Cancel</button>
           </div>
           {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
         </div>

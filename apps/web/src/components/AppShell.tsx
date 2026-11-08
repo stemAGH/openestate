@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
 import { api } from '../lib/api';
 import { PERMISSIONS } from '@openestate/shared';
+import { ChevronRight, Menu } from 'lucide-react';
+import { IconButton } from '../ui';
 
 interface NavLeaf {
   label: string;
@@ -202,7 +204,13 @@ export default function AppShell() {
   };
 
   return (
-    <div className="min-h-screen flex bg-slate-50">
+    <div className="min-h-screen flex bg-bg">
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-surface focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary focus:shadow-lg"
+      >
+        Skip to main content
+      </a>
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-20 bg-black/30 lg:hidden"
@@ -251,15 +259,10 @@ export default function AppShell() {
                   className="flex w-full items-center justify-between rounded-md px-3 py-2 text-xs font-semibold uppercase tracking-wider text-slate-400 hover:bg-slate-100 hover:text-slate-600"
                 >
                   <span>{section.label}</span>
-                  <svg
-                    className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-90' : ''}`}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
+                  <ChevronRight
                     aria-hidden="true"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
+                    className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-90' : ''}`}
+                  />
                 </button>
                 {open &&
                   items.map((item) => (
@@ -301,14 +304,12 @@ export default function AppShell() {
 
       <div className="flex-1 flex flex-col min-w-0">
         <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b border-slate-200 bg-white px-4 lg:px-6">
-          <button
-            className="lg:hidden rounded-md p-2 text-slate-500 hover:bg-slate-100"
+          <IconButton
+            label="Open menu"
+            className="lg:hidden"
             onClick={() => setSidebarOpen(true)}
-          >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
+            icon={<Menu aria-hidden="true" className="h-5 w-5" />}
+          />
           <div className="flex-1" />
           <span className="text-sm text-slate-500 hidden sm:inline">{user?.email}</span>
         </header>
@@ -316,7 +317,7 @@ export default function AppShell() {
         <GstConfigBanner />
         <ZeroGstBookingsBanner />
 
-        <main className="flex-1 p-4 lg:p-6">
+        <main id="main" tabIndex={-1} className="flex-1 p-4 focus:outline-none lg:p-6">
           <Outlet />
         </main>
       </div>

@@ -67,14 +67,14 @@ export default function TicketDetailPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-slate-900">{ticket.subject}</h1>
+      <h1 className="page-title">{ticket.subject}</h1>
       <p className="text-sm text-slate-500">
         {ticket.raisedByName ?? 'Unknown'} {ticket.categoryName && <>· {ticket.categoryName}</>} · Raised{' '}
         {new Date(ticket.createdAt).toLocaleString()}
       </p>
 
       <section className="mt-4">
-        <h2 className="text-lg font-medium text-slate-800">Status: {ticket.status}</h2>
+        <h2 className="section-title">Status: {ticket.status}</h2>
         <div className="mt-2 flex gap-2">
           {STATUSES.filter((s) => s !== ticket.status).map((s) => (
             <button
@@ -90,7 +90,7 @@ export default function TicketDetailPage() {
       </section>
 
       <section className="mt-6">
-        <h2 className="text-lg font-medium text-slate-800">Thread</h2>
+        <h2 className="section-title">Thread</h2>
         <ul className="mt-3 space-y-3">
           {ticket.messages.map((m) => (
             <li
@@ -113,13 +113,13 @@ export default function TicketDetailPage() {
             value={reply}
             onChange={(e) => setReply(e.target.value)}
             rows={3}
-            className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-1 input"
           />
           <div className="mt-2">
             <button
               onClick={handleReply}
               disabled={reply.trim() === ''}
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              className="btn btn-md btn-primary"
             >
               Send Reply
             </button>

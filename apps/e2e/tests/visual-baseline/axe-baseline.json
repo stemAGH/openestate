@@ -1,52 +1,30 @@
 {
   "accounts cheques 1440": [
-    "color-contrast",
     "empty-table-header"
   ],
   "accounts cheques 390": [
-    "button-name",
-    "color-contrast",
     "empty-table-header"
   ],
-  "accounts installments 1440": [
-    "color-contrast"
-  ],
+  "accounts installments 1440": [],
   "accounts installments 390": [
-    "button-name",
-    "color-contrast",
     "scrollable-region-focusable"
   ],
   "company_admin masters 1440": [
-    "color-contrast",
     "empty-table-header"
   ],
   "company_admin masters 390": [
-    "button-name",
-    "color-contrast",
     "empty-table-header"
   ],
-  "sales_executive inquiries 1440": [
-    "color-contrast"
-  ],
-  "sales_executive inquiries 390": [
-    "button-name",
-    "color-contrast"
-  ],
-  "sales_manager dashboard 1440": [
-    "color-contrast"
-  ],
+  "sales_executive inquiries 1440": [],
+  "sales_executive inquiries 390": [],
+  "sales_manager dashboard 1440": [],
   "sales_manager dashboard 390": [
-    "button-name",
-    "color-contrast",
     "scrollable-region-focusable"
   ],
   "super_admin users 1440": [
-    "color-contrast",
     "empty-table-header"
   ],
   "super_admin users 390": [
-    "button-name",
-    "color-contrast",
     "empty-table-header"
   ]
 }

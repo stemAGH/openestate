@@ -686,7 +686,7 @@ export default function ProjectDetailPage() {
         <>
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-2xl font-semibold text-slate-900">{project.name}</h1>
+              <h1 className="page-title">{project.name}</h1>
               <p className="text-sm text-slate-500">
                 Code: {project.code} {project.reraNumber && <>· RERA: {project.reraNumber}</>}
               </p>
@@ -703,11 +703,11 @@ export default function ProjectDetailPage() {
         </>
       ) : (
         <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <h2 className="text-lg font-medium text-slate-800">Edit Project</h2>
+          <h2 className="section-title">Edit Project</h2>
           <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-slate-700">Name</label>
-              <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+              <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="mt-1 input" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">Code</label>
@@ -718,18 +718,18 @@ export default function ProjectDetailPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">RERA Number</label>
-              <input type="text" value={editReraNumber} onChange={(e) => setEditReraNumber(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+              <input type="text" value={editReraNumber} onChange={(e) => setEditReraNumber(e.target.value)} className="mt-1 input" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">Project Type</label>
-              <select value={editProjectTypeId} onChange={(e) => setEditProjectTypeId(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+              <select value={editProjectTypeId} onChange={(e) => setEditProjectTypeId(e.target.value)} className="mt-1 input">
                 <option value="">Select…</option>
                 {projectTypes?.data?.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">Area/Location</label>
-              <select value={editAreaLocationId} onChange={(e) => setEditAreaLocationId(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+              <select value={editAreaLocationId} onChange={(e) => setEditAreaLocationId(e.target.value)} className="mt-1 input">
                 <option value="">Select…</option>
                 {areaLocations?.data?.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
@@ -737,19 +737,19 @@ export default function ProjectDetailPage() {
             </div>
             <div className="sm:col-span-2">
               <label className="block text-sm font-medium text-slate-700">Address</label>
-              <input type="text" value={editAddress} onChange={(e) => setEditAddress(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+              <input type="text" value={editAddress} onChange={(e) => setEditAddress(e.target.value)} className="mt-1 input" />
             </div>
             <div className="sm:col-span-2">
               <label className="block text-sm font-medium text-slate-700">Description</label>
-              <textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} rows={3} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+              <textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} rows={3} className="mt-1 input" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">Start Date</label>
-              <input type="date" value={editStartDate} onChange={(e) => setEditStartDate(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+              <input type="date" value={editStartDate} onChange={(e) => setEditStartDate(e.target.value)} className="mt-1 input" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">Expected End Date</label>
-              <input type="date" value={editExpectedEndDate} onChange={(e) => setEditExpectedEndDate(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+              <input type="date" value={editExpectedEndDate} onChange={(e) => setEditExpectedEndDate(e.target.value)} className="mt-1 input" />
             </div>
           </div>
           <CustomFieldInputs
@@ -769,7 +769,7 @@ export default function ProjectDetailPage() {
                 <button onClick={submitEdit} className="rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700">
                   Yes, save
                 </button>
-                <button onClick={() => setShowAreaChangeConfirm(false)} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                <button onClick={() => setShowAreaChangeConfirm(false)} className="btn btn-md btn-secondary">
                   Cancel
                 </button>
               </div>
@@ -778,10 +778,10 @@ export default function ProjectDetailPage() {
 
           {!showAreaChangeConfirm && (
             <div className="mt-3 flex gap-3">
-              <button onClick={handleSaveEdit} className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+              <button onClick={handleSaveEdit} className="btn btn-md btn-primary">
                 Save
               </button>
-              <button onClick={() => setShowEditForm(false)} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              <button onClick={() => setShowEditForm(false)} className="btn btn-md btn-secondary">
                 Cancel
               </button>
             </div>
@@ -793,8 +793,8 @@ export default function ProjectDetailPage() {
       {project.shape === 'HIGH_RISE' ? (
         <section className="mt-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-medium text-slate-800">Towers</h2>
-            <button onClick={() => setShowTowerForm(true)} className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700">
+            <h2 className="section-title">Towers</h2>
+            <button onClick={() => setShowTowerForm(true)} className="btn btn-primary px-3 py-1.5 text-sm">
               Add Tower
             </button>
           </div>
@@ -803,20 +803,20 @@ export default function ProjectDetailPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-slate-700">Name</label>
-                  <input type="text" value={towerName} onChange={(e) => setTowerName(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+                  <input type="text" value={towerName} onChange={(e) => setTowerName(e.target.value)} className="mt-1 input" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700">Code</label>
-                  <input type="text" value={towerCode} onChange={(e) => setTowerCode(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+                  <input type="text" value={towerCode} onChange={(e) => setTowerCode(e.target.value)} className="mt-1 input" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700">Total Floors</label>
-                  <input type="number" value={towerFloors} onChange={(e) => setTowerFloors(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+                  <input type="number" value={towerFloors} onChange={(e) => setTowerFloors(e.target.value)} className="mt-1 input" />
                 </div>
               </div>
               <div className="mt-3 flex gap-3">
-                <button onClick={handleCreateTower} className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Create</button>
-                <button onClick={() => setShowTowerForm(false)} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+                <button onClick={handleCreateTower} className="btn btn-md btn-primary">Create</button>
+                <button onClick={() => setShowTowerForm(false)} className="btn btn-md btn-secondary">Cancel</button>
               </div>
               {towerError && <p className="mt-2 text-sm text-red-600">{towerError}</p>}
             </div>
@@ -832,8 +832,8 @@ export default function ProjectDetailPage() {
       ) : (
         <section className="mt-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-medium text-slate-800">Inventory Groups</h2>
-            <button onClick={() => setShowGroupForm(true)} className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700">
+            <h2 className="section-title">Inventory Groups</h2>
+            <button onClick={() => setShowGroupForm(true)} className="btn btn-primary px-3 py-1.5 text-sm">
               Add Group
             </button>
           </div>
@@ -843,20 +843,20 @@ export default function ProjectDetailPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-slate-700">Name</label>
-                  <input type="text" value={groupName} onChange={(e) => setGroupName(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+                  <input type="text" value={groupName} onChange={(e) => setGroupName(e.target.value)} className="mt-1 input" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700">Code</label>
-                  <input type="text" value={groupCode} onChange={(e) => setGroupCode(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+                  <input type="text" value={groupCode} onChange={(e) => setGroupCode(e.target.value)} className="mt-1 input" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700">Kind (e.g. Sector, Block)</label>
-                  <input type="text" value={groupKind} onChange={(e) => setGroupKind(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+                  <input type="text" value={groupKind} onChange={(e) => setGroupKind(e.target.value)} className="mt-1 input" />
                 </div>
               </div>
               <div className="mt-3 flex gap-3">
-                <button onClick={handleCreateGroup} className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Create</button>
-                <button onClick={() => setShowGroupForm(false)} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+                <button onClick={handleCreateGroup} className="btn btn-md btn-primary">Create</button>
+                <button onClick={() => setShowGroupForm(false)} className="btn btn-md btn-secondary">Cancel</button>
               </div>
               {groupError && <p className="mt-2 text-sm text-red-600">{groupError}</p>}
             </div>
@@ -874,13 +874,13 @@ export default function ProjectDetailPage() {
 
       <section className="mt-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-medium text-slate-800">{project.shape === 'HIGH_RISE' ? 'Units' : 'Plots'}</h2>
+          <h2 className="section-title">{project.shape === 'HIGH_RISE' ? 'Units' : 'Plots'}</h2>
           {project.shape === 'HIGH_RISE' ? (
-            <button onClick={() => setShowBulkForm(true)} className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700">
+            <button onClick={() => setShowBulkForm(true)} className="btn btn-primary px-3 py-1.5 text-sm">
               Bulk-Generate Units
             </button>
           ) : (
-            <button onClick={handleOpenLandUnitForm} className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700">
+            <button onClick={handleOpenLandUnitForm} className="btn btn-primary px-3 py-1.5 text-sm">
               Add Plot
             </button>
           )}
@@ -891,70 +891,70 @@ export default function ProjectDetailPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="block text-sm font-medium text-slate-700">Plot Number</label>
-                <input type="text" value={landUnitNumber} onChange={(e) => setLandUnitNumber(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+                <input type="text" value={landUnitNumber} onChange={(e) => setLandUnitNumber(e.target.value)} className="mt-1 input" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700">Group (optional)</label>
-                <select value={landUnitGroupId} onChange={(e) => setLandUnitGroupId(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+                <select value={landUnitGroupId} onChange={(e) => setLandUnitGroupId(e.target.value)} className="mt-1 input">
                   <option value="">Ungrouped</option>
                   {groups?.filter((g) => g.isActive).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700">Unit Type</label>
-                <select value={landUnitTypeId} onChange={(e) => setLandUnitTypeId(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+                <select value={landUnitTypeId} onChange={(e) => setLandUnitTypeId(e.target.value)} className="mt-1 input">
                   <option value="">Select…</option>
                   {unitTypes?.data?.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700">Land Area Entered</label>
-                <input type="number" step="any" value={landAreaEntered} onChange={(e) => setLandAreaEntered(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+                <input type="number" step="any" value={landAreaEntered} onChange={(e) => setLandAreaEntered(e.target.value)} className="mt-1 input" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700">Land Area Unit</label>
-                <select value={landAreaEnteredUnit} onChange={(e) => setLandAreaEnteredUnit(e.target.value as AreaUnit)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+                <select value={landAreaEnteredUnit} onChange={(e) => setLandAreaEnteredUnit(e.target.value as AreaUnit)} className="mt-1 input">
                   {AREA_UNITS.map((u) => <option key={u} value={u}>{displayLabel(u)}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700">Rate Unit</label>
-                <select value={landRateUnit} onChange={(e) => setLandRateUnit(e.target.value as AreaUnit)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+                <select value={landRateUnit} onChange={(e) => setLandRateUnit(e.target.value as AreaUnit)} className="mt-1 input">
                   {AREA_UNITS.map((u) => <option key={u} value={u}>{displayLabel(u)}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700">Base Rate (₹ per Rate Unit)</label>
-                <input type="number" value={landBaseRateRupees} onChange={(e) => setLandBaseRateRupees(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+                <input type="number" value={landBaseRateRupees} onChange={(e) => setLandBaseRateRupees(e.target.value)} className="mt-1 input" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700">Land Record Ref</label>
-                <input type="text" value={landRecordRef} onChange={(e) => setLandRecordRef(e.target.value)} placeholder="Khasra / survey no." className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+                <input type="text" value={landRecordRef} onChange={(e) => setLandRecordRef(e.target.value)} placeholder="Khasra / survey no." className="mt-1 input" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700">Facing</label>
-                <input type="text" value={landFacing} onChange={(e) => setLandFacing(e.target.value)} placeholder="e.g. North-East" className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+                <input type="text" value={landFacing} onChange={(e) => setLandFacing(e.target.value)} placeholder="e.g. North-East" className="mt-1 input" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700">Length (feet)</label>
-                <input type="number" value={landLengthFeet} onChange={(e) => setLandLengthFeet(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+                <input type="number" value={landLengthFeet} onChange={(e) => setLandLengthFeet(e.target.value)} className="mt-1 input" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700">Breadth (feet)</label>
-                <input type="number" value={landBreadthFeet} onChange={(e) => setLandBreadthFeet(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+                <input type="number" value={landBreadthFeet} onChange={(e) => setLandBreadthFeet(e.target.value)} className="mt-1 input" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700">Built-up Area (sqft, farmhouse only)</label>
-                <input type="number" value={landBuiltUpAreaSqft} onChange={(e) => setLandBuiltUpAreaSqft(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+                <input type="number" value={landBuiltUpAreaSqft} onChange={(e) => setLandBuiltUpAreaSqft(e.target.value)} className="mt-1 input" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700">Built-up Rate (₹/sqft)</label>
-                <input type="number" value={landBuiltUpRateRupees} onChange={(e) => setLandBuiltUpRateRupees(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+                <input type="number" value={landBuiltUpRateRupees} onChange={(e) => setLandBuiltUpRateRupees(e.target.value)} className="mt-1 input" />
               </div>
             </div>
             <div className="mt-3 flex gap-3">
-              <button onClick={handleCreateLandUnit} className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Create</button>
-              <button onClick={() => setShowLandUnitForm(false)} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+              <button onClick={handleCreateLandUnit} className="btn btn-md btn-primary">Create</button>
+              <button onClick={() => setShowLandUnitForm(false)} className="btn btn-md btn-secondary">Cancel</button>
             </div>
             {landUnitError && <p className="mt-2 text-sm text-red-600">{landUnitError}</p>}
           </div>
@@ -965,46 +965,46 @@ export default function ProjectDetailPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="block text-sm font-medium text-slate-700">Tower</label>
-                <select value={bulkTowerId} onChange={(e) => setBulkTowerId(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+                <select value={bulkTowerId} onChange={(e) => setBulkTowerId(e.target.value)} className="mt-1 input">
                   <option value="">Select…</option>
                   {towers?.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700">Floor Start</label>
-                <input type="number" value={floorStart} onChange={(e) => setFloorStart(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+                <input type="number" value={floorStart} onChange={(e) => setFloorStart(e.target.value)} className="mt-1 input" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700">Floor End</label>
-                <input type="number" value={floorEnd} onChange={(e) => setFloorEnd(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+                <input type="number" value={floorEnd} onChange={(e) => setFloorEnd(e.target.value)} className="mt-1 input" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700">Units Per Floor</label>
-                <input type="number" value={unitsPerFloor} onChange={(e) => setUnitsPerFloor(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+                <input type="number" value={unitsPerFloor} onChange={(e) => setUnitsPerFloor(e.target.value)} className="mt-1 input" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700">Unit Prefix</label>
-                <input type="text" value={unitPrefix} onChange={(e) => setUnitPrefix(e.target.value)} placeholder="e.g. A-" className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+                <input type="text" value={unitPrefix} onChange={(e) => setUnitPrefix(e.target.value)} placeholder="e.g. A-" className="mt-1 input" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700">Unit Type</label>
-                <select value={unitTypeId} onChange={(e) => setUnitTypeId(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+                <select value={unitTypeId} onChange={(e) => setUnitTypeId(e.target.value)} className="mt-1 input">
                   <option value="">Select…</option>
                   {unitTypes?.data?.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700">Carpet Area (sqft)</label>
-                <input type="number" value={carpetAreaSqft} onChange={(e) => setCarpetAreaSqft(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+                <input type="number" value={carpetAreaSqft} onChange={(e) => setCarpetAreaSqft(e.target.value)} className="mt-1 input" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700">Base Rate (₹)</label>
-                <input type="number" value={baseRateRupees} onChange={(e) => setBaseRateRupees(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+                <input type="number" value={baseRateRupees} onChange={(e) => setBaseRateRupees(e.target.value)} className="mt-1 input" />
               </div>
             </div>
             <div className="mt-3 flex gap-3">
-              <button onClick={handleBulkGenerate} className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Generate</button>
-              <button onClick={() => setShowBulkForm(false)} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+              <button onClick={handleBulkGenerate} className="btn btn-md btn-primary">Generate</button>
+              <button onClick={() => setShowBulkForm(false)} className="btn btn-md btn-secondary">Cancel</button>
             </div>
             {bulkError && <p className="mt-2 text-sm text-red-600">{bulkError}</p>}
           </div>
@@ -1109,7 +1109,7 @@ export default function ProjectDetailPage() {
             Download template
           </button>
           <input type="file" accept=".xlsx" onChange={(e) => setImportFile(e.target.files?.[0] ?? null)} className="text-xs" />
-          <button onClick={handleImportUnits} disabled={!importFile} className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+          <button onClick={handleImportUnits} disabled={!importFile} className="btn btn-sm btn-primary">
             Import
           </button>
           <button
@@ -1148,19 +1148,19 @@ export default function ProjectDetailPage() {
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="block text-sm font-medium text-slate-700">New Rate (₹)</label>
-                <input type="number" value={revisionRateRupees} onChange={(e) => setRevisionRateRupees(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+                <input type="number" value={revisionRateRupees} onChange={(e) => setRevisionRateRupees(e.target.value)} className="mt-1 input" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700">Effective From</label>
-                <input type="date" value={revisionEffectiveFrom} onChange={(e) => setRevisionEffectiveFrom(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+                <input type="date" value={revisionEffectiveFrom} onChange={(e) => setRevisionEffectiveFrom(e.target.value)} className="mt-1 input" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700">Reason</label>
-                <input type="text" value={revisionReason} onChange={(e) => setRevisionReason(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+                <input type="text" value={revisionReason} onChange={(e) => setRevisionReason(e.target.value)} className="mt-1 input" />
               </div>
             </div>
             <div className="mt-3">
-              <button onClick={handleRateRevision} className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+              <button onClick={handleRateRevision} className="btn btn-md btn-primary">
                 Apply Revision
               </button>
             </div>
@@ -1231,7 +1231,7 @@ export default function ProjectDetailPage() {
                   <label className="block text-xs font-medium text-slate-700">Percentage of base rate</label>
                   <input type="number" value={newPlcPercentage} onChange={(e) => setNewPlcPercentage(e.target.value)} className="mt-1 w-28 rounded-md border border-slate-300 px-2 py-1.5 text-sm" />
                 </div>
-                <button onClick={handleAddPlc} disabled={!newPlcTypeId || !newPlcPercentage} className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+                <button onClick={handleAddPlc} disabled={!newPlcTypeId || !newPlcPercentage} className="btn btn-sm btn-primary">
                   Add PLC
                 </button>
               </div>
@@ -1268,7 +1268,7 @@ export default function ProjectDetailPage() {
                   <label className="block text-xs font-medium text-slate-700">Amount (₹)</label>
                   <input type="number" value={newChargeAmountRupees} onChange={(e) => setNewChargeAmountRupees(e.target.value)} className="mt-1 w-28 rounded-md border border-slate-300 px-2 py-1.5 text-sm" />
                 </div>
-                <button onClick={handleAddCharge} disabled={!newChargeTypeId || !newChargeAmountRupees} className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+                <button onClick={handleAddCharge} disabled={!newChargeTypeId || !newChargeAmountRupees} className="btn btn-sm btn-primary">
                   Add Charge
                 </button>
               </div>
@@ -1278,7 +1278,7 @@ export default function ProjectDetailPage() {
       </section>
 
       <section className="mt-6">
-        <h2 className="text-lg font-medium text-slate-800">Media</h2>
+        <h2 className="section-title">Media</h2>
         <div className="mt-3 rounded-lg border border-slate-200 bg-white p-4">
           <ul className="space-y-1 text-sm text-slate-700">
             {(projectMedia ?? []).length === 0 ? (
@@ -1327,7 +1327,7 @@ export default function ProjectDetailPage() {
             <button
               onClick={handleUploadMedia}
               disabled={!mediaFile}
-              className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              className="btn btn-sm btn-primary"
             >
               Upload
             </button>
@@ -1337,7 +1337,7 @@ export default function ProjectDetailPage() {
       </section>
 
       <section className="mt-6">
-        <h2 className="text-lg font-medium text-slate-800">Construction Updates</h2>
+        <h2 className="section-title">Construction Updates</h2>
         <div className="mt-3 rounded-lg border border-slate-200 bg-white p-4">
           <ul className="space-y-3 text-sm text-slate-700">
             {(constructionUpdates ?? []).length === 0 ? (
@@ -1395,7 +1395,7 @@ export default function ProjectDetailPage() {
               <input
                 value={newUpdateTitle}
                 onChange={(e) => setNewUpdateTitle(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+                className="mt-1 input px-2 py-1.5"
               />
             </div>
             <div>
@@ -1403,7 +1403,7 @@ export default function ProjectDetailPage() {
               <input
                 value={newUpdateDescription}
                 onChange={(e) => setNewUpdateDescription(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+                className="mt-1 input px-2 py-1.5"
               />
             </div>
             <div>
@@ -1412,7 +1412,7 @@ export default function ProjectDetailPage() {
                 type="date"
                 value={newUpdatePublishedAt}
                 onChange={(e) => setNewUpdatePublishedAt(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+                className="mt-1 input px-2 py-1.5"
               />
             </div>
             <button
@@ -1427,7 +1427,7 @@ export default function ProjectDetailPage() {
       </section>
 
       <section>
-        <h2 className="text-lg font-medium text-slate-800">Construction Stages</h2>
+        <h2 className="section-title">Construction Stages</h2>
         <p className="mt-1 text-sm text-slate-500">
           A stage becomes due for every booking on it at once, when marked complete here — not before.
           See the installment schedule for what "not yet due" means until then.

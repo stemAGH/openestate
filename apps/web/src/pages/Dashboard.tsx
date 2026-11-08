@@ -186,7 +186,7 @@ export default function Dashboard() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-slate-900">Dashboard</h1>
+      <h1 className="page-title">Dashboard</h1>
       <p className="mt-1 text-sm text-slate-500">Welcome back, {user?.email}</p>
 
       {isError && (

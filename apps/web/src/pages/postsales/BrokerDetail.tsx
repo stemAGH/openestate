@@ -323,7 +323,7 @@ export default function BrokerDetail() {
     <div className="max-w-4xl space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">{broker.name}</h1>
+          <h1 className="page-title">{broker.name}</h1>
           <p className="text-sm text-slate-500">
             {broker.phone} {broker.email ? `· ${broker.email}` : ''} {broker.reraAgentNo ? `· RERA ${broker.reraAgentNo}` : ''}
           </p>
@@ -343,14 +343,14 @@ export default function BrokerDetail() {
             <button
               onClick={sendPortalInvite}
               disabled={sendingInvite}
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              className="btn btn-secondary px-3 py-1.5 text-sm"
             >
               {sendingInvite ? 'Sending…' : 'Send Portal Invite'}
             </button>
             <button
               onClick={resetPortalPassword}
               disabled={resettingPortalPassword}
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              className="btn btn-secondary px-3 py-1.5 text-sm"
             >
               {resettingPortalPassword ? 'Generating…' : 'Reset portal password'}
             </button>
@@ -461,7 +461,7 @@ export default function BrokerDetail() {
           <div className="mt-3 space-y-3 rounded-md bg-slate-50 p-3">
             <div>
               <label className="block text-xs font-medium text-slate-700">Type</label>
-              <select value={commissionType} onChange={(e) => setCommissionType(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm">
+              <select value={commissionType} onChange={(e) => setCommissionType(e.target.value)} className="mt-1 input px-2 py-1.5">
                 <option value={COMMISSION_TYPE.FLAT_PERCENT}>Flat percent</option>
                 <option value={COMMISSION_TYPE.FLAT_AMOUNT}>Flat amount</option>
                 <option value={COMMISSION_TYPE.SLAB}>Slab</option>
@@ -471,13 +471,13 @@ export default function BrokerDetail() {
             {commissionType === COMMISSION_TYPE.FLAT_PERCENT && (
               <div>
                 <label className="block text-xs font-medium text-slate-700">Percent of agreed price</label>
-                <input type="number" step="0.01" value={flatPercent} onChange={(e) => setFlatPercent(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm" />
+                <input type="number" step="0.01" value={flatPercent} onChange={(e) => setFlatPercent(e.target.value)} className="mt-1 input px-2 py-1.5" />
               </div>
             )}
             {commissionType === COMMISSION_TYPE.FLAT_AMOUNT && (
               <div>
                 <label className="block text-xs font-medium text-slate-700">Flat amount (₹)</label>
-                <input type="number" value={flatRupees} onChange={(e) => setFlatRupees(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm" />
+                <input type="number" value={flatRupees} onChange={(e) => setFlatRupees(e.target.value)} className="mt-1 input px-2 py-1.5" />
               </div>
             )}
             {commissionType === COMMISSION_TYPE.SLAB && (
@@ -500,10 +500,10 @@ export default function BrokerDetail() {
 
             <div>
               <label className="block text-xs font-medium text-slate-700">Collection milestones (%, comma-separated — e.g. 25,50,100) — leave blank for ON_BOOKING mode</label>
-              <input value={milestonesText} onChange={(e) => setMilestonesText(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm" />
+              <input value={milestonesText} onChange={(e) => setMilestonesText(e.target.value)} className="mt-1 input px-2 py-1.5" />
             </div>
 
-            <button onClick={handleCreateRule} className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700">
+            <button onClick={handleCreateRule} className="btn btn-primary px-3 py-1.5 text-sm">
               Save Rule
             </button>
           </div>

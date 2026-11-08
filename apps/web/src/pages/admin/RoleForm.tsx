@@ -104,7 +104,7 @@ export default function RoleForm() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-2xl font-semibold text-slate-900">
+      <h1 className="page-title">
         {isEdit ? 'Edit Role' : 'Add Role'}
       </h1>
 
@@ -141,7 +141,7 @@ export default function RoleForm() {
               onChange={(e) => setSlug(e.target.value)}
               required
               pattern="^[a-z][a-z0-9_-]*$"
-              className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 input"
             />
             <p className="mt-1 text-xs text-slate-500">Lowercase letters, numbers, hyphens, underscores</p>
           </div>
@@ -207,7 +207,7 @@ export default function RoleForm() {
         <div className="flex gap-3 pt-2">
           <button
             type="submit"
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+            className="btn btn-md btn-primary"
           >
             {isEdit ? 'Update Role' : 'Create Role'}
           </button>

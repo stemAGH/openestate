@@ -150,10 +150,10 @@ export default function WebhooksPage() {
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-slate-900">Webhooks</h1>
+        <h1 className="page-title">Webhooks</h1>
         <button
           onClick={() => setShowForm(true)}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+          className="btn btn-md btn-primary"
         >
           Add Endpoint
         </button>
@@ -168,7 +168,7 @@ export default function WebhooksPage() {
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
-                className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="mt-1 input"
               />
             </div>
             <div>
@@ -178,7 +178,7 @@ export default function WebhooksPage() {
                 value={formData.url}
                 onChange={(e) => setFormData((p) => ({ ...p, url: e.target.value }))}
                 placeholder="https://example.com/webhook"
-                className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="mt-1 input"
               />
             </div>
             <div>
@@ -188,7 +188,7 @@ export default function WebhooksPage() {
                 value={formData.secret}
                 onChange={(e) => setFormData((p) => ({ ...p, secret: e.target.value }))}
                 placeholder="At least 16 characters"
-                className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="mt-1 input"
               />
             </div>
             <div>
@@ -198,20 +198,20 @@ export default function WebhooksPage() {
                 value={formData.eventTypes}
                 onChange={(e) => setFormData((p) => ({ ...p, eventTypes: e.target.value }))}
                 placeholder="booking.created, receipt.created"
-                className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="mt-1 input"
               />
             </div>
           </div>
           <div className="flex gap-3">
             <button
               onClick={handleCreate}
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+              className="btn btn-md btn-primary"
             >
               Create
             </button>
             <button
               onClick={() => setShowForm(false)}
-              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="btn btn-md btn-secondary"
             >
               Cancel
             </button>
@@ -228,7 +228,7 @@ export default function WebhooksPage() {
 
       {selectedId && (
         <div className="mt-6">
-          <h2 className="text-lg font-medium text-slate-800">Recent Deliveries</h2>
+          <h2 className="section-title">Recent Deliveries</h2>
           <div className="mt-2">
             <DataTable columns={deliveryColumns} data={deliveries ?? []} emptyText="No deliveries yet." />
           </div>

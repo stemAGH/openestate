@@ -51,7 +51,7 @@ export default function HierarchyPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-slate-900">Reporting hierarchy</h1>
+      <h1 className="page-title">Reporting hierarchy</h1>
       <p className="mt-1 text-sm text-slate-500">
         Read-only. Shows what you can see — your own reporting line, or the whole company if
         you're an admin. Change a person's manager from{' '}

@@ -212,14 +212,14 @@ export default function InquiryDetailPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-slate-900">{inquiry.applicant.name}</h1>
+      <h1 className="page-title">{inquiry.applicant.name}</h1>
       <p className="text-sm text-slate-500">
         {inquiry.applicant.primaryPhone} {inquiry.project && <>· {inquiry.project.name}</>}
         {inquiry.assignedTo && <> · Assigned to {inquiry.assignedTo.name}</>}
       </p>
 
       <section className="mt-4">
-        <h2 className="text-lg font-medium text-slate-800">Status: {inquiry.status}</h2>
+        <h2 className="section-title">Status: {inquiry.status}</h2>
         <div className="mt-2 flex gap-2">
           {STATUSES.filter((s) => s !== inquiry.status).map((s) => (
             <button
@@ -248,21 +248,21 @@ export default function InquiryDetailPage() {
             <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-slate-700">Reason</label>
-                <select value={dumpReasonId} onChange={(e) => setDumpReasonId(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+                <select value={dumpReasonId} onChange={(e) => setDumpReasonId(e.target.value)} className="mt-1 input">
                   <option value="">Select…</option>
                   {dumpReasons?.data?.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700">Remarks</label>
-                <input type="text" value={dumpRemarks} onChange={(e) => setDumpRemarks(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+                <input type="text" value={dumpRemarks} onChange={(e) => setDumpRemarks(e.target.value)} className="mt-1 input" />
               </div>
             </div>
             <div className="mt-3 flex gap-3">
-              <button onClick={handleDump} disabled={!dumpReasonId || !dumpRemarks.trim()} className="rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50">
+              <button onClick={handleDump} disabled={!dumpReasonId || !dumpRemarks.trim()} className="btn btn-md btn-warning">
                 Confirm Dump
               </button>
-              <button onClick={() => setShowDumpForm(false)} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+              <button onClick={() => setShowDumpForm(false)} className="btn btn-md btn-secondary">Cancel</button>
             </div>
             {dumpError && <p className="mt-2 text-sm text-red-600">{dumpError}</p>}
           </div>
@@ -290,7 +290,7 @@ export default function InquiryDetailPage() {
       </section>
 
       <section className="mt-6">
-        <h2 className="text-lg font-medium text-slate-800">Reassign</h2>
+        <h2 className="section-title">Reassign</h2>
         <div className="mt-2 flex flex-wrap items-end gap-3">
           <div>
             <label className="block text-sm font-medium text-slate-700">Assign To</label>
@@ -303,7 +303,7 @@ export default function InquiryDetailPage() {
             <label className="block text-sm font-medium text-slate-700">Reason</label>
             <input type="text" value={assignReason} onChange={(e) => setAssignReason(e.target.value)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm" />
           </div>
-          <button onClick={handleReassign} disabled={!toUserId} className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+          <button onClick={handleReassign} disabled={!toUserId} className="btn btn-md btn-primary">
             Reassign
           </button>
         </div>
@@ -311,7 +311,7 @@ export default function InquiryDetailPage() {
       </section>
 
       <section className="mt-6">
-        <h2 className="text-lg font-medium text-slate-800">Follow-ups &amp; Site Visits</h2>
+        <h2 className="section-title">Follow-ups &amp; Site Visits</h2>
         <p className="text-sm text-slate-500">
           To log a site visit, pick the "Site Visit" type and fill in the date/venue below.
         </p>
@@ -319,39 +319,39 @@ export default function InquiryDetailPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-slate-700">Type</label>
-              <select value={typeId} onChange={(e) => setTypeId(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+              <select value={typeId} onChange={(e) => setTypeId(e.target.value)} className="mt-1 input">
                 <option value="">Select…</option>
                 {followUpTypes?.data?.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">Interaction happened at</label>
-              <input type="datetime-local" value={interactionAt} onChange={(e) => setInteractionAt(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+              <input type="datetime-local" value={interactionAt} onChange={(e) => setInteractionAt(e.target.value)} className="mt-1 input" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">
                 Next follow-up{(inquiry.status === 'OPEN' || inquiry.status === 'CONTINUED') && <span className="text-red-600"> *</span>}
               </label>
-              <input type="datetime-local" value={nextActionAt} onChange={(e) => setNextActionAt(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+              <input type="datetime-local" value={nextActionAt} onChange={(e) => setNextActionAt(e.target.value)} className="mt-1 input" />
               {(inquiry.status === 'OPEN' || inquiry.status === 'CONTINUED') && (
                 <p className="mt-1 text-xs text-slate-500">Required while this lead is active — it won&apos;t be visible in My Day otherwise.</p>
               )}
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">Scheduled At (for site visits)</label>
-              <input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+              <input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} className="mt-1 input" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">Venue</label>
-              <input type="text" value={venue} onChange={(e) => setVenue(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+              <input type="text" value={venue} onChange={(e) => setVenue(e.target.value)} className="mt-1 input" />
             </div>
             <div className="sm:col-span-2">
               <label className="block text-sm font-medium text-slate-700">Notes</label>
-              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="mt-1 input" />
             </div>
           </div>
           <div className="mt-3">
-            <button onClick={handleAddFollowUp} className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+            <button onClick={handleAddFollowUp} className="btn btn-md btn-primary">
               Log Follow-up
             </button>
           </div>

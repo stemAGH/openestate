@@ -79,10 +79,10 @@ export default function RolesPage() {
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-slate-900">Roles</h1>
+        <h1 className="page-title">Roles</h1>
         <Link
           to="/admin/roles/new"
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+          className="btn btn-md btn-primary"
         >
           Add Role
         </Link>
