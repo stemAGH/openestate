@@ -12,6 +12,7 @@ export * from './company.dto';
 export * from './inventory';
 export * from './presales';
 export * from './datetime';
+export * from './phone-mask';
 export * from './finance';
 export * from './documents';
 export * from './commission';
