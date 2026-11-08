@@ -26,6 +26,7 @@ import type {
   UpdateUserDto,
   PaginationQuery,
 } from '@openestate/shared';
+import { maskPhone } from '@openestate/shared';
 
 const RESET_EXPIRY_MS = 30 * 60 * 1000;
 
@@ -109,8 +110,10 @@ export class UsersService {
     const managerNameById = new Map(managers.map((m: { id: string; name: string }) => [m.id, m.name]));
 
     return {
-      data: data.map((u: { managerId: string | null }) => ({
+      data: data.map((u: { managerId: string | null; phone: string | null }) => ({
         ...u,
+        // A list view: last 4 digits only. GET /users/:id keeps the full number.
+        phone: maskPhone(u.phone),
         managerName: u.managerId ? (managerNameById.get(u.managerId) ?? null) : null,
       })),
       meta: {

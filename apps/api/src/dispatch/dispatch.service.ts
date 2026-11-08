@@ -2,7 +2,12 @@ import { ConflictException, Inject, Injectable, NotFoundException } from '@nestj
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaClient, withTenantTx, runWithTenant } from '@openestate/db';
-import { DISPATCH_STATUS, type DispatchChannelValue } from '@openestate/shared';
+import { DISPATCH_STATUS, maskPhone, type DispatchChannelValue } from '@openestate/shared';
+
+/** A list view: an SMS recipient is a phone number, so it shows the last 4 digits. */
+function maskSmsRecipients<T extends { channel: string; recipientAddress: string }>(rows: T[]): T[] {
+  return rows.map((r) => (r.channel === 'SMS' ? { ...r, recipientAddress: maskPhone(r.recipientAddress) } : r));
+}
 import { TENANT_PRISMA, SYSTEM_PRISMA } from '../database/database.module';
 import { DISPATCH_QUEUE } from '../queues/queues.module';
 
@@ -98,16 +103,20 @@ export class DispatchService {
   }
 
   async historyForBooking(companyId: string, bookingId: string) {
-    return this.systemPrisma.documentDispatch.findMany({
-      where: { companyId, bookingId },
-      orderBy: { createdAt: 'desc' },
-    });
+    return maskSmsRecipients(
+      await this.systemPrisma.documentDispatch.findMany({
+        where: { companyId, bookingId },
+        orderBy: { createdAt: 'desc' },
+      }),
+    );
   }
 
   async historyForApplicant(companyId: string, applicantId: string) {
-    return this.systemPrisma.documentDispatch.findMany({
-      where: { companyId, applicantId },
-      orderBy: { createdAt: 'desc' },
-    });
+    return maskSmsRecipients(
+      await this.systemPrisma.documentDispatch.findMany({
+        where: { companyId, applicantId },
+        orderBy: { createdAt: 'desc' },
+      }),
+    );
   }
 }

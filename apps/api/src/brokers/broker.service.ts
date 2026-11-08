@@ -1,6 +1,7 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaClient, withTenantTx, runWithTenant } from '@openestate/db';
 import type { CreateBrokerDto, UpdateBrokerDto, BrokerBankDetailDto, PaginationQuery } from '@openestate/shared';
+import { maskPhoneFields } from '@openestate/shared';
 import { TENANT_PRISMA, SYSTEM_PRISMA } from '../database/database.module';
 import { PanEncryptionService } from '../common/pan-encryption.service';
 
@@ -44,7 +45,8 @@ export class BrokerService {
       this.systemPrisma.broker.count({ where }),
     ]);
 
-    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+    // A list view: last 4 digits only. findOne keeps the full number.
+    return { data: maskPhoneFields(data), meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
   async findOne(companyId: string, id: string) {

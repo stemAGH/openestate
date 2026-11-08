@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaClient, withTenantTx, runWithTenant } from '@openestate/db';
 import { TENANT_PRISMA, SYSTEM_PRISMA } from '../database/database.module';
-import { normalizePhone, normalizeEmail, orderApplicantPair } from '@openestate/shared';
+import { normalizePhone, normalizeEmail, orderApplicantPair, maskPhone, maskPhoneFields } from '@openestate/shared';
 import type {
   CreateApplicantDto,
   UpdateApplicantDto,
@@ -59,7 +59,9 @@ export class ApplicantService {
     ]);
 
     return {
-      data,
+      // A list view (also the booking wizard's and receipt entry's pickers):
+      // phone numbers show the last 4 digits; findOne keeps the full number.
+      data: maskPhoneFields(data),
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
   }
@@ -127,7 +129,8 @@ export class ApplicantService {
       applicant.emailNormalized,
       applicantId,
     );
-    return duplicates.filter((d: { id: string }) => d.id !== applicantId);
+    // A list of other people: phone numbers masked.
+    return maskPhoneFields(duplicates.filter((d: { id: string }) => d.id !== applicantId));
   }
 
   /** The deliberate opposite of merge() — records "these are different
@@ -307,10 +310,14 @@ export class ApplicantService {
     });
     const applicantIds = [applicantId, ...mergedFrom.map((a: { id: string }) => a.id)];
 
-    return this.systemPrisma.communicationLog.findMany({
+    const rows = await this.systemPrisma.communicationLog.findMany({
       where: { companyId, applicantId: { in: applicantIds } },
       orderBy: { createdAt: 'desc' },
     });
+    // A list view: an SMS recipient is a phone number, so it is masked.
+    return rows.map((r: { channel: string; toAddress: string }) =>
+      r.channel === 'SMS' ? { ...r, toAddress: maskPhone(r.toAddress) } : r,
+    );
   }
 
   async merge(

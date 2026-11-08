@@ -10,6 +10,8 @@ import { TENANT_PRISMA, SYSTEM_PRISMA } from '../database/database.module';
 import {
   normalizePhone,
   normalizeEmail,
+  maskPhone,
+  maskPhoneFields,
   isFollowUpOverdue,
   istDayBounds,
   ACTIVE_INQUIRY_STATUSES,
@@ -128,7 +130,9 @@ export class InquiryService {
     ]);
 
     return {
-      data,
+      // A list view: phone numbers show the last 4 digits only (CLAUDE.md).
+      // The detail endpoint (findOne) keeps the full number.
+      data: maskPhoneFields(data),
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
   }
@@ -176,7 +180,8 @@ export class InquiryService {
     // IST day, the same boundary as the dashboard tiles and the list filter.
     const { endOfToday } = istDayBounds(this.clock.now());
 
-    return this.systemPrisma.inquiry.findMany({
+    // A list view: phone numbers masked, as in findAll.
+    const rows = await this.systemPrisma.inquiry.findMany({
       where: {
         companyId,
         assignedToId: userId,
@@ -186,6 +191,7 @@ export class InquiryService {
       include: { applicant: { omit: { panCiphertext: true, panKeyVersion: true } }, project: true, temperature: true },
       orderBy: { nextFollowupAt: 'asc' },
     });
+    return maskPhoneFields(rows);
   }
 
   /**
@@ -239,7 +245,8 @@ export class InquiryService {
             (d: { id: string; name: string; primaryPhone: string }) => ({
               id: d.id,
               name: d.name,
-              primaryPhone: d.primaryPhone,
+              // Other people's numbers: masked, like any list.
+              primaryPhone: maskPhone(d.primaryPhone),
             }),
           );
 

@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaClient, withTenantTx, runWithTenant } from '@openestate/db';
-import { CHANGE_REQUEST_STATUS, type SubmitChangeRequestDto } from '@openestate/shared';
+import { CHANGE_REQUEST_STATUS, maskPhoneFields, type SubmitChangeRequestDto } from '@openestate/shared';
 import { TENANT_PRISMA, SYSTEM_PRISMA } from '../database/database.module';
 
 interface FieldChange {
@@ -63,10 +63,13 @@ export class ApplicantChangeRequestService {
 
   /** Staff queue. Uses the system client — this is a staff-only surface, no portal scope involved. */
   async listPending(companyId: string) {
-    return this.systemPrisma.applicantChangeRequest.findMany({
-      where: { companyId, status: CHANGE_REQUEST_STATUS.PENDING },
-      orderBy: { createdAt: 'asc' },
-    });
+    // A list view: requested phone changes (from/to) are masked.
+    return maskPhoneFields(
+      await this.systemPrisma.applicantChangeRequest.findMany({
+        where: { companyId, status: CHANGE_REQUEST_STATUS.PENDING },
+        orderBy: { createdAt: 'asc' },
+      }),
+    );
   }
 
   /**

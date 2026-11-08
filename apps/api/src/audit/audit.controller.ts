@@ -2,7 +2,7 @@ import { Controller, Get, Inject, Query, Req } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { createZodDto } from 'nestjs-zod';
-import { paginationQuerySchema, PERMISSIONS } from '@openestate/shared';
+import { maskPhoneFields, paginationQuerySchema, PERMISSIONS } from '@openestate/shared';
 import type { JwtPayload } from '@openestate/shared';
 import { PrismaClient } from '@openestate/db';
 import { SYSTEM_PRISMA } from '../database/database.module';
@@ -53,7 +53,9 @@ export class AuditController {
     ]);
 
     return {
-      data,
+      // A list view: phone numbers in before/after snapshots are masked in
+      // the response only. The stored audit rows are never changed.
+      data: maskPhoneFields(data),
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
   }
