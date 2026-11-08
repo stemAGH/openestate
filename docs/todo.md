@@ -32,6 +32,14 @@ it can't read (no 403), so sales staff simply don't see custom fields, as before
 
 ## Sales UI PR: smaller items found on the way
 
+- **Two Playwright specs to watch.** `user-role-edit.spec.ts:21` and
+  `identity-cache-boundary.spec.ts:185` failed once in a full Playwright run on 2026-11-08
+  (alongside the greeting-cache bug); not reproduced in 12 solo runs or the full re-run. If
+  either fails again, treat it as a recurrence.
+- **Session-end detection depends on a page making a request.** Any query cached under
+  `['auth','me']` can mask it (seen in PR #88). Consider a sturdier mechanism; the
+  session-cache specs guard it today.
+
 - **`sortBy` on other list endpoints.** `GET /inquiries` now accepts only `createdAt`
   and `nextFollowupAt`. Every other list still uses the shared `paginationQuerySchema`,
   whose `sortBy` takes any string and is passed to Prisma's `orderBy`: an unknown column
