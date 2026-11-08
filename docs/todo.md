@@ -4,6 +4,23 @@ Cross-phase follow-ups that were consciously deferred, with the phase where
 they're expected to land. Each entry should say *what*, *why deferred*, and
 *what unblocks it*.
 
+## Follow-ups from the 2026-11-08 staff UI audit (owner decision: separate PRs)
+
+- **`apps/api/scripts/portal-demo-seed.ts` makes the pre-GST plan mistake.** It builds
+  its payment plan against the price excluding GST, so on current master it fails with
+  "Installment amounts (300000000) must sum to the amount to schedule (336000000)" and
+  leaves a booking with no plan. Same defect class as the wizard fix. Needs its own fix
+  PR (build the plan against the booking's GST-inclusive price, or use `with-plan`).
+- **Phone numbers are unmasked in list views** (Inquiries, Dues and others), although
+  the security rules ask for masked phone and PAN in lists and logs. Needs its own fix
+  PR that states which roles see full numbers, and on which screens (for example the
+  assigned salesperson on the inquiry detail page), with tests.
+- **Silent 403s for sales roles on Inquiries, and an empty Accounts dashboard.** The
+  Inquiries page requests `/users` and `/masters/inquiry-temperatures`, which sales
+  roles can't read, and shows nothing about it; Accounts lands on a dashboard with no
+  work on it. Root-cause both as bugs, with tests: the sales one in the sales UI PR,
+  the Accounts one in the accounts UI PR.
+
 ## Fixed (unreleased): wizard: a refused payment plan left a booking with no plan
 
 Fixed with option (c), owner-approved: `POST /bookings/with-plan` creates the
