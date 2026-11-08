@@ -34,11 +34,20 @@ function decodeForLog(url: string): string {
  * in the URL and query string (e.g. GET /inquiries?search=9876543210), which
  * the redaction paths above can't reach inside. Masks them to the last 4
  * digits, like list views. Path segments such as UUIDs are left alone.
+ *
+ * The Referer header too: the staff app keeps its search in its own address
+ * (?q=…), which a browser sends as the Referer of every API call. The apps
+ * now ask browsers not to send it (Referrer-Policy no-referrer); this covers
+ * older cached pages and any other client.
  */
-export function serializeRequestForLog<T extends { url?: string; query?: unknown }>(req: T): T {
+export function serializeRequestForLog<T extends { url?: string; query?: unknown; headers?: unknown }>(req: T): T {
+  const headers = req.headers as Record<string, unknown> | undefined;
   return {
     ...req,
     ...(typeof req.url === 'string' ? { url: maskPhonesInText(decodeForLog(req.url)) } : {}),
+    ...(headers && typeof headers.referer === 'string'
+      ? { headers: { ...headers, referer: maskPhonesInText(decodeForLog(headers.referer)) } }
+      : {}),
     ...(req.query && typeof req.query === 'object'
       ? {
           query: Object.fromEntries(
