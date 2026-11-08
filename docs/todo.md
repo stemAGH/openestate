@@ -21,6 +21,28 @@ they're expected to land. Each entry should say *what*, *why deferred*, and
   work on it. Root-cause both as bugs, with tests: the sales one in the sales UI PR,
   the Accounts one in the accounts UI PR.
 
+## Staff UI: remaining axe items, for the responsive PR (UI PR 5)
+
+Left after the design-token foundation (it changed look only). Measured with axe-core
+on every screen each staff role can reach, at 1440 and 390 px.
+
+- **Empty table headers** (axe `empty-table-header`, minor): action columns have a `<th>`
+  with no text. Give them a visually hidden name ("Actions"). Screens: Admin → Audit Log,
+  Custom Fields, Lead API Keys, Lead Stages, Masters, Roles, Users, Webhooks; Inventory →
+  Project detail; Post-sales → Brokers, Cheque Queue.
+- **Sideways-scrolling tables that the keyboard can't reach** (axe
+  `scrollable-region-focusable`, serious), at phone width (390 px): the table's scroll box
+  needs to be focusable and named, or the table needs the phone card layout planned for
+  PR 5 so it doesn't scroll sideways at all. Screens: Dashboard (team table), Admin →
+  Custom Fields, Lead API Keys, Webhooks; Post-sales → Installment schedule, Brokers,
+  Dues Dashboard; Support → Tickets.
+
+Also still open from the same audit (critical, not phone-specific; due in the sales,
+accounts and admin UI PRs): unlabelled selects and inputs (`select-name`, `label`) on
+Company Config, User form, Role form, Project detail, Receipt Entry, Inquiry detail,
+Applicant 360, Dues Dashboard, Post-sales Reports and Settings; and Receipt Entry's
+positive `tabindex`.
+
 ## Fixed (unreleased): wizard: a refused payment plan left a booking with no plan
 
 Fixed with option (c), owner-approved: `POST /bookings/with-plan` creates the

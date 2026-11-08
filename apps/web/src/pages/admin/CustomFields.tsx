@@ -232,7 +232,7 @@ export default function CustomFieldsPage() {
           >
             {entity}
             {!supportsCustomFieldValues(entity) && (
-              <span className="ml-1 text-xs opacity-70">(unsupported)</span>
+              <span className="ml-1 text-xs">(unsupported)</span>
             )}
           </button>
         ))}
