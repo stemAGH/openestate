@@ -1,14 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { PERMISSIONS } from '@openestate/shared';
+import { formatDate, INQUIRY_STATUS_LABELS, PERMISSIONS, type InquiryStatusValue } from '@openestate/shared';
 import { useAuth } from '../lib/auth';
 import { api } from '../lib/api';
 import DataTable, { type Column } from '../components/DataTable';
+import { Badge, ContactActions, FollowUpDue, PageHeader } from '../ui';
 
 interface MyDayInquiry {
   id: string;
   nextFollowupAt: string | null;
-  applicant: { name: string };
+  applicant: { name: string; primaryPhone: string };
   project: { name: string } | null;
 }
 
@@ -72,16 +73,14 @@ function Stat({
 }) {
   const body = (
     <div
-      className={`rounded-lg border p-4 shadow-sm ${
-        tone === 'warn' && value > 0
-          ? 'border-amber-200 bg-amber-50'
-          : 'border-slate-200 bg-white'
+      className={`h-full rounded-lg border p-3 shadow-sm sm:p-4 ${
+        tone === 'warn' && value > 0 ? 'border-amber-200 bg-amber-50' : 'border-line bg-surface'
       }`}
     >
-      <div className="text-xs font-medium uppercase tracking-wider text-slate-500">{label}</div>
+      <div className="text-xs font-medium text-fg-2 sm:text-sm">{label}</div>
       <div
-        className={`mt-1 text-2xl font-semibold ${
-          tone === 'warn' && value > 0 ? 'text-amber-800' : 'text-slate-900'
+        className={`mt-1 text-2xl font-semibold tabular-nums ${
+          tone === 'warn' && value > 0 ? 'text-amber-800' : 'text-fg'
         }`}
       >
         {value}
@@ -89,7 +88,7 @@ function Stat({
     </div>
   );
   return to ? (
-    <Link to={to} className="block hover:opacity-80">
+    <Link to={to} className="block rounded-lg hover:shadow-lg">
       {body}
     </Link>
   ) : (
@@ -97,25 +96,25 @@ function Stat({
   );
 }
 
-function SummaryBlock({ summary }: { summary: Summary }) {
+/** Each tile opens the inquiry list filtered to exactly what it counts. `ownerId` narrows "My work" to the user's own leads. */
+function SummaryBlock({ summary, ownerId }: { summary: Summary; ownerId?: string }) {
   const nonZeroStatuses = summary.byStatus.filter((s) => s.count > 0);
+  const list = (q: string) => `/presales/inquiries?${q}${ownerId ? `&assignedToId=${ownerId}` : ''}`;
   return (
     <>
-      <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Follow-ups due today" value={summary.followUpsToday} to="/presales/inquiries" />
-        <Stat label="Overdue follow-ups" value={summary.followUpsOverdue} tone="warn" to="/presales/inquiries" />
-        <Stat label="Open inquiries" value={summary.openInquiries} to="/presales/inquiries" />
+      <div className="mt-3 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <Stat label="Follow-ups due today" value={summary.followUpsToday} to={list('followUp=today')} />
+        <Stat label="Overdue follow-ups" value={summary.followUpsOverdue} tone="warn" to={list('followUp=overdue')} />
+        <Stat label="Open inquiries" value={summary.openInquiries} to={list('status=OPEN,CONTINUED')} />
         <Stat label="Converted this month" value={summary.conversionsThisMonth} />
       </div>
       {nonZeroStatuses.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-fg-2">
+          <span>By status:</span>
           {nonZeroStatuses.map((s) => (
-            <span
-              key={s.status}
-              className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700"
-            >
-              {s.status}: {s.count}
-            </span>
+            <Badge key={s.status}>
+              {INQUIRY_STATUS_LABELS[s.status as InquiryStatusValue] ?? s.status} {s.count}
+            </Badge>
           ))}
         </div>
       )}
@@ -123,12 +122,10 @@ function SummaryBlock({ summary }: { summary: Summary }) {
   );
 }
 
-/** Same "midnight in the browser's own timezone" boundary the backend's
- *  DashboardService.bounds()/InquiryService.myDay() use for "today". */
-function isOverdue(nextFollowupAt: string): boolean {
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
-  return new Date(nextFollowupAt) < startOfToday;
+/** "Good morning" by the IST clock, whatever the browser's time zone. */
+function greeting(now: Date): string {
+  const istHour = new Date(now.getTime() + 330 * 60_000).getUTCHours();
+  return istHour < 12 ? 'Good morning' : istHour < 17 ? 'Good afternoon' : 'Good evening';
 }
 
 export default function Dashboard() {
@@ -138,6 +135,8 @@ export default function Dashboard() {
     queryFn: () => api('/dashboard'),
     retry: false,
   });
+  // The greeting uses the person's name (the token only carries the email).
+  const { data: me } = useQuery<{ name: string }>({ queryKey: ['auth', 'me'], queryFn: () => api('/auth/me') });
 
   // GET /inquiries/my-day has existed since v0.4 (today's + overdue
   // follow-ups assigned to the caller) with no frontend caller until now
@@ -186,8 +185,10 @@ export default function Dashboard() {
 
   return (
     <div>
-      <h1 className="page-title">Dashboard</h1>
-      <p className="mt-1 text-sm text-slate-500">Welcome back, {user?.email}</p>
+      <PageHeader
+        title="Dashboard"
+        description={`${greeting(new Date())}, ${me?.name ?? user?.email ?? ''} · ${formatDate(new Date())}`}
+      />
 
       {isError && (
         <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600">
@@ -201,12 +202,12 @@ export default function Dashboard() {
       {data && (
         <>
           <section className="mt-6">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">My work</h2>
-            <SummaryBlock summary={data.mine} />
+            <h2 className="section-title">My work</h2>
+            <SummaryBlock summary={data.mine} ownerId={user?.sub} />
           </section>
 
           <section className="mt-8" data-testid="my-day">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">My day</h2>
+            <h2 className="section-title">My day</h2>
             <p className="mt-1 text-xs text-slate-500">
               Leads assigned to you that are due today or overdue, oldest due date first.
             </p>
@@ -215,20 +216,16 @@ export default function Dashboard() {
                 <li className="text-sm text-slate-500">Nothing due — you're caught up.</li>
               ) : (
                 myDay!.map((inq) => (
-                  <li key={inq.id} className="flex items-center justify-between rounded-md border border-slate-200 bg-white p-3 text-sm">
-                    <div>
-                      <Link to={`/presales/inquiries/${inq.id}`} className="font-medium text-blue-600 hover:underline">
+                  <li key={inq.id} className="card flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
+                    <div className="min-w-0">
+                      <Link to={`/presales/inquiries/${inq.id}`} className="font-medium text-primary hover:underline">
                         {inq.applicant.name}
                       </Link>
-                      {inq.project && <span className="text-slate-500"> · {inq.project.name}</span>}
+                      {inq.project && <span className="text-fg-2"> · {inq.project.name}</span>}
                     </div>
-                    <div className="flex items-center gap-2">
-                      {inq.nextFollowupAt && isOverdue(inq.nextFollowupAt) && (
-                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">Overdue</span>
-                      )}
-                      <span className="text-slate-500">
-                        {inq.nextFollowupAt ? new Date(inq.nextFollowupAt).toLocaleString() : '—'}
-                      </span>
+                    <div className="flex items-center gap-3">
+                      <FollowUpDue at={inq.nextFollowupAt} />
+                      <ContactActions name={inq.applicant.name} phone={inq.applicant.primaryPhone} />
                     </div>
                   </li>
                 ))
@@ -239,7 +236,7 @@ export default function Dashboard() {
           {data.team && (
             <>
               <section className="mt-8">
-                <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
+                <h2 className="section-title">
                   My team ({data.team.memberCount}{' '}
                   {data.team.memberCount === 1 ? 'person' : 'people'}, including me)
                 </h2>
@@ -247,7 +244,7 @@ export default function Dashboard() {
               </section>
 
               <section className="mt-8">
-                <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
+                <h2 className="section-title">
                   Per report
                 </h2>
                 <p className="mt-1 text-xs text-slate-500">

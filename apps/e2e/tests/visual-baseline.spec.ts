@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { istDayBounds } from '@openestate/shared';
 import { readFixture } from '../fixtures/state';
 import { login } from '../fixtures/actions';
 import { API_URL } from '../playwright.config';
@@ -22,7 +23,7 @@ const record = process.env.AXE_RECORD === '1';
 const compareScreens = process.env.VISUAL_SNAPSHOTS === '1';
 const baseline: Record<string, string[]> = existsSync(AXE_BASELINE) ? JSON.parse(readFileSync(AXE_BASELINE, 'utf8')) : {};
 const recorded: Record<string, string[]> = {};
-const ids: { booking?: string } = {};
+const ids: { booking?: string; inquiry?: string } = {};
 
 test.describe.configure({ mode: 'serial' });
 
@@ -66,8 +67,17 @@ test.beforeAll(async ({ playwright }) => {
     grossAmountPaise: String(inst.amountPaise), allocations: [{ installmentId: inst.id, amountPaise: String(inst.amountPaise) }],
   });
   const exec = await signIn(fixture.roleUsers!.sales_executive);
+  // Follow-ups at noon IST today and two days ago, so the labels read
+  // "Today" and "2 days overdue" on any day (the dates themselves are masked).
+  const noonIst = istDayBounds(new Date()).startOfToday.getTime() + 12 * 3_600_000;
+  const due = [new Date(noonIst), new Date(noonIst - 2 * 86_400_000), null];
   for (const [i, name] of ['Priya Sharma', 'Arjun Mehta', 'Neha Iyer'].entries()) {
-    await call(exec, 'post', '/inquiries', { applicant: { name, primaryPhone: `98765432${10 + i}`, city: 'Pune' }, projectId: project.id });
+    const inq = await call(exec, 'post', '/inquiries', {
+      applicant: { name, primaryPhone: `98765432${10 + i}`, city: 'Pune' },
+      projectId: project.id,
+      ...(due[i] ? { nextFollowupAt: due[i]!.toISOString() } : {}),
+    });
+    if (i === 0) ids.inquiry = inq.id;
   }
   await api.dispose();
 });
@@ -80,7 +90,11 @@ const SCREENS: Array<{ role: string; name: string; path: () => string }> = [
   { role: 'super_admin', name: 'users', path: () => '/admin/users' },
   { role: 'company_admin', name: 'masters', path: () => '/admin/masters' },
   { role: 'sales_manager', name: 'dashboard', path: () => '/' },
+  { role: 'sales_manager', name: 'inquiries', path: () => '/presales/inquiries' },
+  { role: 'sales_manager', name: 'inquiry', path: () => `/presales/inquiries/${ids.inquiry}` },
+  { role: 'sales_executive', name: 'dashboard', path: () => '/' },
   { role: 'sales_executive', name: 'inquiries', path: () => '/presales/inquiries' },
+  { role: 'sales_executive', name: 'inquiry', path: () => `/presales/inquiries/${ids.inquiry}` },
   { role: 'accounts', name: 'installments', path: () => `/postsales/bookings/${ids.booking}/installments` },
   { role: 'accounts', name: 'cheques', path: () => '/postsales/cheques' },
 ];
@@ -112,7 +126,12 @@ for (const screen of SCREENS) {
         await expect(page).toHaveScreenshot(`${screen.role}-${screen.name}-${width}.png`, {
           fullPage: true,
           // Run-specific text: e-mail addresses carry the run tag; dates follow today.
-          mask: [page.getByText(/@e2e-harness\.test/), page.getByText(/\d{1,2}[/-]\d{1,2}[/-]\d{4}|\d{4}-\d{2}-\d{2}/)],
+          mask: [
+            page.getByText(/@e2e-harness\.test/),
+            page.getByText(/\d{1,2}[/-]\d{1,2}[/-]\d{4}|\d{4}-\d{2}-\d{2}/),
+            // Prefilled with the current time.
+            page.locator('input[type="datetime-local"]'),
+          ],
           maxDiffPixelRatio: 0.01,
         });
       }

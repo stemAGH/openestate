@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
-import { PERMISSIONS, SYSTEM_ROLES } from '@openestate/shared';
+import { Link, useSearchParams } from 'react-router-dom';
+import { INQUIRY_STATUS_LABELS, PERMISSIONS, SYSTEM_ROLES } from '@openestate/shared';
 import { usePaginatedQuery } from '../../lib/hooks';
 import { useAuth } from '../../lib/auth';
 import { api, downloadFile } from '../../lib/api';
@@ -11,14 +11,59 @@ import CustomFieldInputs, {
   useCustomFieldDefinitions,
   buildCustomFieldPayload,
 } from '../../components/CustomFieldInputs';
+import { ContactActions, FollowUpDue, InquiryStatusBadge, PageHeader, TemperatureBadge } from '../../ui';
 
 interface Inquiry {
   id: string;
   status: string;
+  sourceId: string | null;
+  preferredUnitTypeId: string | null;
+  nextFollowupAt: string | null;
   applicant: { id: string; name: string; primaryPhone: string };
   project: { id: string; name: string } | null;
   temperature: { id: string; name: string } | null;
+  assignedTo: { id: string; name: string } | null;
   createdAt: string;
+}
+
+/** What the dashboard returns that this page uses: today's count and the team list for the owner filter. */
+interface DashboardLite {
+  mine: { followUpsToday: number };
+  team: { followUpsToday: number; perReport: Array<{ userId: string; name: string }> } | null;
+}
+
+/** The list's URL parameters; each maps 1:1 to a GET /inquiries filter (q → search). */
+const FILTER_KEYS = ['status', 'temperatureId', 'projectId', 'followUp', 'assignedToId'] as const;
+
+/** A filter: a native select styled as a pill, highlighted while it narrows the list. */
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <select
+      aria-label={`Filter by ${label.toLowerCase()}`}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={`h-9 rounded-full border px-3 text-sm ${
+        value ? 'border-primary bg-primary-soft font-medium text-primary-fg' : 'border-line-input bg-surface text-fg'
+      }`}
+    >
+      <option value="">{label}: all</option>
+      {options.map((o) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </select>
+  );
 }
 
 interface ImportRowError {
@@ -60,7 +105,33 @@ interface Project {
 }
 
 export default function InquiriesPage() {
-  const [page, setPage] = useState(1);
+  // Filters live in the URL, so dashboard links and the back button work.
+  const [params, setParams] = useSearchParams();
+  const page = Number(params.get('page') ?? '1') || 1;
+  const filter = (k: string) => params.get(k) ?? '';
+  const setFilter = (k: string, v: string) =>
+    setParams(
+      (p) => {
+        const next = new URLSearchParams(p);
+        if (v) next.set(k, v);
+        else next.delete(k);
+        next.delete('page');
+        return next;
+      },
+      { replace: true },
+    );
+  const setPage = (n: number) => setFilter('page', n > 1 ? String(n) : '');
+  const [search, setSearch] = useState(filter('q'));
+  // Debounced: the list follows typing without a request per keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (search.trim() !== filter('q')) setFilter('q', search.trim());
+    }, 300);
+    return () => clearTimeout(t);
+    // Only the typed text restarts the timer.
+  }, [search]);
+  const anyFilter = FILTER_KEYS.some((k) => filter(k)) || !!filter('q');
+
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState('');
   const [newApplicantId, setNewApplicantId] = useState<string | null>(null);
@@ -86,7 +157,22 @@ export default function InquiriesPage() {
 
   const qc = useQueryClient();
   const { user, hasPermission } = useAuth();
-  const { data, isLoading } = usePaginatedQuery<Inquiry>(['inquiries'], '/inquiries', { page, limit: 20 });
+  const listParams: Record<string, string | number> = { page, limit: 20 };
+  for (const k of FILTER_KEYS) if (filter(k)) listParams[k] = filter(k);
+  if (filter('q').length >= 2) listParams.search = filter('q');
+  const { data, isLoading, isError } = usePaginatedQuery<Inquiry>(['inquiries'], '/inquiries', listParams);
+
+  // Same request and cache entry as the Dashboard page.
+  const { data: dash } = useQuery<DashboardLite>({
+    queryKey: ['dashboard'],
+    queryFn: () => api('/dashboard'),
+    retry: false,
+  });
+  const dueToday = dash ? (dash.team ?? dash.mine).followUpsToday : null;
+  // Owner filter: only for someone with a team, offering exactly that team.
+  const owners = dash?.team
+    ? [{ value: user?.sub ?? '', label: 'Me' }, ...dash.team.perReport.map((r) => ({ value: r.userId, label: r.name }))]
+    : null;
 
   // v0.4: an empty list here is ambiguous — genuinely no leads, or a
   // manager-tier user whose team just isn't configured yet (TeamScopeService
@@ -102,7 +188,9 @@ export default function InquiriesPage() {
   const { data: reportsCheck } = useQuery({
     queryKey: ['has-reports-check', user?.sub],
     queryFn: () => api<{ data: Array<{ managerId: string | null }> }>('/users?limit=100'),
-    enabled: listIsEmpty && isManagerTier,
+    // Only a role that can read users asks (no silent 403), and only on an
+    // unfiltered empty list, where "no reports configured" is the question.
+    enabled: listIsEmpty && isManagerTier && !anyFilter && hasPermission(PERMISSIONS.ADMIN_USER_READ),
   });
   const noReportsConfigured = !!reportsCheck && !reportsCheck.data.some((u) => u.managerId === user?.sub);
 
@@ -118,6 +206,12 @@ export default function InquiriesPage() {
     queryKey: ['masters', 'inquiry-temperatures', 'all'],
     queryFn: () => api('/masters/inquiry-temperatures?limit=100'),
   });
+  const { data: unitTypes } = useQuery<{ data: MasterOption[] }>({
+    queryKey: ['masters', 'unit-types', 'all'],
+    queryFn: () => api('/masters/unit-types?limit=100'),
+  });
+  const nameOf = (list: { data: MasterOption[] } | undefined, id: string | null) =>
+    (id && list?.data.find((x) => x.id === id)?.name) || null;
 
   const handleCreate = async () => {
     setError('');
@@ -200,34 +294,123 @@ export default function InquiriesPage() {
   };
 
   const columns: Column<Inquiry>[] = [
-    { key: 'applicant', header: 'Applicant', render: (i) => <Link to={`/presales/inquiries/${i.id}`} className="text-blue-600 hover:underline">{i.applicant.name}</Link> },
-    { key: 'phone', header: 'Phone', render: (i) => i.applicant.primaryPhone },
-    { key: 'project', header: 'Project', render: (i) => i.project?.name ?? '—' },
-    { key: 'temperature', header: 'Temperature', render: (i) => i.temperature?.name ?? '—' },
-    { key: 'status', header: 'Status', render: (i) => i.status },
+    {
+      key: 'applicant',
+      header: 'Name',
+      render: (i) => (
+        <span className="flex flex-col leading-tight">
+          <Link to={`/presales/inquiries/${i.id}`} className="font-medium text-primary hover:underline">
+            {i.applicant.name}
+          </Link>
+          {nameOf(sources, i.sourceId) && <span className="text-xs text-fg-2">{nameOf(sources, i.sourceId)}</span>}
+        </span>
+      ),
+    },
+    { key: 'phone', header: 'Phone', render: (i) => <span className="whitespace-nowrap">{i.applicant.primaryPhone}</span> },
+    {
+      key: 'interest',
+      header: 'Interest',
+      render: (i) => (
+        <span className="flex flex-col leading-tight">
+          <span>{i.project?.name ?? '—'}</span>
+          {nameOf(unitTypes, i.preferredUnitTypeId) && (
+            <span className="text-xs text-fg-2">{nameOf(unitTypes, i.preferredUnitTypeId)}</span>
+          )}
+        </span>
+      ),
+    },
+    { key: 'temperature', header: 'Temperature', render: (i) => <TemperatureBadge name={i.temperature?.name} /> },
+    { key: 'status', header: 'Status', render: (i) => <InquiryStatusBadge status={i.status} /> },
+    { key: 'next', header: 'Next follow-up', render: (i) => <FollowUpDue at={i.nextFollowupAt} /> },
+    { key: 'owner', header: 'Owner', render: (i) => i.assignedTo?.name ?? '—' },
+    { key: 'contact', header: 'Contact', render: (i) => <ContactActions name={i.applicant.name} phone={i.applicant.primaryPhone} /> },
   ];
+
+  const total = data?.meta?.total;
+  const countLine =
+    total === undefined
+      ? undefined
+      : `${total} ${total === 1 ? 'inquiry' : 'inquiries'}${
+          dueToday !== null ? ` · ${dueToday} follow-up${dueToday === 1 ? '' : 's'} due today` : ''
+        }`;
 
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <h1 className="page-title">Inquiries</h1>
-        <div className="flex gap-2">
+      <PageHeader
+        title="Inquiries"
+        description={countLine}
+        actions={
+          <>
+            <button
+              onClick={() => downloadFile('/reports/presales/inquiries-export?format=csv', 'inquiries-export.csv')}
+              className="btn btn-sm btn-secondary"
+            >
+              Export CSV
+            </button>
+            <button onClick={() => setShowImport((v) => !v)} className="btn btn-sm btn-secondary">
+              Bulk Import
+            </button>
+            <button onClick={() => setShowForm(true)} className="btn btn-md btn-primary">
+              New inquiry
+            </button>
+          </>
+        }
+      />
+
+      <div className="mt-4 flex flex-wrap items-center gap-2" role="search">
+        <input
+          type="search"
+          aria-label="Search inquiries by name, phone or email"
+          placeholder="Search name, phone or email"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="input h-9 w-full sm:w-72"
+        />
+        <FilterSelect
+          label="Status"
+          value={filter('status')}
+          onChange={(v) => setFilter('status', v)}
+          options={[
+            { value: 'OPEN,CONTINUED', label: 'Active (open or continued)' },
+            ...Object.entries(INQUIRY_STATUS_LABELS).map(([value, label]) => ({ value, label })),
+          ]}
+        />
+        <FilterSelect
+          label="Temperature"
+          value={filter('temperatureId')}
+          onChange={(v) => setFilter('temperatureId', v)}
+          options={(temperatures?.data ?? []).map((t) => ({ value: t.id, label: t.name }))}
+        />
+        <FilterSelect
+          label="Project"
+          value={filter('projectId')}
+          onChange={(v) => setFilter('projectId', v)}
+          options={(projects?.data ?? []).map((p) => ({ value: p.id, label: p.name }))}
+        />
+        <FilterSelect
+          label="Follow-up"
+          value={filter('followUp')}
+          onChange={(v) => setFilter('followUp', v)}
+          options={[
+            { value: 'today', label: 'Due today' },
+            { value: 'overdue', label: 'Overdue' },
+          ]}
+        />
+        {owners && (
+          <FilterSelect label="Owner" value={filter('assignedToId')} onChange={(v) => setFilter('assignedToId', v)} options={owners} />
+        )}
+        {anyFilter && (
           <button
-            onClick={() => downloadFile('/reports/presales/inquiries-export?format=csv', 'inquiries-export.csv')}
-            className="btn btn-sm btn-secondary"
+            type="button"
+            onClick={() => {
+              setSearch('');
+              setParams(new URLSearchParams(), { replace: true });
+            }}
+            className="btn btn-sm btn-link"
           >
-            Export CSV
+            Clear filters
           </button>
-          <button
-            onClick={() => setShowImport((v) => !v)}
-            className="btn btn-sm btn-secondary"
-          >
-            Bulk Import
-          </button>
-          <button onClick={() => setShowForm(true)} className="btn btn-md btn-primary">
-            Add Inquiry
-          </button>
-        </div>
+        )}
       </div>
 
       {showImport && (
@@ -397,7 +580,18 @@ export default function InquiriesPage() {
       )}
 
       <div className="mt-4">
-        <DataTable columns={columns} data={data?.data ?? []} isLoading={isLoading} />
+        {isError ? (
+          <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            Couldn&apos;t load inquiries. Reload the page to try again.
+          </p>
+        ) : (
+          <DataTable
+            columns={columns}
+            data={data?.data ?? []}
+            isLoading={isLoading}
+            emptyText={anyFilter ? 'No inquiries match these filters. Clear the filters to see all.' : 'No inquiries yet. Use "New inquiry" to add one.'}
+          />
+        )}
         {data?.meta && <Pagination page={data.meta.page} totalPages={data.meta.totalPages} onPageChange={setPage} />}
       </div>
     </div>

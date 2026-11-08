@@ -145,7 +145,7 @@ test('manager-tier user with zero reports sees the empty-team hint; it disappear
     await expect(page).toHaveURL(/\/$/);
 
     await page.goto('/presales/inquiries');
-    await page.getByRole('button', { name: 'Add Inquiry' }).click();
+    await page.getByRole('button', { name: 'New inquiry' }).click();
     await controlAfterLabel(page, 'Applicant Name').fill(leadName);
     await controlAfterLabel(page, 'Phone').fill('9800800001');
     await controlAfterLabel(page, 'Project').selectOption({ value: fixture.projectId });
@@ -166,7 +166,7 @@ test('manager-tier user with zero reports sees the empty-team hint; it disappear
 
     await page.goto('/presales/inquiries');
     await expect(page.getByText('Your team has no reports configured yet')).not.toBeVisible();
-    await expect(page.getByRole('link', { name: leadName })).toBeVisible();
+    await expect(page.getByRole('link', { name: leadName, exact: true })).toBeVisible();
   } finally {
     await prisma.$disconnect();
   }

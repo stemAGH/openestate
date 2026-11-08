@@ -121,7 +121,7 @@ test('manager sees a report\'s inquiry; a peer with no management relationship d
     await expect(page).toHaveURL(/\/$/);
 
     await page.goto('/presales/inquiries');
-    await page.getByRole('button', { name: 'Add Inquiry' }).click();
+    await page.getByRole('button', { name: 'New inquiry' }).click();
     await controlAfterLabel(page, 'Applicant Name').fill(leadName);
     await controlAfterLabel(page, 'Phone').fill('9800500001');
     // By value (projectId), not by label — project-edit.spec.ts runs
@@ -134,7 +134,7 @@ test('manager sees a report\'s inquiry; a peer with no management relationship d
       page.getByRole('button', { name: 'Create' }).click(),
     ]);
     expect(inquiryCreateRes.ok()).toBe(true);
-    await expect(page.getByRole('link', { name: leadName })).toBeVisible();
+    await expect(page.getByRole('link', { name: leadName, exact: true })).toBeVisible();
 
     // Log in as the manager — the exec's lead must be visible (full
     // subtree, not blocked by scoping).
@@ -146,7 +146,7 @@ test('manager sees a report\'s inquiry; a peer with no management relationship d
     await expect(page).toHaveURL(/\/$/);
 
     await page.goto('/presales/inquiries');
-    await expect(page.getByRole('link', { name: leadName })).toBeVisible();
+    await expect(page.getByRole('link', { name: leadName, exact: true })).toBeVisible();
 
     // Log in as the peer — same role, no management relationship to the
     // exec — the lead must NOT be visible.
@@ -158,7 +158,7 @@ test('manager sees a report\'s inquiry; a peer with no management relationship d
     await expect(page).toHaveURL(/\/$/);
 
     await page.goto('/presales/inquiries');
-    await expect(page.getByRole('link', { name: leadName })).not.toBeVisible();
+    await expect(page.getByRole('link', { name: leadName, exact: true })).not.toBeVisible();
   } finally {
     await prisma.$disconnect();
   }

@@ -42,7 +42,7 @@ test('marking a lead Successful surfaces a Create Booking link that prefills the
 
   // A real lead, marked Successful through the real status buttons.
   await page.goto('/presales/inquiries');
-  await page.getByRole('button', { name: 'Add Inquiry' }).click();
+  await page.getByRole('button', { name: 'New inquiry' }).click();
   const applicantName = `E2E Successful Lead ${Date.now()}`;
   await controlAfterLabel(page, 'Applicant Name').fill(applicantName);
   await controlAfterLabel(page, 'Phone').fill(`9${String(Date.now()).slice(-9)}`);
@@ -53,16 +53,16 @@ test('marking a lead Successful surfaces a Create Booking link that prefills the
   expect(inquiryCreateResponse.ok()).toBe(true);
   const inquiry = (await inquiryCreateResponse.json()) as { id: string };
 
-  await page.getByRole('link', { name: applicantName }).click();
+  await page.getByRole('link', { name: applicantName, exact: true }).click();
   await expect(page).toHaveURL(/\/presales\/inquiries\/[0-9a-f-]{36}$/);
 
   await expect(page.getByRole('link', { name: 'Create Booking' })).not.toBeVisible();
   const [statusResponse] = await Promise.all([
     page.waitForResponse((r) => /\/inquiries\/[0-9a-f-]{36}$/.test(r.url()) && r.request().method() === 'PATCH'),
-    page.getByRole('button', { name: 'Mark SUCCESSFUL' }).click(),
+    page.getByRole('button', { name: 'Mark as Successful' }).click(),
   ]);
   expect(statusResponse.ok()).toBe(true);
-  await expect(page.getByText('Status: SUCCESSFUL')).toBeVisible();
+  await expect(page.getByTestId('inquiry-status')).toHaveText('Successful');
 
   // The link only exists once the lead is Successful — this is the whole
   // point of the gate.

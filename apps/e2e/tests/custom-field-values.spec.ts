@@ -41,7 +41,7 @@ test('define a custom field → capture a value on a real form → see it on det
 
   // ── Capture a value through the real inquiry form ──
   await page.goto('/presales/inquiries');
-  await page.getByRole('button', { name: 'Add Inquiry' }).click();
+  await page.getByRole('button', { name: 'New inquiry' }).click();
 
   // The field must appear on the form with no code change — that is the
   // entire point of custom fields.
@@ -60,7 +60,7 @@ test('define a custom field → capture a value on a real form → see it on det
   expect(createRes.ok()).toBe(true);
 
   // ── See it on the detail screen ──
-  await page.getByRole('link', { name: applicantName }).click();
+  await page.getByRole('link', { name: applicantName, exact: true }).click();
   await expect(page).toHaveURL(/\/presales\/inquiries\/.+/);
   const display = page.getByTestId('inquiry-custom-field-display');
   await expect(display).toContainText(label);

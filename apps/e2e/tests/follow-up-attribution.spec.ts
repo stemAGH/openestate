@@ -31,7 +31,7 @@ test('logging a follow-up shows who logged it, requires a next follow-up time, a
 
   await login(page, fixture);
   await page.goto('/presales/inquiries');
-  await page.getByRole('button', { name: 'Add Inquiry' }).click();
+  await page.getByRole('button', { name: 'New inquiry' }).click();
   await controlAfterLabel(page, 'Applicant Name').fill(applicantName);
   await controlAfterLabel(page, 'Phone').fill('9812322222');
   const [createResponse] = await Promise.all([
@@ -40,7 +40,7 @@ test('logging a follow-up shows who logged it, requires a next follow-up time, a
   ]);
   expect(createResponse.ok()).toBe(true);
 
-  await page.getByRole('link', { name: applicantName }).click();
+  await page.getByRole('link', { name: applicantName, exact: true }).click();
   await expect(page).toHaveURL(/\/presales\/inquiries\/.+/);
 
   // Saving with no next-action date on this still-active (OPEN) lead must

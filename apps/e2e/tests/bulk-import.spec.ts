@@ -58,5 +58,5 @@ test('download the template, upload a bad file (row errors, nothing created), th
   ]);
   expect(goodResponse.ok()).toBe(true);
   await expect(page.getByText('Created 1')).toBeVisible();
-  await expect(page.getByRole('link', { name: applicantName })).toBeVisible();
+  await expect(page.getByRole('link', { name: applicantName, exact: true })).toBeVisible();
 });

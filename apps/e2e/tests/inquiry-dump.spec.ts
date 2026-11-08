@@ -39,7 +39,7 @@ test('Dump Reasons master is manageable from Admin → Masters, and dumping a le
 
   // A real lead to dump.
   await page.goto('/presales/inquiries');
-  await page.getByRole('button', { name: 'Add Inquiry' }).click();
+  await page.getByRole('button', { name: 'New inquiry' }).click();
   const applicantName = `E2E Dump Applicant ${Date.now()}`;
   await controlAfterLabel(page, 'Applicant Name').fill(applicantName);
   await controlAfterLabel(page, 'Phone').fill(`9${String(Date.now()).slice(-9)}`);
@@ -48,12 +48,12 @@ test('Dump Reasons master is manageable from Admin → Masters, and dumping a le
     page.getByRole('button', { name: 'Create' }).click(),
   ]);
   expect(inquiryCreateResponse.ok()).toBe(true);
-  await page.getByRole('link', { name: applicantName }).click();
+  await page.getByRole('link', { name: applicantName, exact: true }).click();
   await expect(page).toHaveURL(/\/presales\/inquiries\/[0-9a-f-]{36}$/);
 
-  // Mark DUMPED opens the reason+remarks form rather than dumping
+  // Mark as Dumped opens the reason+remarks form rather than dumping
   // instantly — the whole point of this fix.
-  await page.getByRole('button', { name: 'Mark DUMPED' }).click();
+  await page.getByRole('button', { name: 'Mark as Dumped' }).click();
   const dumpForm = page.getByTestId('dump-form');
   const confirmButton = dumpForm.getByRole('button', { name: 'Confirm Dump' });
   await expect(confirmButton).toBeDisabled();
@@ -68,5 +68,5 @@ test('Dump Reasons master is manageable from Admin → Masters, and dumping a le
     confirmButton.click(),
   ]);
   expect(dumpResponse.ok()).toBe(true);
-  await expect(page.getByText('Status: DUMPED')).toBeVisible();
+  await expect(page.getByTestId('inquiry-status')).toHaveText('Dumped');
 });

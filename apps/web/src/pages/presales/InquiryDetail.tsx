@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { formatDateTime, INQUIRY_STATUS_LABELS, PERMISSIONS, type InquiryStatusValue } from '@openestate/shared';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
+import { Card, ContactActions, EmptyState, FollowUpDue, InquiryStatusBadge, PageHeader } from '../../ui';
 import {
   CustomFieldDisplay,
   useCustomFieldDefinitions,
@@ -20,6 +22,7 @@ interface Inquiry {
   };
   project: { id: string; name: string } | null;
   assignedTo: { id: string; name: string } | null;
+  nextFollowupAt: string | null;
   customFields?: Record<string, unknown> | null;
 }
 
@@ -54,7 +57,7 @@ interface UserOption {
   name: string;
 }
 
-const STATUSES = ['OPEN', 'CONTINUED', 'DUMPED', 'SUCCESSFUL'];
+const STATUSES = Object.keys(INQUIRY_STATUS_LABELS) as InquiryStatusValue[];
 
 export default function InquiryDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -101,9 +104,15 @@ export default function InquiryDetailPage() {
     queryFn: () => api('/masters/follow-up-types?limit=100'),
   });
 
+  // Reassigning needs presales.inquiry.assign, and its user list needs
+  // admin.user.read: without both, neither the form nor the request
+  // (previously a silent 403 for sales executives) is shown.
+  const canReassign =
+    hasPermission(PERMISSIONS.PRESALES_INQUIRY_ASSIGN) && hasPermission(PERMISSIONS.ADMIN_USER_READ);
   const { data: users } = useQuery<{ data: UserOption[] }>({
     queryKey: ['users', 'all'],
     queryFn: () => api('/users?page=1&limit=100'),
+    enabled: canReassign,
   });
 
   const { data: leadStages } = useQuery<{ data: MasterOption[] }>({
@@ -208,174 +217,206 @@ export default function InquiryDetailPage() {
     }
   };
 
-  if (!inquiry) return <div className="text-slate-500">Loading…</div>;
+  if (!inquiry) return <div className="text-fg-2">Loading…</div>;
+
+  const isActive = inquiry.status === 'OPEN' || inquiry.status === 'CONTINUED';
+  const history = [...(followUps ?? [])].sort(
+    (a, b) => new Date(b.interactionAt).getTime() - new Date(a.interactionAt).getTime(),
+  );
 
   return (
     <div>
-      <h1 className="page-title">{inquiry.applicant.name}</h1>
-      <p className="text-sm text-slate-500">
-        {inquiry.applicant.primaryPhone} {inquiry.project && <>· {inquiry.project.name}</>}
-        {inquiry.assignedTo && <> · Assigned to {inquiry.assignedTo.name}</>}
-      </p>
+      <PageHeader
+        title={inquiry.applicant.name}
+        description={
+          <>
+            {inquiry.applicant.primaryPhone}
+            {inquiry.project && <> · {inquiry.project.name}</>}
+            {inquiry.assignedTo && <> · Owner: {inquiry.assignedTo.name}</>}
+          </>
+        }
+        actions={<ContactActions name={inquiry.applicant.name} phone={inquiry.applicant.primaryPhone} />}
+      />
 
-      <section className="mt-4">
-        <h2 className="section-title">Status: {inquiry.status}</h2>
-        <div className="mt-2 flex gap-2">
-          {STATUSES.filter((s) => s !== inquiry.status).map((s) => (
-            <button
-              key={s}
-              onClick={() => handleStatusChange(s)}
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
-            >
-              Mark {s}
-            </button>
-          ))}
-        </div>
-        {statusError && <p className="mt-2 text-sm text-red-600">{statusError}</p>}
-
-        {inquiry.status === 'SUCCESSFUL' && hasPermission('postsales.booking.create') && (
-          <Link
-            to={`/postsales/bookings/new?sourceInquiryId=${inquiry.id}&applicantId=${inquiry.applicant.id}${inquiry.project ? `&projectId=${inquiry.project.id}` : ''}`}
-            className="mt-3 inline-block rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
-          >
-            Create Booking
-          </Link>
-        )}
-
-        {showDumpForm && (
-          <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-4" data-testid="dump-form">
-            <p className="text-sm text-amber-900">Dumping a lead requires a reason and remarks, for future reference.</p>
-            <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="mt-6 grid gap-6 lg:grid-cols-3">
+        {/* Right column on desktop, first on phones: logging a follow-up is the most frequent action. */}
+        <div className="order-first space-y-6 lg:order-last lg:col-span-1">
+          <Card className="p-4 lg:sticky lg:top-4">
+            <h2 className="section-title">Log follow-up</h2>
+            <p className="mt-1 text-xs text-fg-2">
+              To log a site visit, pick the &quot;Site Visit&quot; type and fill in the date and venue.
+            </p>
+            <div className="mt-3 grid grid-cols-1 gap-3">
               <div>
-                <label className="block text-sm font-medium text-slate-700">Reason</label>
-                <select value={dumpReasonId} onChange={(e) => setDumpReasonId(e.target.value)} className="mt-1 input">
+                <label htmlFor="fu-type" className="block text-sm font-medium text-slate-700">Type</label>
+                <select id="fu-type" value={typeId} onChange={(e) => setTypeId(e.target.value)} className="mt-1 input">
                   <option value="">Select…</option>
-                  {dumpReasons?.data?.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                  {followUpTypes?.data?.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700">Remarks</label>
-                <input type="text" value={dumpRemarks} onChange={(e) => setDumpRemarks(e.target.value)} className="mt-1 input" />
+                <label htmlFor="fu-notes" className="block text-sm font-medium text-slate-700">Notes</label>
+                <textarea id="fu-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="mt-1 input" />
+              </div>
+              <div>
+                <label htmlFor="fu-interaction" className="block text-sm font-medium text-slate-700">Interaction happened at</label>
+                <input id="fu-interaction" type="datetime-local" value={interactionAt} onChange={(e) => setInteractionAt(e.target.value)} className="mt-1 input" />
+              </div>
+              <div>
+                <label htmlFor="fu-next" className="block text-sm font-medium text-slate-700">
+                  Next follow-up{isActive && <span className="text-red-600"> *</span>}
+                </label>
+                <input id="fu-next" type="datetime-local" value={nextActionAt} onChange={(e) => setNextActionAt(e.target.value)} className="mt-1 input" />
+                {isActive && (
+                  <p className="mt-1 text-xs text-slate-500">Required while this lead is active — it won&apos;t be visible in My Day otherwise.</p>
+                )}
+              </div>
+              <div>
+                <label htmlFor="fu-scheduled" className="block text-sm font-medium text-slate-700">Scheduled At (for site visits)</label>
+                <input id="fu-scheduled" type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} className="mt-1 input" />
+              </div>
+              <div>
+                <label htmlFor="fu-venue" className="block text-sm font-medium text-slate-700">Venue</label>
+                <input id="fu-venue" type="text" value={venue} onChange={(e) => setVenue(e.target.value)} className="mt-1 input" />
               </div>
             </div>
-            <div className="mt-3 flex gap-3">
-              <button onClick={handleDump} disabled={!dumpReasonId || !dumpRemarks.trim()} className="btn btn-md btn-warning">
-                Confirm Dump
+            <div className="mt-3">
+              <button onClick={handleAddFollowUp} className="btn btn-md btn-primary w-full sm:w-auto">
+                Log Follow-up
               </button>
-              <button onClick={() => setShowDumpForm(false)} className="btn btn-md btn-secondary">Cancel</button>
             </div>
-            {dumpError && <p className="mt-2 text-sm text-red-600">{dumpError}</p>}
-          </div>
-        )}
-      </section>
+            {followUpError && <p className="mt-2 text-sm text-red-600">{followUpError}</p>}
+          </Card>
 
-      <section className="mt-4">
-        <label className="block text-sm font-medium text-slate-700">Stage</label>
-        <select
-          value={inquiry.stageId ?? ''}
-          onChange={(e) => handleStageChange(e.target.value)}
-          className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm"
-        >
-          <option value="">No stage</option>
-          {leadStages?.data?.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
-          ))}
-        </select>
-        {stageError && <p className="mt-2 text-sm text-red-600">{stageError}</p>}
-      </section>
-
-      <section className="mt-6" data-testid="inquiry-custom-field-display">
-        <CustomFieldDisplay definitions={inquiryDefs} values={inquiry.customFields} />
-        <CustomFieldDisplay definitions={applicantDefs} values={inquiry.applicant.customFields} />
-      </section>
-
-      <section className="mt-6">
-        <h2 className="section-title">Reassign</h2>
-        <div className="mt-2 flex flex-wrap items-end gap-3">
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Assign To</label>
-            <select value={toUserId} onChange={(e) => setToUserId(e.target.value)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm">
-              <option value="">Select…</option>
-              {users?.data?.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Reason</label>
-            <input type="text" value={assignReason} onChange={(e) => setAssignReason(e.target.value)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm" />
-          </div>
-          <button onClick={handleReassign} disabled={!toUserId} className="btn btn-md btn-primary">
-            Reassign
-          </button>
-        </div>
-        {assignError && <p className="mt-2 text-sm text-red-600">{assignError}</p>}
-      </section>
-
-      <section className="mt-6">
-        <h2 className="section-title">Follow-ups &amp; Site Visits</h2>
-        <p className="text-sm text-slate-500">
-          To log a site visit, pick the "Site Visit" type and fill in the date/venue below.
-        </p>
-        <div className="mt-3 rounded-lg border border-slate-200 bg-white p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Type</label>
-              <select value={typeId} onChange={(e) => setTypeId(e.target.value)} className="mt-1 input">
-                <option value="">Select…</option>
-                {followUpTypes?.data?.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Interaction happened at</label>
-              <input type="datetime-local" value={interactionAt} onChange={(e) => setInteractionAt(e.target.value)} className="mt-1 input" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700">
-                Next follow-up{(inquiry.status === 'OPEN' || inquiry.status === 'CONTINUED') && <span className="text-red-600"> *</span>}
-              </label>
-              <input type="datetime-local" value={nextActionAt} onChange={(e) => setNextActionAt(e.target.value)} className="mt-1 input" />
-              {(inquiry.status === 'OPEN' || inquiry.status === 'CONTINUED') && (
-                <p className="mt-1 text-xs text-slate-500">Required while this lead is active — it won&apos;t be visible in My Day otherwise.</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Scheduled At (for site visits)</label>
-              <input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} className="mt-1 input" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Venue</label>
-              <input type="text" value={venue} onChange={(e) => setVenue(e.target.value)} className="mt-1 input" />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-slate-700">Notes</label>
-              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="mt-1 input" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <button onClick={handleAddFollowUp} className="btn btn-md btn-primary">
-              Log Follow-up
-            </button>
-          </div>
-          {followUpError && <p className="mt-2 text-sm text-red-600">{followUpError}</p>}
-        </div>
-
-        <ul className="mt-3 space-y-2">
-          {(followUps ?? []).length === 0 ? (
-            <li className="text-sm text-slate-500">No follow-ups yet</li>
-          ) : (
-            followUps!.map((f) => (
-              <li key={f.id} className="rounded-md border border-slate-200 bg-white p-3 text-sm">
-                <div className="font-medium text-slate-800">
-                  {f.type?.name ?? 'Follow-up'} — {new Date(f.interactionAt).toLocaleString()}
-                  {f.createdBy && <span className="font-normal text-slate-500"> by {f.createdBy.name}</span>}
+          {canReassign && (
+            <Card className="p-4">
+              <h2 className="section-title">Reassign</h2>
+              <div className="mt-3 grid grid-cols-1 gap-3">
+                <div>
+                  <label htmlFor="assign-to" className="block text-sm font-medium text-slate-700">Assign To</label>
+                  <select id="assign-to" value={toUserId} onChange={(e) => setToUserId(e.target.value)} className="mt-1 input">
+                    <option value="">Select…</option>
+                    {users?.data?.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                  </select>
                 </div>
-                {f.nextActionAt && <div className="text-slate-600">Next follow-up: {new Date(f.nextActionAt).toLocaleString()}</div>}
-                {f.scheduledAt && <div className="text-slate-600">Scheduled: {new Date(f.scheduledAt).toLocaleString()} {f.venue && `at ${f.venue}`}</div>}
-                {f.notes && <div className="text-slate-600">{f.notes}</div>}
-              </li>
-            ))
+                <div>
+                  <label htmlFor="assign-reason" className="block text-sm font-medium text-slate-700">Reason</label>
+                  <input id="assign-reason" type="text" value={assignReason} onChange={(e) => setAssignReason(e.target.value)} className="mt-1 input" />
+                </div>
+              </div>
+              <button onClick={handleReassign} disabled={!toUserId} className="btn btn-md btn-secondary mt-3">
+                Reassign
+              </button>
+              {assignError && <p className="mt-2 text-sm text-red-600">{assignError}</p>}
+            </Card>
           )}
-        </ul>
-      </section>
+        </div>
+
+        <div className="space-y-6 lg:col-span-2">
+          <Card className="p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="section-title">Status</h2>
+              <span data-testid="inquiry-status">
+                <InquiryStatusBadge status={inquiry.status} />
+              </span>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {STATUSES.filter((s) => s !== inquiry.status).map((s) => (
+                <button key={s} onClick={() => handleStatusChange(s)} className="btn btn-sm btn-secondary">
+                  Mark as {INQUIRY_STATUS_LABELS[s]}
+                </button>
+              ))}
+            </div>
+            {statusError && <p className="mt-2 text-sm text-red-600">{statusError}</p>}
+
+            {inquiry.status === 'SUCCESSFUL' && hasPermission('postsales.booking.create') && (
+              <Link
+                to={`/postsales/bookings/new?sourceInquiryId=${inquiry.id}&applicantId=${inquiry.applicant.id}${inquiry.project ? `&projectId=${inquiry.project.id}` : ''}`}
+                className="btn btn-md btn-primary mt-3"
+              >
+                Create Booking
+              </Link>
+            )}
+
+            {showDumpForm && (
+              <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-4" data-testid="dump-form">
+                <p className="text-sm text-amber-900">Dumping a lead requires a reason and remarks, for future reference.</p>
+                <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="dump-reason" className="block text-sm font-medium text-slate-700">Reason</label>
+                    <select id="dump-reason" value={dumpReasonId} onChange={(e) => setDumpReasonId(e.target.value)} className="mt-1 input">
+                      <option value="">Select…</option>
+                      {dumpReasons?.data?.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="dump-remarks" className="block text-sm font-medium text-slate-700">Remarks</label>
+                    <input id="dump-remarks" type="text" value={dumpRemarks} onChange={(e) => setDumpRemarks(e.target.value)} className="mt-1 input" />
+                  </div>
+                </div>
+                <div className="mt-3 flex gap-3">
+                  <button onClick={handleDump} disabled={!dumpReasonId || !dumpRemarks.trim()} className="btn btn-md btn-warning">
+                    Confirm Dump
+                  </button>
+                  <button onClick={() => setShowDumpForm(false)} className="btn btn-md btn-secondary">Cancel</button>
+                </div>
+                {dumpError && <p className="mt-2 text-sm text-red-600">{dumpError}</p>}
+              </div>
+            )}
+
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="inquiry-stage" className="block text-sm font-medium text-slate-700">Stage</label>
+                <select id="inquiry-stage" value={inquiry.stageId ?? ''} onChange={(e) => handleStageChange(e.target.value)} className="mt-1 input">
+                  <option value="">No stage</option>
+                  {leadStages?.data?.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+                {stageError && <p className="mt-2 text-sm text-red-600">{stageError}</p>}
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-700">Next follow-up</p>
+                <div className="mt-2 text-sm">
+                  <FollowUpDue at={isActive ? inquiry.nextFollowupAt : null} />
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4" data-testid="inquiry-custom-field-display">
+              <CustomFieldDisplay definitions={inquiryDefs} values={inquiry.customFields} />
+              <CustomFieldDisplay definitions={applicantDefs} values={inquiry.applicant.customFields} />
+            </div>
+          </Card>
+
+          <section>
+            <h2 className="section-title">History</h2>
+            {history.length === 0 ? (
+              <Card className="mt-3">
+                <EmptyState message="No follow-ups yet. Log the first one to start this lead's history." />
+              </Card>
+            ) : (
+              <ol className="mt-3 space-y-2">
+                {history.map((f) => (
+                  <li key={f.id} className="card p-3 text-sm">
+                    <div className="font-medium text-fg">
+                      {f.type?.name ?? 'Follow-up'} · {formatDateTime(f.interactionAt)}
+                      {f.createdBy && <span className="font-normal text-fg-2"> by {f.createdBy.name}</span>}
+                    </div>
+                    {f.notes && <div className="mt-1 text-fg">{f.notes}</div>}
+                    {f.nextActionAt && <div className="mt-1 text-fg-2">Next follow-up: {formatDateTime(f.nextActionAt)}</div>}
+                    {f.scheduledAt && (
+                      <div className="text-fg-2">
+                        Site visit: {formatDateTime(f.scheduledAt)} {f.venue && `at ${f.venue}`}
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
+        </div>
+      </div>
     </div>
   );
 }

@@ -45,7 +45,7 @@ test('Lead Stages admin: seeded pipeline, default flip, occupied-stage deactivat
   // Inquiries form (not seeded directly), then moved onto it through the
   // real InquiryDetail picker.
   await page.goto('/presales/inquiries');
-  await page.getByRole('button', { name: 'Add Inquiry' }).click();
+  await page.getByRole('button', { name: 'New inquiry' }).click();
   const applicantName = `E2E Lead ${Date.now()}`;
   await controlAfterLabel(page, 'Applicant Name').fill(applicantName);
   await controlAfterLabel(page, 'Phone').fill(`9${String(Date.now()).slice(-9)}`);
@@ -55,7 +55,7 @@ test('Lead Stages admin: seeded pipeline, default flip, occupied-stage deactivat
   ]);
   expect(inquiryCreateResponse.ok()).toBe(true);
 
-  await page.getByRole('link', { name: applicantName }).click();
+  await page.getByRole('link', { name: applicantName, exact: true }).click();
   await expect(page).toHaveURL(/\/presales\/inquiries\/[0-9a-f-]{36}$/);
   const [stagePatchResponse] = await Promise.all([
     page.waitForResponse((r) => /\/inquiries\/[0-9a-f-]{36}$/.test(r.url()) && r.request().method() === 'PATCH'),
@@ -95,6 +95,6 @@ test('Lead Stages admin: seeded pipeline, default flip, occupied-stage deactivat
   // The reassignment must be reflected back on the inquiry itself, not
   // just on the stage's own occupancy count.
   await page.goto('/presales/inquiries');
-  await page.getByRole('link', { name: applicantName }).click();
+  await page.getByRole('link', { name: applicantName, exact: true }).click();
   await expect(controlAfterLabel(page, 'Stage')).toHaveValue(await controlAfterLabel(page, 'Stage').locator('option', { hasText: 'New' }).getAttribute('value') as string);
 });

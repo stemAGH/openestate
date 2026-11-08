@@ -6,3 +6,6 @@ export { Badge, type BadgeTone } from './Badge';
 export { Card } from './Card';
 export { PageHeader } from './PageHeader';
 export { EmptyState } from './EmptyState';
+export { ContactActions } from './ContactActions';
+export { FollowUpDue } from './FollowUpDue';
+export { InquiryStatusBadge, TemperatureBadge } from './InquiryBadges';

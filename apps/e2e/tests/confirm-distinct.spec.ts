@@ -36,7 +36,7 @@ test('creating a second inquiry with a duplicate phone shows the candidate; conf
     await page.goto('/presales/inquiries');
 
     // First inquiry: brand-new applicant, no existing match yet.
-    await page.getByRole('button', { name: 'Add Inquiry' }).click();
+    await page.getByRole('button', { name: 'New inquiry' }).click();
     await controlAfterLabel(page, 'Applicant Name').fill(firstName);
     await controlAfterLabel(page, 'Phone').fill(phone);
     const [firstRes] = await Promise.all([
@@ -48,7 +48,7 @@ test('creating a second inquiry with a duplicate phone shows the candidate; conf
 
     // Second inquiry: a NEW applicant sharing the same phone — must
     // surface the duplicate-warning banner naming the first applicant.
-    await page.getByRole('button', { name: 'Add Inquiry' }).click();
+    await page.getByRole('button', { name: 'New inquiry' }).click();
     await controlAfterLabel(page, 'Applicant Name').fill(secondName);
     await controlAfterLabel(page, 'Phone').fill(phone);
     const [secondRes] = await Promise.all([

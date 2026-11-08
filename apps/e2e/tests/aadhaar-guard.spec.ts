@@ -92,7 +92,7 @@ test('B. the staff inquiry form refuses a checksum-valid number with a clear mes
 
     await login(page, fixture);
     await page.goto('/presales/inquiries');
-    await page.getByRole('button', { name: 'Add Inquiry' }).click();
+    await page.getByRole('button', { name: 'New inquiry' }).click();
     await controlAfterLabel(page, 'Applicant Name').fill(`E2E Guard Applicant ${stamp}`);
     await controlAfterLabel(page, 'Phone').fill(`9${String(stamp).slice(-9)}`);
     await controlAfterLabel(page, label).fill(spaced(aadhaarLike()));
@@ -141,7 +141,7 @@ test('C. an exempted field accepts a 12-digit value; the checkbox warns, the lis
 
     // The exempt field takes a checksum-valid value through the real inquiry form.
     await page.goto('/presales/inquiries');
-    await page.getByRole('button', { name: 'Add Inquiry' }).click();
+    await page.getByRole('button', { name: 'New inquiry' }).click();
     await controlAfterLabel(page, 'Applicant Name').fill(`E2E Bank Applicant ${stamp}`);
     await controlAfterLabel(page, 'Phone').fill(`9${String(stamp).slice(-9)}`);
     await controlAfterLabel(page, label).fill(spaced(aadhaarLike()));
