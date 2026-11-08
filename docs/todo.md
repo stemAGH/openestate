@@ -28,6 +28,24 @@ Let `GET /custom-fields` for INQUIRY and APPLICANT accept `presales.inquiry.read
 endpoint permission change. Until then the sales UI no longer asks for definitions
 it can't read (no 403), so sales staff simply don't see custom fields, as before.
 
+## Data-dependent tests: pass on a fresh DB, fail once the shared test DB grows
+
+Seen 2026-11-08 with 1,039 companies in the shared test database (120 that morning;
+the growth came from repeated suite and mutation runs). Same results on master
+`bf3a2ec` and on the phone-masking branch, each file run alone three times:
+
+- **`apps/api/test/presales-escalation.test.ts`, "dispatchTick enumerates active
+  companies…"** fails every time (3/3 on both). `dispatchTick()` queues one job per
+  active company, but the test reads back only the first 101 jobs
+  (`getJobs([...], 0, 100)`) and expects its own two companies among them. Fix: read the
+  jobs for the test's own company ids, or page through all of them.
+- **`packages/db/test/sync-super-admin-permissions.test.ts`** (3 tests) times out at 5 s
+  inside the full parallel suite, because the sync walks every company; alone it passes
+  (3/3 on both). Same root cause as "v0.9: a fragile super_admin test" below (the sync is
+  unscoped across the shared test database); a scope parameter fixes both.
+
+Until fixed, reset the test database when it has grown large before trusting a full run.
+
 ## Phone-masking PR: follow-ups
 
 - Tighten how sensitive identifier fields appear in API responses (follow-up to phone
