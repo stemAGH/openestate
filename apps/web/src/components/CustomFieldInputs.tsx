@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { supportsCustomFieldValues, maskAadhaarLike } from '@openestate/shared';
+import { supportsCustomFieldValues, maskAadhaarLike, PERMISSIONS } from '@openestate/shared';
 import { api } from '../lib/api';
+import { useAuth } from '../lib/auth';
 
 export interface CustomFieldDefinition {
   id: string;
@@ -17,13 +18,19 @@ export interface CustomFieldDefinition {
 
 export type CustomFieldValues = Record<string, unknown>;
 
-/** Active definitions for an entity type, or [] for an unsupported one. */
+/**
+ * Active definitions for an entity type, or [] for an unsupported one, or
+ * when the user can't read custom-field definitions (GET /custom-fields
+ * needs admin.custom-field.read, which sales roles don't hold). Asking
+ * anyway was a silent 403 on every Inquiries page load.
+ */
 export function useCustomFieldDefinitions(entityType: string) {
+  const { hasPermission } = useAuth();
   const supported = supportsCustomFieldValues(entityType);
   const query = useQuery<CustomFieldDefinition[]>({
     queryKey: ['custom-fields', entityType],
     queryFn: () => api(`/custom-fields?entityType=${entityType}`),
-    enabled: supported,
+    enabled: supported && hasPermission(PERMISSIONS.ADMIN_CUSTOM_FIELD_READ),
   });
   return {
     ...query,
