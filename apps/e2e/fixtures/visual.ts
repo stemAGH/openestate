@@ -44,7 +44,7 @@ export async function seedVisualFixture(databaseUrlSystem: string): Promise<E2eF
           .map((permissionId) => ({ roleId: role.id, permissionId })),
       });
       const email = `${slug.replace('_', '-')}-${tag}@e2e-harness.test`;
-      const user = await prisma.user.create({
+      const user: { id: string } = await prisma.user.create({
         data: {
           companyId: fixture.companyId,
           email,
