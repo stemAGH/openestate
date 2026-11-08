@@ -53,6 +53,9 @@ Release notes (draft): [next-release-notes.md](docs/releases/next-release-notes.
   and write an audit row, like the pre-sales exports.
 - Request logs mask phone numbers in the URL and query string. Logs from
   earlier releases may contain numbers from search URLs.
+- Tighten how sensitive identifier fields appear in API responses: only masked
+  values are returned, on every endpoint, and audit snapshots no longer store
+  internal identifier fields.
 
 ### Fixed (staff app)
 

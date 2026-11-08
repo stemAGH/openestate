@@ -48,8 +48,8 @@ Until fixed, reset the test database when it has grown large before trusting a f
 
 ## Phone-masking PR: follow-ups
 
-- Tighten how sensitive identifier fields appear in API responses (follow-up to phone
-  masking).
+- **Done in the follow-up PR:** tighten how sensitive identifier fields appear in API
+  responses (follow-up to phone masking).
 - **Add a dedicated `reports.export` permission for post-sales and broker CSVs** (they
   borrow `presales.report.export` today).
 - **Pre-sales → Reports requests `/users`, which sales executives can't read**: probably a

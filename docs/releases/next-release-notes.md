@@ -85,6 +85,14 @@ Inquiries list exactly.
   silently ignored (or a 500 for an unknown `sortBy`) and now gets a 400 that names it.
   `search` was accepted before but ignored; it now filters.
 
+## Sensitive identifier fields in API responses
+
+This release tightens how sensitive identifier fields appear in API responses.
+Only the masked value of an identifier is returned, on every endpoint, and new
+audit entries no longer store internal identifier fields. Stored audit entries
+are unchanged; these fields are left out when they are shown. No action is
+needed, and no screen changes.
+
 ## Phone numbers are masked in lists
 
 Every screen and API response that lists many people now shows only the last
