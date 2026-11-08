@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { RESTRICTED_FIELDS } from '@openestate/shared';
 import {
   tenantTxContext,
   getCurrentUserId,
@@ -155,6 +156,10 @@ function sanitize(data: unknown): unknown {
   if (proto !== Object.prototype && proto !== null) return data;
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(data as Record<string, unknown>)) {
+    // Restricted fields (an identifier's encrypted value and its key
+    // version) are left out of the snapshot entirely, not even as a
+    // placeholder; the API drops them from older rows on the way out.
+    if (RESTRICTED_FIELDS.has(k)) continue;
     out[k] = SENSITIVE_FIELDS.has(k) ? '[REDACTED]' : sanitize(v);
   }
   return out;

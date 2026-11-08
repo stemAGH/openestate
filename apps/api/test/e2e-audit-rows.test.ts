@@ -209,7 +209,9 @@ describeIf('e2e audit rows: every write is audited, with the acting user', () =>
   it('brokers: create (PAN redacted), deactivate, commission rule, assign to booking', async () => {
     const created = await send('post', '/brokers', { name: 'Audit Broker', phone: phone(), pan: 'ABCDE1234F' }).expect(201);
     const row = await expectAuditedByAdmin('Broker', created.body.id, 'CREATE');
-    expect((row.after as Record<string, unknown>).panCiphertext).toBe('[REDACTED]');
+    // Restricted fields are left out of audit snapshots entirely (not even a placeholder).
+    expect(row.after as Record<string, unknown>).not.toHaveProperty('panCiphertext');
+    expect(row.after as Record<string, unknown>).not.toHaveProperty('panKeyVersion');
     expect(JSON.stringify(row.after)).not.toContain('ABCDE1234F');
     await send('post', `/brokers/${created.body.id}/deactivate`).expect(201);
     await expectAuditedByAdmin('Broker', created.body.id, 'UPDATE');

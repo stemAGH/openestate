@@ -31,6 +31,7 @@ import { SessionVersionGuard } from './auth/guards/session-version.guard';
 import { AuthzVersionModule } from './auth/authz-version.service';
 import { DefaultThrottlerGuard } from './auth/guards/default-throttler.guard';
 import { TenantContextInterceptor } from './auth/interceptors/tenant-context.interceptor';
+import { RestrictedFieldsInterceptor } from './common/restricted-fields.interceptor';
 import { PermissionsGuard } from './auth/guards/permissions.guard';
 import { CsrfGuard } from './auth/csrf.guard';
 import { RedisThrottlerStorage } from './common/redis-throttler-storage';
@@ -203,6 +204,8 @@ import { LOG_REDACTION_PATHS, serializeRequestForLog } from './common/logger/red
     // AND a first attempt at a Guard using enterWith (context was lost
     // across prisma.$transaction()'s internal async boundary).
     { provide: APP_INTERCEPTOR, useClass: TenantContextInterceptor },
+    // Restricted identifier fields never leave the server, on any endpoint.
+    { provide: APP_INTERCEPTOR, useClass: RestrictedFieldsInterceptor },
     // v0.8.4: a plain 409 for the three ON DELETE RESTRICT foreign keys
     // (installment with interest charged, interest rule in use). Every
     // other error is passed to Nest's default handling unchanged.
