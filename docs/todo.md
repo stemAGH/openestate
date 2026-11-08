@@ -15,11 +15,38 @@ they're expected to land. Each entry should say *what*, *why deferred*, and
   the security rules ask for masked phone and PAN in lists and logs. Needs its own fix
   PR that states which roles see full numbers, and on which screens (for example the
   assigned salesperson on the inquiry detail page), with tests.
-- **Silent 403s for sales roles on Inquiries, and an empty Accounts dashboard.** The
-  Inquiries page requests `/users` and `/masters/inquiry-temperatures`, which sales
-  roles can't read, and shows nothing about it; Accounts lands on a dashboard with no
-  work on it. Root-cause both as bugs, with tests: the sales one in the sales UI PR,
-  the Accounts one in the accounts UI PR.
+- **Empty Accounts dashboard.** Accounts lands on a dashboard with no work on it.
+  Root-cause as a bug, with tests, in the accounts UI PR.
+- **Done in the sales UI PR: silent 403s for sales roles on Inquiries.** The cause was
+  `GET /custom-fields` (needs `admin.custom-field.read`, which no sales role holds),
+  requested by both Inquiries pages, plus `GET /users` for executives on the inquiry
+  page. (`/masters/inquiry-temperatures` returns 200; the audit note naming it was
+  wrong.) The web app now requests each only with the permission it needs.
+
+## Next follow-up: inquiry custom fields for sales roles (needs a ruling)
+
+Let `GET /custom-fields` for INQUIRY and APPLICANT accept `presales.inquiry.read`
+(option b), so sales roles see and fill inquiry custom fields; needs a ruling as an
+endpoint permission change. Until then the sales UI no longer asks for definitions
+it can't read (no 403), so sales staff simply don't see custom fields, as before.
+
+## Sales UI PR: smaller items found on the way
+
+- **`sortBy` on other list endpoints.** `GET /inquiries` now accepts only `createdAt`
+  and `nextFollowupAt`. Every other list still uses the shared `paginationQuerySchema`,
+  whose `sortBy` takes any string and is passed to Prisma's `orderBy`: an unknown column
+  is a 500 (seen on inquiries before this change). Give each list its own allowed
+  columns, as for inquiries.
+- **Sidebar for sales executives (audit item B5).** Executives see Admin → Masters,
+  Letter Templates and Lead Stages, because their role holds `admin.master.read` (which
+  the inquiry forms need to list sources and temperatures). A permission question, not
+  a UI one: decide whether those admin screens should be hidden from roles that only
+  need to read masters.
+- **Pre-sales reports and the dashboard's "this month" still use the host's day.** The
+  dashboard's due-today and overdue tiles, My Day and the inquiry list now use the IST
+  calendar day (`istDayBounds`). `ReportsService` date ranges (today, week, month) and
+  the dashboard's "Converted this month" still use the server process's local time, so
+  on a UTC host they shift by 5½ hours at the edges. Move them to IST the same way.
 
 ## Staff UI: remaining axe items, for the responsive PR (UI PR 5)
 
@@ -37,11 +64,11 @@ on every screen each staff role can reach, at 1440 and 390 px.
   Custom Fields, Lead API Keys, Webhooks; Post-sales → Installment schedule, Brokers,
   Dues Dashboard; Support → Tickets.
 
-Also still open from the same audit (critical, not phone-specific; due in the sales,
+Also still open from the same audit (critical, not phone-specific; due in the
 accounts and admin UI PRs): unlabelled selects and inputs (`select-name`, `label`) on
-Company Config, User form, Role form, Project detail, Receipt Entry, Inquiry detail,
-Applicant 360, Dues Dashboard, Post-sales Reports and Settings; and Receipt Entry's
-positive `tabindex`.
+Company Config, User form, Role form, Project detail, Receipt Entry, Applicant 360,
+Dues Dashboard, Post-sales Reports and Settings; and Receipt Entry's positive
+`tabindex`. (Inquiry detail's were fixed in the sales UI PR.)
 
 ## Fixed (unreleased): wizard: a refused payment plan left a booking with no plan
 

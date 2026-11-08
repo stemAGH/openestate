@@ -30,6 +30,24 @@ Release notes (draft): [next-release-notes.md](docs/releases/next-release-notes.
   booking that has none.
 - Upgrade output: read-only counts of active bookings with no payment plan and
   of units with more than one active booking.
+- `GET /api/v1/inquiries`: `search`, `status`, `temperatureId`, `projectId`,
+  `assignedToId` and `followUp=today|overdue` (same permission; filters never
+  widen the caller's team scope).
+- Staff app, sales screens: search and filters on Inquiries, next follow-up,
+  owner and Call/WhatsApp columns; a two-column inquiry page; dashboard counts
+  that open the matching filtered list; DD-MM-YYYY dates in IST.
+
+### Changed
+
+- "Due today", "overdue" and My Day count by the IST calendar day on any
+  server, not the server's own time zone (no change on a server set to IST).
+- `GET /api/v1/inquiries` refuses unknown query parameters (400), and `sortBy`
+  accepts only `createdAt` and `nextFollowupAt` (an unknown column was a 500).
+
+### Fixed (staff app)
+
+- Sales roles no longer get hidden 403s on the Inquiries pages (custom-field
+  definitions and the user list were requested without the permission).
 
 ### Deprecated
 

@@ -47,6 +47,44 @@ request sees the first one's result and is refused.
     `postsales.interest.manage` when an interest rule is sent. Those are the
     same permissions as the separate calls.
 
+## Sales screens
+
+- **Inquiries list:** a search box (name, phone or email) and filters for status,
+  temperature, project, follow-up due (today or overdue) and, for managers, owner.
+  The filters are kept in the address, so a link or the back button reopens the same
+  view. New columns: next follow-up ("Today" or "2 days overdue", with the date),
+  owner, and Call and WhatsApp buttons on every row.
+- **Inquiry page:** the follow-up form sits beside the details (above them on a
+  phone), with the history newest first. Status buttons read "Mark as Continued"
+  and so on, and the page has Call and WhatsApp buttons. Reassign shows only for
+  people allowed to reassign.
+- **Dashboard:** the greeting uses your name, and each count opens the list filtered
+  to exactly what it counts.
+- **Dates on these screens** are shown as DD-MM-YYYY, in India Standard Time.
+- **Fixed:** sales managers and executives got hidden "access denied" errors on the
+  Inquiries pages. Nothing visible changes; the pages just stop asking for data those
+  roles can't read.
+
+### Dashboard counts can move at midnight IST
+
+"Follow-ups due today", "Overdue follow-ups" and My Day now count by the **IST
+calendar day**, on any server. They used to use the server's own time zone. On a
+server set to IST nothing changes. On a server set to UTC (or anything else), the
+counts used to roll over at the server's midnight, which is 05:30 IST for UTC. They
+now roll over at midnight IST, and they match the new follow-up filter on the
+Inquiries list exactly.
+
+### API
+
+- `GET /api/v1/inquiries` takes `search`, `status` (one or more, comma-separated),
+  `temperatureId`, `projectId`, `assignedToId` and `followUp` (`today` or `overdue`).
+  Same permission as before (`presales.inquiry.read`), and a filter never shows a
+  lead outside your team.
+- **Stricter:** unknown query parameters are now refused (400), and `sortBy` accepts
+  only `createdAt` and `nextFollowupAt`. An API client that sent anything else got it
+  silently ignored (or a 500 for an unknown `sortBy`) and now gets a 400 that names it.
+  `search` was accepted before but ignored; it now filters.
+
 ## Deprecated
 
 - **`POST /api/v1/bookings`** still works for API clients, but creates a
@@ -55,7 +93,9 @@ request sees the first one's result and is refused.
 
 ## Before you upgrade
 
-No migrations, no new environment variable, no permission changes.
+No migrations, no new environment variable, no permission changes. If you have
+scripts that call `GET /api/v1/inquiries`, check they send only the parameters
+listed above.
 
 ## After you upgrade: two reports to read
 
