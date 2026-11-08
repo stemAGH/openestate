@@ -136,7 +136,14 @@ export default function Dashboard() {
     retry: false,
   });
   // The greeting uses the person's name (the token only carries the email).
-  const { data: me } = useQuery<{ name: string }>({ queryKey: ['auth', 'me'], queryFn: () => api('/auth/me') });
+  // Its own cache key, never Settings' ['auth', 'me']: sharing that entry let
+  // Settings show a cached copy after the server had ended the session, so
+  // the 401 that signs the user out never happened. Like every key, this one
+  // is dropped with the session's QueryClient (main.tsx, keyed by sessionEpoch).
+  const { data: me } = useQuery<{ name: string }>({
+    queryKey: ['dashboard', 'greeting-name'],
+    queryFn: () => api('/auth/me'),
+  });
 
   // GET /inquiries/my-day has existed since v0.4 (today's + overdue
   // follow-ups assigned to the caller) with no frontend caller until now
