@@ -9,9 +9,10 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "@node-rs/argon2": "^2",
     "@openestate/db": "workspace:*",
     "@openestate/shared": "workspace:*",
-    "@node-rs/argon2": "^2",
     "@playwright/test": "^1.49.0",
     "@types/node": "^22.10.2",
     "exceljs": "^4.4.0",

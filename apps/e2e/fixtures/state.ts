@@ -19,6 +19,7 @@ interface AllFixtures {
   portalSessionEnded: E2eFixture;
   interestRule: E2eFixture;
   atomicBooking: E2eFixture;
+  visual: E2eFixture;
 }
 
 /** Reads the named fixture global-setup.ts wrote before any spec ran. */

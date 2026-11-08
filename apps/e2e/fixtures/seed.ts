@@ -40,6 +40,8 @@ export interface E2eFixture {
   landProjectName?: string;
   landPlotNumber?: string;
   landGroupName?: string;
+  // Only set by seedVisualFixture (fixtures/visual.ts): role slug -> e-mail.
+  roleUsers?: Record<string, string>;
 }
 
 const rnd = () => Math.random().toString(36).slice(2, 8);

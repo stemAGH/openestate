@@ -1,6 +1,7 @@
 import { writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { seedE2eFixture } from './fixtures/seed';
+import { seedVisualFixture } from './fixtures/visual';
 import { DATABASE_URL_SYSTEM } from './playwright.config';
 
 // Runs once before any spec. Precondition (not started here, matching
@@ -68,6 +69,8 @@ export default async function globalSetup() {
     // Its own company: atomic-booking.spec.ts books units, changes a GST
     // rate mid-test and creates a booking without a plan.
     atomicBooking: await seedE2eFixture(DATABASE_URL_SYSTEM),
+    // Its own company with one user per staff role: visual-baseline.spec.ts.
+    visual: await seedVisualFixture(DATABASE_URL_SYSTEM),
   };
   writeFileSync(path.join(__dirname, '.fixture-state.json'), JSON.stringify(fixtures, null, 2));
 }
