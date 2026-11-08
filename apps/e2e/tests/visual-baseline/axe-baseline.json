@@ -15,12 +15,20 @@
   "company_admin masters 390": [
     "empty-table-header"
   ],
+  "sales_executive dashboard 1440": [],
+  "sales_executive dashboard 390": [],
   "sales_executive inquiries 1440": [],
   "sales_executive inquiries 390": [],
+  "sales_executive inquiry 1440": [],
+  "sales_executive inquiry 390": [],
   "sales_manager dashboard 1440": [],
   "sales_manager dashboard 390": [
     "scrollable-region-focusable"
   ],
+  "sales_manager inquiries 1440": [],
+  "sales_manager inquiries 390": [],
+  "sales_manager inquiry 1440": [],
+  "sales_manager inquiry 390": [],
   "super_admin users 1440": [
     "empty-table-header"
   ],
