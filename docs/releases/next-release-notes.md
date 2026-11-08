@@ -85,6 +85,49 @@ Inquiries list exactly.
   silently ignored (or a 500 for an unknown `sortBy`) and now gets a 400 that names it.
   `search` was accepted before but ignored; it now filters.
 
+## Phone numbers are masked in lists
+
+Every screen and API response that lists many people now shows only the last
+4 digits of a phone number (`••••••3210`). Detail pages, PDFs and CSV exports
+keep the full number.
+
+- **Screens:**
+  - Inquiries, My Day, Applicants, Brokers, the duplicate warning, and the
+    applicant pickers in the booking wizard and Receipt Entry.
+  - The audit log, communications, dispatch history and pending change
+    requests.
+  - The on-screen pre-sales Inquiries Export, the birthday list and the
+    broker dues report.
+- **Call and WhatsApp in lists:** pressing one fetches the number from the
+  inquiry's own record, with the same permission and team scope, so the list
+  never carries it. Call opens your phone app. WhatsApp opens a new tab.
+- **API change for integrations:** list endpoints now return masked values in
+  `primaryPhone`, `primaryPhoneNormalized`, `alternatePhones` and `phone` (and
+  `toAddress` / `recipientAddress` for SMS):
+  - `GET /inquiries`, `/inquiries/my-day`, `/applicants`,
+    `/applicants/:id/duplicates`, `/brokers`, `/users` and `/audit`;
+  - the `possibleDuplicates` in `POST /inquiries`;
+  - communications, dispatch history and `/admin/change-requests`;
+  - the JSON form of the reports above.
+
+  Read a single record (`GET /applicants/:id`, `/inquiries/:id`,
+  `/brokers/:id`, `/users/:id`) for the full number. Search by phone still
+  works on the full number.
+- **CSV downloads need `presales.report.export`:**
+  - It already applied to the pre-sales exports. It now also applies to the
+    birthday list and all broker reports, and each download writes an audit
+    row.
+  - Every standard role that can view those reports already holds it.
+  - **Admins with custom roles** that view the birthday list or the broker
+    reports should check the role also holds `presales.report.export`, or the
+    CSV button will be refused.
+  - The on-screen view of every report is unchanged and needs only the view
+    permission, as before.
+- **Logs:** phone numbers typed into a search box are now masked in the
+  request log. **Logs from earlier releases may contain phone numbers from
+  search URLs** (for example `GET /api/v1/applicants?search=98765…`). Treat
+  them as personal data under your retention rules.
+
 ## Deprecated
 
 - **`POST /api/v1/bookings`** still works for API clients, but creates a
@@ -95,7 +138,8 @@ Inquiries list exactly.
 
 No migrations, no new environment variable, no permission changes. If you have
 scripts that call `GET /api/v1/inquiries`, check they send only the parameters
-listed above.
+listed above. Scripts that read phone numbers from list endpoints must read the
+single record instead (see "Phone numbers are masked in lists").
 
 ## After you upgrade: two reports to read
 

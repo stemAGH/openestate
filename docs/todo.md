@@ -11,10 +11,8 @@ they're expected to land. Each entry should say *what*, *why deferred*, and
   "Installment amounts (300000000) must sum to the amount to schedule (336000000)" and
   leaves a booking with no plan. Same defect class as the wizard fix. Needs its own fix
   PR (build the plan against the booking's GST-inclusive price, or use `with-plan`).
-- **Phone numbers are unmasked in list views** (Inquiries, Dues and others), although
-  the security rules ask for masked phone and PAN in lists and logs. Needs its own fix
-  PR that states which roles see full numbers, and on which screens (for example the
-  assigned salesperson on the inquiry detail page), with tests.
+- **Done in the phone-masking PR: phone numbers in list views and logs.** Lists show the
+  last 4 digits for every role; detail endpoints and CSV exports keep the full number.
 - **Empty Accounts dashboard.** Accounts lands on a dashboard with no work on it.
   Root-cause as a bug, with tests, in the accounts UI PR.
 - **Done in the sales UI PR: silent 403s for sales roles on Inquiries.** The cause was
@@ -29,6 +27,20 @@ Let `GET /custom-fields` for INQUIRY and APPLICANT accept `presales.inquiry.read
 (option b), so sales roles see and fill inquiry custom fields; needs a ruling as an
 endpoint permission change. Until then the sales UI no longer asks for definitions
 it can't read (no 403), so sales staff simply don't see custom fields, as before.
+
+## Phone-masking PR: follow-ups
+
+- Tighten how sensitive identifier fields appear in API responses (follow-up to phone
+  masking).
+- **Add a dedicated `reports.export` permission for post-sales and broker CSVs** (they
+  borrow `presales.report.export` today).
+- **Pre-sales → Reports requests `/users`, which sales executives can't read**: probably a
+  silent 403; fix like PR 2's permission-aware queries (ask only with `admin.user.read`).
+- **Broker routes return 500 on an invalid id** (a separate small fix):
+  `/brokers/:brokerId/commission-rules`, `/brokers/:brokerId/documents`,
+  `/commission-payments/brokers/:brokerId` and `/balance`, and
+  `/reports/brokers/:brokerId/customer-detail` answer a non-UUID `:brokerId` with a 500
+  instead of a 400 (same class as the old `sortBy` 500).
 
 ## Sales UI PR: smaller items found on the way
 

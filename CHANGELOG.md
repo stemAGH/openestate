@@ -43,6 +43,16 @@ Release notes (draft): [next-release-notes.md](docs/releases/next-release-notes.
   server, not the server's own time zone (no change on a server set to IST).
 - `GET /api/v1/inquiries` refuses unknown query parameters (400), and `sortBy`
   accepts only `createdAt` and `nextFollowupAt` (an unknown column was a 500).
+- **Phone numbers are masked in list responses** (last 4 digits): inquiries,
+  My Day, applicants, duplicates, brokers, users, the audit log,
+  communications and dispatch history (SMS), change requests, and the JSON
+  form of the inquiries export, birthday list and broker dues. Detail
+  endpoints and CSV exports keep full numbers. This is an API change for
+  integrations that read phone numbers from lists.
+- The birthday-list and broker-report CSVs now need `presales.report.export`
+  and write an audit row, like the pre-sales exports.
+- Request logs mask phone numbers in the URL and query string. Logs from
+  earlier releases may contain numbers from search URLs.
 
 ### Fixed (staff app)
 
