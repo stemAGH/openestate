@@ -33,6 +33,20 @@ export function normalizePhone(raw: string): string {
   return trimmed;
 }
 
+/**
+ * Digits for a wa.me link: an Indian mobile in any stored form (+91…, 91…,
+ * 0…, 10 digits) becomes 91 + the 10 digits, exactly once. Another number
+ * is used only when stored with its own "+country" prefix; anything else
+ * returns null (no link), since its country can't be known.
+ */
+export function whatsAppNumber(raw: string): string | null {
+  const indian = normalizePhone(raw);
+  if (/^[6-9]\d{9}$/.test(indian)) return `91${indian}`;
+  const trimmed = raw.trim();
+  const digits = trimmed.replace(/\D/g, '');
+  return trimmed.startsWith('+') && digits.length >= 8 && digits.length <= 15 ? digits : null;
+}
+
 export function normalizeEmail(raw: string): string {
   return raw.trim().toLowerCase();
 }
@@ -90,6 +104,14 @@ export type InquiryStatusValue = (typeof INQUIRY_STATUS)[keyof typeof INQUIRY_ST
  *  a slipped follow-up are equally overdue; DUMPED/SUCCESSFUL are terminal
  *  and never overdue regardless of nextFollowupAt. */
 export const ACTIVE_INQUIRY_STATUSES = [INQUIRY_STATUS.OPEN, INQUIRY_STATUS.CONTINUED] as const;
+
+/** What staff see for each status; the enum value never reaches the screen. */
+export const INQUIRY_STATUS_LABELS: Record<InquiryStatusValue, string> = {
+  OPEN: 'Open',
+  CONTINUED: 'Continued',
+  DUMPED: 'Dumped',
+  SUCCESSFUL: 'Successful',
+};
 
 /** Seeded default pipeline — India-first per CLAUDE.md, matches the set
  *  the requester approved for Phase 0 of the lead-stage foundation.
@@ -190,6 +212,35 @@ export const createInquirySchema = z
   });
 
 export type CreateInquiryDto = z.infer<typeof createInquirySchema>;
+
+/** Columns GET /inquiries can sort by; anything else is a 400. */
+export const INQUIRY_SORT_COLUMNS = ['createdAt', 'nextFollowupAt'] as const;
+
+/** GET /inquiries query: pagination plus search and filters. Strict, so an
+ *  unknown or misspelt parameter is a 400 rather than silently ignored. */
+export const inquiryListQuerySchema = z
+  .object({
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+    sortBy: z.enum(INQUIRY_SORT_COLUMNS).optional(),
+    sortOrder: z.enum(['asc', 'desc']).default('asc'),
+    /** Applicant name, email, or phone digits. */
+    search: z.string().trim().min(2).max(100).optional(),
+    /** One or more statuses, comma-separated: `OPEN,CONTINUED`. */
+    status: z
+      .string()
+      .transform((s) => s.split(',').map((x) => x.trim()).filter(Boolean))
+      .pipe(z.array(z.nativeEnum(INQUIRY_STATUS)).min(1))
+      .optional(),
+    temperatureId: z.string().uuid().optional(),
+    projectId: z.string().uuid().optional(),
+    assignedToId: z.string().uuid().optional(),
+    /** Active leads whose next follow-up falls on today (IST) or before it. */
+    followUp: z.enum(['today', 'overdue']).optional(),
+  })
+  .strict();
+
+export type InquiryListQuery = z.infer<typeof inquiryListQuerySchema>;
 
 export const updateInquirySchema = z
   .object({
