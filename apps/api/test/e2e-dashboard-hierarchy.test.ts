@@ -30,7 +30,7 @@ import { NestFactory } from '@nestjs/core';
 import type { INestApplication } from '@nestjs/common';
 import { ZodValidationPipe } from 'nestjs-zod';
 import * as argon2 from '@node-rs/argon2';
-import { ALL_PERMISSIONS, PERMISSIONS, ROLE_PERMISSIONS, SYSTEM_ROLES } from '@openestate/shared';
+import { ALL_PERMISSIONS, PERMISSIONS, ROLE_PERMISSIONS, SYSTEM_ROLES, istDayBounds } from '@openestate/shared';
 import {
   makeClients,
   seedCompany,
@@ -196,8 +196,8 @@ describeIf('e2e GET /dashboard and GET /users/hierarchy', () => {
     // SUCCESSFUL for the rep (this month), one for the peer that must
     // never appear in the manager's numbers.
     const now = new Date();
-    const today = new Date(now);
-    today.setHours(12, 0, 0, 0);
+    // Noon on the IST calendar day ("due today" is an IST day now).
+    const today = new Date(istDayBounds(now).startOfToday.getTime() + 12 * 3_600_000);
     const overdue = new Date(now.getTime() - 3 * 86_400_000);
 
     const mkInquiry = async (

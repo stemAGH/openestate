@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { PrismaClient } from '@openestate/db';
 import { SYSTEM_PRISMA } from '../database/database.module';
-import type { Clock } from '@openestate/shared';
+import { istDayBounds, type Clock } from '@openestate/shared';
 import { CLOCK } from '../common/clock.provider';
 import { ReportsService } from '../presales/reports.service';
 import { TeamScopeService } from '../team-scope/team-scope.service';
@@ -93,10 +93,11 @@ export class DashboardService {
 
   private bounds() {
     const now = this.clock.now();
-    const startOfToday = new Date(now);
-    startOfToday.setHours(0, 0, 0, 0);
-    const endOfToday = new Date(now);
-    endOfToday.setHours(23, 59, 59, 999);
+    // "Due today" / "overdue" use the IST calendar day, so these tiles
+    // match the inquiry list's followUp filter and its labels.
+    const { startOfToday, endOfToday } = istDayBounds(now);
+    // ponytail: the month is still the host's local month; move it to IST
+    // with the conversions report if a UTC host shows month-edge drift.
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
     return { now, startOfToday, endOfToday, startOfMonth };
   }

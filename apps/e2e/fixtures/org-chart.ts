@@ -1,5 +1,5 @@
 import * as argon2 from '@node-rs/argon2';
-import { ALL_PERMISSIONS, ROLE_PERMISSIONS, SYSTEM_ROLES } from '@openestate/shared';
+import { ALL_PERMISSIONS, ROLE_PERMISSIONS, SYSTEM_ROLES, istDayBounds } from '@openestate/shared';
 
 /**
  * Seeds a three-person org chart plus enough inquiry data for the
@@ -95,8 +95,8 @@ export async function seedOrgChart(
 
   // Inquiry data: one due today and one overdue for the rep, plus one for
   // the peer that must never show up in the manager's figures.
-  const today = new Date();
-  today.setHours(12, 0, 0, 0);
+  // Noon on the IST calendar day ("due today" is an IST day).
+  const today = new Date(istDayBounds(new Date()).startOfToday.getTime() + 12 * 3_600_000);
   const overdue = new Date(Date.now() - 3 * 86_400_000);
 
   let seq = 0;

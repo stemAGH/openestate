@@ -15,7 +15,7 @@ import {
   createInquirySchema,
   updateInquirySchema,
   assignInquirySchema,
-  paginationQuerySchema,
+  inquiryListQuerySchema,
   PERMISSIONS,
 } from '@openestate/shared';
 import type { JwtPayload } from '@openestate/shared';
@@ -26,7 +26,7 @@ import { TeamScopeService } from '../team-scope/team-scope.service';
 class CreateInquiryDto extends createZodDto(createInquirySchema) {}
 class UpdateInquiryDto extends createZodDto(updateInquirySchema) {}
 class AssignInquiryDto extends createZodDto(assignInquirySchema) {}
-class PaginationQueryDto extends createZodDto(paginationQuerySchema) {}
+class InquiryListQueryDto extends createZodDto(inquiryListQuerySchema) {}
 
 @ApiTags('Inquiries')
 @Controller('inquiries')
@@ -47,8 +47,12 @@ export class InquiryController {
 
   @Get()
   @RequirePermissions(PERMISSIONS.PRESALES_INQUIRY_READ)
-  @ApiOperation({ summary: "List inquiries (scoped to the caller's reporting subtree)" })
-  async findAll(@Query() query: PaginationQueryDto, @Req() req: Request) {
+  @ApiOperation({
+    summary: "List inquiries (scoped to the caller's reporting subtree)",
+    description:
+      'Search by applicant name, email or phone; filter by status (comma-separated), temperatureId, projectId, assignedToId (never widens the caller\'s team scope) and followUp=today|overdue (IST calendar day, active leads only). sortBy: createdAt or nextFollowupAt.',
+  })
+  async findAll(@Query() query: InquiryListQueryDto, @Req() req: Request) {
     const user = req.user as JwtPayload;
     return this.inquiryService.findAll(user.companyId, query, await this.scopeFor(user));
   }

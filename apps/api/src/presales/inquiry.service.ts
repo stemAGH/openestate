@@ -11,13 +11,15 @@ import {
   normalizePhone,
   normalizeEmail,
   isFollowUpOverdue,
+  istDayBounds,
+  ACTIVE_INQUIRY_STATUSES,
   redactAadhaarLike,
   type Clock,
 } from '@openestate/shared';
 import type {
   CreateInquiryDto,
   UpdateInquiryDto,
-  PaginationQuery,
+  InquiryListQuery,
 } from '@openestate/shared';
 import { CLOCK } from '../common/clock.provider';
 import { AssignmentService } from './assignment.service';
@@ -69,13 +71,41 @@ export class InquiryService {
     private readonly dispositionTransition: InquiryDispositionTransitionService,
   ) {}
 
-  async findAll(companyId: string, query: PaginationQuery, scope: InquiryScope) {
+  async findAll(companyId: string, query: InquiryListQuery, scope: InquiryScope) {
     const { page, limit, sortBy, sortOrder } = query;
     const skip = (page - 1) * limit;
 
+    // Every condition is ANDed, so a filter can only narrow the team scope.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const where: any = { companyId };
-    if (scope.visibleUserIds) where.assignedToId = { in: scope.visibleUserIds };
+    const and: any[] = [];
+    if (scope.visibleUserIds) and.push({ assignedToId: { in: scope.visibleUserIds } });
+    if (query.assignedToId) and.push({ assignedToId: query.assignedToId });
+    if (query.status) and.push({ status: { in: query.status } });
+    if (query.temperatureId) and.push({ temperatureId: query.temperatureId });
+    if (query.projectId) and.push({ projectId: query.projectId });
+    if (query.followUp) {
+      const { startOfToday, endOfToday } = istDayBounds(this.clock.now());
+      and.push({
+        status: { in: [...ACTIVE_INQUIRY_STATUSES] },
+        nextFollowupAt: query.followUp === 'today' ? { gte: startOfToday, lte: endOfToday } : { lt: startOfToday },
+      });
+    }
+    if (query.search) {
+      const text = { contains: query.search, mode: 'insensitive' as const };
+      // Phone digits: "+91 98765 43210" finds the stored 9876543210.
+      const digits = normalizePhone(query.search).replace(/\D/g, '');
+      and.push({
+        applicant: {
+          OR: [
+            { name: text },
+            { email: text },
+            { primaryPhone: text },
+            ...(digits.length >= 4 ? [{ primaryPhoneNormalized: { contains: digits } }] : []),
+          ],
+        },
+      });
+    }
+    const where = { companyId, AND: and };
 
     const [data, total] = await Promise.all([
       this.systemPrisma.inquiry.findMany({
@@ -143,9 +173,8 @@ export class InquiryService {
 
   /** Assigned to me, still open, and today's-or-overdue next follow-up. */
   async myDay(companyId: string, userId: string) {
-    const now = this.clock.now();
-    const endOfToday = new Date(now);
-    endOfToday.setHours(23, 59, 59, 999);
+    // IST day, the same boundary as the dashboard tiles and the list filter.
+    const { endOfToday } = istDayBounds(this.clock.now());
 
     return this.systemPrisma.inquiry.findMany({
       where: {
