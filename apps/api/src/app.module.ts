@@ -41,7 +41,7 @@ import { PluginsModule } from './plugins/plugins.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { LeadsModule } from './leads/leads.module';
 import { DashboardModule } from './dashboard/dashboard.module';
-import { LOG_REDACTION_PATHS } from './common/logger/redaction';
+import { LOG_REDACTION_PATHS, serializeRequestForLog } from './common/logger/redaction';
 
 @Module({
   imports: [
@@ -54,6 +54,8 @@ import { LOG_REDACTION_PATHS } from './common/logger/redaction';
       pinoHttp: {
         level: process.env.LOG_LEVEL ?? 'info',
         redact: { paths: LOG_REDACTION_PATHS, censor: '[REDACTED]' },
+        // Masks phone numbers in the logged URL and query (search boxes).
+        serializers: { req: serializeRequestForLog },
         autoLogging: true,
       },
     }),

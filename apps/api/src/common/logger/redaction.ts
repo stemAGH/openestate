@@ -1,3 +1,5 @@
+import { maskPhonesInText } from '@openestate/shared';
+
 /**
  * pino redaction paths. Extended as new PII-bearing fields are introduced
  * (CLAUDE.md: PAN/phone must never reach logs unmasked).
@@ -17,3 +19,32 @@ export const LOG_REDACTION_PATHS = [
   '*.secret',
   '*.pan',
 ];
+
+/** Decodes a URL for masking (%2B91%2098765… or +91+98765… is still a phone number). */
+function decodeForLog(url: string): string {
+  try {
+    return decodeURIComponent(url.replace(/\+/g, ' '));
+  } catch {
+    return url;
+  }
+}
+
+/**
+ * pino-http request serializer: phone numbers typed into a search box end up
+ * in the URL and query string (e.g. GET /inquiries?search=9876543210), which
+ * the redaction paths above can't reach inside. Masks them to the last 4
+ * digits, like list views. Path segments such as UUIDs are left alone.
+ */
+export function serializeRequestForLog<T extends { url?: string; query?: unknown }>(req: T): T {
+  return {
+    ...req,
+    ...(typeof req.url === 'string' ? { url: maskPhonesInText(decodeForLog(req.url)) } : {}),
+    ...(req.query && typeof req.query === 'object'
+      ? {
+          query: Object.fromEntries(
+            Object.entries(req.query).map(([k, v]) => [k, typeof v === 'string' ? maskPhonesInText(v) : v]),
+          ),
+        }
+      : {}),
+  };
+}
