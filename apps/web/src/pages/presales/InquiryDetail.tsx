@@ -239,9 +239,10 @@ export default function InquiryDetailPage() {
       />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
-        {/* Right column on desktop, first on phones: logging a follow-up is the most frequent action. */}
+        {/* Right column on desktop, first on phones: logging a follow-up is the most frequent action.
+            No sticky card here: a sticky card slid over the Reassign card below it when the page scrolled. */}
         <div className="order-first space-y-6 lg:order-last lg:col-span-1">
-          <Card className="p-4 lg:sticky lg:top-4">
+          <Card className="p-4">
             <h2 className="section-title">Log follow-up</h2>
             <p className="mt-1 text-xs text-fg-2">
               To log a site visit, pick the &quot;Site Visit&quot; type and fill in the date and venue.
