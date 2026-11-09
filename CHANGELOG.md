@@ -63,9 +63,8 @@ also need `presales.report.export`. Release notes:
 - The birthday-list and broker-report CSVs now need `presales.report.export`
   and write an audit row, like the pre-sales exports.
 - The API's request log masks phone numbers in the URL, the query values and
-  the `Referer` header. The staff app and the portal set
-  `Referrer-Policy: no-referrer`, so browsers no longer send their address
-  (which can hold a phone search or a reset or invite token) with requests.
+  the `Referer` header. The web apps no longer send page addresses to the
+  server (`Referrer-Policy: no-referrer` in the staff app and the portal).
   nginx's access log on existing installs is unchanged (upgrades don't touch
   the nginx config); the release notes give a log format to apply. Logs from
   earlier releases may contain numbers from search URLs.
