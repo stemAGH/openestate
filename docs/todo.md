@@ -4,6 +4,16 @@ Cross-phase follow-ups that were consciously deferred, with the phase where
 they're expected to land. Each entry should say *what*, *why deferred*, and
 *what unblocks it*.
 
+## v0.10.1, first item: a role permission to see full phone numbers in lists
+
+Role permission to see full phone numbers in list views (e.g. `presales.contact.view-full`).
+Default: granted to no role, so upgrades change nothing; admins grant it per role. With it,
+list endpoints and screens return and show full numbers. Without it, masked as today. Logs
+stay masked always; exports and detail pages unchanged. Update CLAUDE.md's masking rule to
+name the exception. Needs: per-caller masking in each list service, seed-baseline handling
+(granted to none), supertest per list endpoint with and without the permission, Playwright
+for both, and mutation checks. Starts with a Phase 0 plan after v0.10.0 is tagged.
+
 ## v0.10.1: found in the v0.10.0 upgrade rehearsal (2026-11-09)
 
 - **nginx logs full request lines: apply a path-only log format automatically.** The API's
