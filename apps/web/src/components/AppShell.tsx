@@ -219,7 +219,9 @@ export default function AppShell() {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-30 w-64 transform bg-white border-r border-slate-200 transition-transform lg:translate-x-0 lg:static lg:z-auto ${
+        // Wide screens: the sidebar stays put at full height while the page
+        // scrolls, and its nav scrolls on its own (flex column, nav flex-1).
+        className={`fixed inset-y-0 left-0 z-30 flex w-64 shrink-0 transform flex-col bg-white border-r border-slate-200 transition-transform lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 lg:z-auto ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -303,7 +305,9 @@ export default function AppShell() {
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b border-slate-200 bg-white px-4 lg:px-6">
+        {/* Sticky on phones (it holds the menu button); on wide screens it scrolls
+            away with the page, so it never sits over page content. */}
+        <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b border-slate-200 bg-white px-4 lg:static lg:px-6">
           <IconButton
             label="Open menu"
             className="lg:hidden"

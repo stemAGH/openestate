@@ -5,8 +5,15 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-No migrations, no new environment variable, no permission changes.
-Release notes (draft): [next-release-notes.md](docs/releases/next-release-notes.md).
+Nothing yet. Release notes (draft): [next-release-notes.md](docs/releases/next-release-notes.md).
+
+## [0.10.0] - date of the tag
+
+Atomic booking, the unit lock, a new look for the staff app, reworked sales screens,
+the IST day for due and overdue follow-ups, and phone masking. No migrations, no new
+environment variable, no role changes; the birthday-list and broker-report CSVs now
+also need `presales.report.export`. Release notes:
+[v0.10.0-release-notes.md](docs/releases/v0.10.0-release-notes.md).
 
 ### Fixed
 
@@ -39,6 +46,10 @@ Release notes (draft): [next-release-notes.md](docs/releases/next-release-notes.
 
 ### Changed
 
+- Staff app: a new visual foundation (one set of colour tokens with dark values
+  defined but not yet switchable, the Inter typeface, shared components, a focus
+  ring, a skip link, named icon buttons, WCAG contrast). Layouts and behaviour
+  are unchanged.
 - "Due today", "overdue" and My Day count by the IST calendar day on any
   server, not the server's own time zone (no change on a server set to IST).
 - `GET /api/v1/inquiries` refuses unknown query parameters (400), and `sortBy`
@@ -51,8 +62,14 @@ Release notes (draft): [next-release-notes.md](docs/releases/next-release-notes.
   integrations that read phone numbers from lists.
 - The birthday-list and broker-report CSVs now need `presales.report.export`
   and write an audit row, like the pre-sales exports.
-- Request logs mask phone numbers in the URL and query string. Logs from
+- The API's request log masks phone numbers in the URL, the query values and
+  the `Referer` header. The web apps no longer send page addresses to the
+  server (`Referrer-Policy: no-referrer` in the staff app and the portal).
+  nginx's access log on existing installs is unchanged (upgrades don't touch
+  the nginx config); the release notes give a log format to apply. Logs from
   earlier releases may contain numbers from search URLs.
+- Staff app, wide screens: the sidebar stays in place while a page scrolls,
+  and the top bar scrolls with the page instead of covering content.
 - Tighten how sensitive identifier fields appear in API responses: only masked
   values are returned, on every endpoint, and audit snapshots no longer store
   internal identifier fields.
@@ -61,6 +78,8 @@ Release notes (draft): [next-release-notes.md](docs/releases/next-release-notes.
 
 - Sales roles no longer get hidden 403s on the Inquiries pages (custom-field
   definitions and the user list were requested without the permission).
+- On the inquiry page, the "Log follow-up" card no longer slides over the
+  Reassign card when the page scrolls on a wide screen.
 
 ### Deprecated
 

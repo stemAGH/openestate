@@ -4,6 +4,40 @@ Cross-phase follow-ups that were consciously deferred, with the phase where
 they're expected to land. Each entry should say *what*, *why deferred*, and
 *what unblocks it*.
 
+## v0.10.1, first item: a role permission to see full phone numbers in lists
+
+Role permission to see full phone numbers in list views (e.g. `presales.contact.view-full`).
+Default: granted to no role, so upgrades change nothing; admins grant it per role. With it,
+list endpoints and screens return and show full numbers. Without it, masked as today. Logs
+stay masked always; exports and detail pages unchanged. Update CLAUDE.md's masking rule to
+name the exception. Needs: per-caller masking in each list service, seed-baseline handling
+(granted to none), supertest per list endpoint with and without the permission, Playwright
+for both, and mutation checks. Starts with a Phase 0 plan after v0.10.0 is tagged.
+
+## v0.10.1: found in the v0.10.0 upgrade rehearsal (2026-11-09)
+
+- **nginx logs full request lines: apply a path-only log format automatically.** The API's
+  own log masks phone numbers (URL, query, Referer), and the apps send no Referer, but
+  nginx's default `combined` format still logs the full request line, query string
+  included (`GET /api/v1/inquiries?…&search=<phone>`). `install-native.sh` writes the
+  nginx site only at first install; `upgrade-native.sh` never touches it, so existing
+  installs keep the default. v0.10.0's release notes give operators a `log_format` to
+  apply by hand. For v0.10.1: ship the format in the site template (path without query
+  string, no referer) and have the upgrade add it to existing installs safely (a
+  `conf.d` file plus the `access_log` line, `nginx -t` before reload, and the original
+  kept if the test fails).
+- **The wizard's default booking date and an interest rule's "from" date use the
+  server's or the UTC day**, a day behind IST between 00:00 and 05:30 IST (seen at 00:2x
+  IST: the wizard defaulted to the previous day, and a rule attached then showed "from"
+  the previous day). Move both to the IST day (`istDayBounds` / `formatDate`).
+- **Old date formats on the wizard's Confirm step (`2026-11-08`) and the installment
+  schedule (`8/11/2026`).** Both screens were frozen by PR #86; move them to the shared
+  DD-MM-YYYY formatter (the schedule is planned for the accounts UI PR).
+- **The wizard offers payment-plan templates with no milestones** (on the test bed, 3 of
+  5), and booking with one is refused ("Template has no milestones"). Hide or disable
+  templates without milestones. After that refusal the message also stays on screen when a
+  valid template is chosen; clear it when the template changes.
+
 ## Follow-ups from the 2026-11-08 staff UI audit (owner decision: separate PRs)
 
 - **`apps/api/scripts/portal-demo-seed.ts` makes the pre-GST plan mistake.** It builds
@@ -13,8 +47,10 @@ they're expected to land. Each entry should say *what*, *why deferred*, and
   PR (build the plan against the booking's GST-inclusive price, or use `with-plan`).
 - **Done in the phone-masking PR: phone numbers in list views and logs.** Lists show the
   last 4 digits for every role; detail endpoints and CSV exports keep the full number.
-- **Empty Accounts dashboard.** Accounts lands on a dashboard with no work on it.
-  Root-cause as a bug, with tests, in the accounts UI PR.
+- **Empty Accounts dashboard (accounts UI PR).** Accounts lands on a dashboard with no
+  work on it (only "Your role doesn't have access to pre-sales data…"); seen again in the
+  v0.10.0 rehearsal. Root-cause as a bug, with tests, in the accounts UI PR; the cheque
+  queue and dues in the next days come from existing endpoints.
 - **Done in the sales UI PR: silent 403s for sales roles on Inquiries.** The cause was
   `GET /custom-fields` (needs `admin.custom-field.read`, which no sales role holds),
   requested by both Inquiries pages, plus `GET /users` for executives on the inquiry
