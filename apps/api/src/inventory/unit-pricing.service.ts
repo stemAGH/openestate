@@ -1,6 +1,7 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaClient, withTenantTx, runWithTenant } from '@openestate/db';
 import { TENANT_PRISMA, SYSTEM_PRISMA } from '../database/database.module';
+import { assertOwnedByCompany } from '../common/tenant-ownership';
 import type { CreateUnitPlcDto, CreateUnitChargeDto } from '@openestate/shared';
 
 /** UnitPlc + UnitCharge CRUD — near-identical shape, one service for both. */
@@ -33,6 +34,7 @@ export class UnitPricingService {
       withTenantTx(this.tenantPrisma, companyId, async (tx) => {
         const unit = await tx.unit.findFirst({ where: { id: unitId, companyId } });
         if (!unit) throw new NotFoundException('Unit not found');
+        await assertOwnedByCompany(tx, companyId, [['plcType', dto.plcTypeId, 'PLC type']]);
 
         // Snapshot: a percentage resolves to a paise amount once, right
         // now, off the unit's CURRENT base rate — never live-recomputed if
@@ -68,6 +70,7 @@ export class UnitPricingService {
       withTenantTx(this.tenantPrisma, companyId, async (tx) => {
         const unit = await tx.unit.findFirst({ where: { id: unitId, companyId } });
         if (!unit) throw new NotFoundException('Unit not found');
+        await assertOwnedByCompany(tx, companyId, [['chargeType', dto.chargeTypeId, 'Charge type']]);
         return tx.unitCharge.create({
           data: { companyId, unitId, chargeTypeId: dto.chargeTypeId, amountPaise: dto.amountPaise },
         });

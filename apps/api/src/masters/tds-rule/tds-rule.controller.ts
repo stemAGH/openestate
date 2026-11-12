@@ -15,7 +15,7 @@ import { createZodDto } from 'nestjs-zod';
 import {
   createTdsRuleSchema,
   updateTdsRuleSchema,
-  paginationQuerySchema,
+  sortableListQuerySchema,
   PERMISSIONS,
 } from '@openestate/shared';
 import type { JwtPayload } from '@openestate/shared';
@@ -24,7 +24,8 @@ import { TdsRuleService } from './tds-rule.service';
 
 class CreateTdsRuleDto extends createZodDto(createTdsRuleSchema) {}
 class UpdateTdsRuleDto extends createZodDto(updateTdsRuleSchema) {}
-class PaginationQueryDto extends createZodDto(paginationQuerySchema) {}
+// Sortable only by the columns the list shows.
+class PaginationQueryDto extends createZodDto(sortableListQuerySchema(['sortOrder', 'section', 'effectiveFrom'] as const)) {}
 
 @ApiTags('TDS Rules')
 @Controller('masters/tds-rules')

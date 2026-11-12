@@ -5,7 +5,7 @@ import { createZodDto } from 'nestjs-zod';
 import {
   createInventoryGroupSchema,
   updateInventoryGroupSchema,
-  paginationQuerySchema,
+  sortableListQuerySchema,
   PERMISSIONS,
 } from '@openestate/shared';
 import type { JwtPayload } from '@openestate/shared';
@@ -14,7 +14,8 @@ import { InventoryGroupService } from './inventory-group.service';
 
 class CreateInventoryGroupDto extends createZodDto(createInventoryGroupSchema) {}
 class UpdateInventoryGroupDto extends createZodDto(updateInventoryGroupSchema) {}
-class PaginationQueryDto extends createZodDto(paginationQuerySchema) {}
+// Sortable only by the columns the list shows.
+class PaginationQueryDto extends createZodDto(sortableListQuerySchema(['code', 'name'] as const)) {}
 
 // Bare @Controller() (no path prefix): list/create are project-scoped
 // (plotted-farmhouse-inventory.md §8's GET/POST /projects/:id/inventory-groups),

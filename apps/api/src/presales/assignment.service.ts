@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { withTenantTx, runWithTenant } from '@openestate/db';
 import { TENANT_PRISMA } from '../database/database.module';
+import { assertOwnedByCompany } from '../common/tenant-ownership';
 import type { UpsertAssignmentPoolDto } from '@openestate/shared';
 
 const AUTO_ASSIGN_MAX_RETRIES = 3;
@@ -113,6 +114,10 @@ export class AssignmentService {
   ) {
     return runWithTenant({ companyId }, () =>
       withTenantTx(this.tenantPrisma, companyId, async (tx) => {
+        await assertOwnedByCompany(tx, companyId, [
+          ['project', projectId, 'Project'],
+          ['user', userId, 'User'],
+        ]);
         const existing = await tx.projectAssignmentPool.findFirst({
           where: { companyId, projectId, userId },
         });

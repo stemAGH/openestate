@@ -15,7 +15,7 @@ import { createZodDto } from 'nestjs-zod';
 import {
   createProjectSchema,
   updateProjectSchema,
-  paginationQuerySchema,
+  sortableListQuerySchema,
   PERMISSIONS,
 } from '@openestate/shared';
 import type { JwtPayload } from '@openestate/shared';
@@ -24,7 +24,8 @@ import { ProjectService } from './project.service';
 
 class CreateProjectDto extends createZodDto(createProjectSchema) {}
 class UpdateProjectDto extends createZodDto(updateProjectSchema) {}
-class PaginationQueryDto extends createZodDto(paginationQuerySchema) {}
+// Sortable only by the columns the list shows.
+class PaginationQueryDto extends createZodDto(sortableListQuerySchema(['name', 'code'] as const)) {}
 
 @ApiTags('Projects')
 @Controller('projects')

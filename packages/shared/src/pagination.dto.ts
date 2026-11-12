@@ -14,6 +14,20 @@ export const paginationQuerySchema = z.object({
 
 export type PaginationQuery = z.infer<typeof paginationQuerySchema>;
 
+/**
+ * A list endpoint's query: pagination, search and a sort limited to the
+ * columns the list shows. Strict, so a misspelt or unknown parameter is a
+ * 400, as for GET /inquiries. `extra` declares the list's own filters.
+ */
+export function sortableListQuerySchema<T extends readonly [string, ...string[]], E extends z.ZodRawShape = Record<never, never>>(
+  sortColumns: T,
+  extra?: E,
+) {
+  return paginationQuerySchema
+    .extend({ sortBy: z.enum(sortColumns as unknown as [T[number], ...T[number][]]).optional(), ...(extra ?? ({} as E)) })
+    .strict();
+}
+
 export interface PaginatedResponse<T> {
   data: T[];
   meta: {

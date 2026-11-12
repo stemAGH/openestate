@@ -14,7 +14,7 @@ import { createZodDto } from 'nestjs-zod';
 import {
   createLeadStageSchema,
   updateLeadStageSchema,
-  paginationQuerySchema,
+  sortableListQuerySchema,
   PERMISSIONS,
 } from '@openestate/shared';
 import type { JwtPayload } from '@openestate/shared';
@@ -23,7 +23,8 @@ import { LeadStageService } from './lead-stage.service';
 
 class CreateLeadStageDto extends createZodDto(createLeadStageSchema) {}
 class UpdateLeadStageDto extends createZodDto(updateLeadStageSchema) {}
-class PaginationQueryDto extends createZodDto(paginationQuerySchema) {}
+// Sortable only by the columns the list shows.
+class PaginationQueryDto extends createZodDto(sortableListQuerySchema(['sortOrder', 'name'] as const)) {}
 
 @ApiTags('Lead Stages')
 @Controller('masters/lead-stages')

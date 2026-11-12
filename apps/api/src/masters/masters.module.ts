@@ -74,6 +74,7 @@ const SIMPLE_MASTERS = [
       gstRateId: z.string().uuid().optional(),
       hsnSac: z.string().max(20).optional(),
     },
+    refs: [['gstRateId', 'gstRate', 'GST rate']],
   },
   // See interest-rule.master.ts (required columns, and the rate guard).
   INTEREST_RULE_MASTER,

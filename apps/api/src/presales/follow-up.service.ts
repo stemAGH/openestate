@@ -1,6 +1,7 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaClient, withTenantTx, runWithTenant } from '@openestate/db';
 import { TENANT_PRISMA, SYSTEM_PRISMA } from '../database/database.module';
+import { assertOwnedByCompany } from '../common/tenant-ownership';
 import { ACTIVE_INQUIRY_STATUSES, type CreateFollowUpDto, type UpdateFollowUpDto, type Clock } from '@openestate/shared';
 import { CLOCK } from '../common/clock.provider';
 import { InquiryService, type InquiryScope } from './inquiry.service';
@@ -50,6 +51,7 @@ export class FollowUpService {
   ) {
     return runWithTenant({ companyId }, () =>
       withTenantTx(this.tenantPrisma, companyId, async (tx) => {
+        await assertOwnedByCompany(tx, companyId, [['followUpType', dto.typeId, 'Follow-up type']]);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const inquiryWhere: any = { id: inquiryId, companyId };
         if (scope.visibleUserIds) inquiryWhere.assignedToId = { in: scope.visibleUserIds };

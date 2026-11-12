@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import { withTenantTx, type PrismaClient } from '@openestate/db';
 import { NOTIFICATION_EVENT, type CreateConstructionUpdateDto } from '@openestate/shared';
 import { TENANT_PRISMA, SYSTEM_PRISMA } from '../database/database.module';
+import { assertOwnedByCompany } from '../common/tenant-ownership';
 import { UploadService } from '../inventory/upload.service';
 import { assertProjectMediaCapacity } from '../inventory/project-media-limits';
 import { NotificationService } from '../notifications/notification.service';
@@ -20,8 +21,9 @@ export class ConstructionUpdateService {
   ) {}
 
   async create(companyId: string, createdById: string, dto: CreateConstructionUpdateDto) {
-    const update = await withTenantTx(this.tenantPrisma, companyId, (tx) =>
-      tx.constructionUpdate.create({
+    const update = await withTenantTx(this.tenantPrisma, companyId, async (tx) => {
+      await assertOwnedByCompany(tx, companyId, [['project', dto.projectId, 'Project']]);
+      return tx.constructionUpdate.create({
         data: {
           companyId,
           projectId: dto.projectId,
@@ -30,8 +32,8 @@ export class ConstructionUpdateService {
           publishedAt: dto.publishedAt,
           createdById,
         },
-      }),
-    );
+      });
+    });
 
     // Fired AFTER the transaction commits. Primary applicants only —
     // matches the sole notification-audience convention already used

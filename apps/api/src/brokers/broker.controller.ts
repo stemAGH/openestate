@@ -6,7 +6,7 @@ import {
   createBrokerSchema,
   updateBrokerSchema,
   brokerBankDetailSchema,
-  paginationQuerySchema,
+  sortableListQuerySchema,
   PERMISSIONS,
 } from '@openestate/shared';
 import type { JwtPayload } from '@openestate/shared';
@@ -16,7 +16,8 @@ import { BrokerService } from './broker.service';
 class CreateBrokerDto extends createZodDto(createBrokerSchema) {}
 class UpdateBrokerDto extends createZodDto(updateBrokerSchema) {}
 class BrokerBankDetailDto extends createZodDto(brokerBankDetailSchema) {}
-class PaginationQueryDto extends createZodDto(paginationQuerySchema) {}
+// Sortable only by the columns the list shows.
+class PaginationQueryDto extends createZodDto(sortableListQuerySchema(['name'] as const)) {}
 
 @ApiTags('Brokers')
 @Controller('brokers')

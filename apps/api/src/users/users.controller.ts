@@ -16,7 +16,7 @@ import { createZodDto } from 'nestjs-zod';
 import {
   createUserSchema,
   updateUserSchema,
-  paginationQuerySchema,
+  sortableListQuerySchema,
   PERMISSIONS,
 } from '@openestate/shared';
 import type { JwtPayload } from '@openestate/shared';
@@ -26,7 +26,8 @@ import { TeamScopeService } from '../team-scope/team-scope.service';
 
 class CreateUserDto extends createZodDto(createUserSchema) {}
 class UpdateUserDto extends createZodDto(updateUserSchema) {}
-class PaginationQueryDto extends createZodDto(paginationQuerySchema) {}
+// Sortable only by the columns the list shows.
+class PaginationQueryDto extends createZodDto(sortableListQuerySchema(['name', 'email'] as const)) {}
 
 @ApiTags('Users')
 @Controller('users')

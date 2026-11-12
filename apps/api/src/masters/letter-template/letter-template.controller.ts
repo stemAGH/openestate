@@ -5,7 +5,7 @@ import { createZodDto } from 'nestjs-zod';
 import {
   createLetterTemplateSchema,
   updateLetterTemplateSchema,
-  paginationQuerySchema,
+  sortableListQuerySchema,
   PERMISSIONS,
 } from '@openestate/shared';
 import type { JwtPayload } from '@openestate/shared';
@@ -14,7 +14,8 @@ import { LetterTemplateService } from './letter-template.service';
 
 class CreateLetterTemplateDto extends createZodDto(createLetterTemplateSchema) {}
 class UpdateLetterTemplateDto extends createZodDto(updateLetterTemplateSchema) {}
-class PaginationQueryDto extends createZodDto(paginationQuerySchema) {}
+// Sortable only by the columns the list shows.
+class PaginationQueryDto extends createZodDto(sortableListQuerySchema(['sortOrder', 'name'] as const)) {}
 
 @ApiTags('Letter Templates')
 @Controller('masters/letter-templates')
