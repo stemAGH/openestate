@@ -12,6 +12,7 @@ import {
   type CreateBookingDto,
 } from '@openestate/shared';
 import { TENANT_PRISMA, SYSTEM_PRISMA } from '../database/database.module';
+import { assertOwnedByCompany } from '../common/tenant-ownership';
 import { UnitStateMachineService, lockUnits } from '../inventory/unit-state-machine.service';
 import { LedgerService } from './ledger.service';
 import { NumberSequenceService } from './number-sequence.service';
@@ -57,6 +58,9 @@ export class BookingService {
         const config = await tx.companyConfig.findFirst({ where: { companyId } });
         const fyStartMonth = config?.fyStartMonth ?? 4;
 
+        // A charge type named on a cost line must be the company's own (checked here, before
+        // pricing, so booking-pricing.ts stays exactly as it was).
+        await assertOwnedByCompany(tx, companyId, [['chargeType', dto.costLines.map((l) => l.chargeTypeId).filter((x): x is string => !!x), 'Charge type']]);
         // Cost lines, GST and the agreed price (moved unchanged to booking-pricing.ts).
         const { placeOfSupplyStateCode, costLines, agreedPricePaise } = await priceCostLines(
           tx,
@@ -101,7 +105,8 @@ export class BookingService {
           },
         });
 
-        // Co-applicants.
+        // Co-applicants: each must be the company's own applicant.
+        await assertOwnedByCompany(tx, companyId, [['applicant', dto.coApplicantIds, 'Co-applicant']]);
         for (let i = 0; i < dto.coApplicantIds.length; i++) {
           await tx.bookingCoApplicant.create({
             data: {

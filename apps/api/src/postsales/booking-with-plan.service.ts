@@ -18,6 +18,7 @@ import { BookingService } from './booking.service';
 import { PaymentPlanService } from './payment-plan.service';
 import { BookingInterestRuleService } from './booking-interest-rule.service';
 import { priceCostLines } from './booking-pricing';
+import { assertOwnedByCompany } from '../common/tenant-ownership';
 
 /**
  * Booking quote and atomic booking-with-plan.
@@ -52,6 +53,8 @@ export class BookingWithPlanService {
         });
         if (!unit) throw new NotFoundException('Unit not found');
         const config = await tx.companyConfig.findFirst({ where: { companyId } });
+        // Same check as BookingService.createBooking, before pricing.
+        await assertOwnedByCompany(tx, companyId, [['chargeType', dto.costLines.map((l) => l.chargeTypeId).filter((x): x is string => !!x), 'Charge type']]);
         const priced = await priceCostLines(tx, companyId, unit, config, dto);
         const totalBeforeGstPaise = priced.costLines.reduce((s, l) => s + l.baseAmountPaise, 0n);
         return {

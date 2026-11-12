@@ -20,6 +20,7 @@ import {
   type TdsCertificateDto,
 } from '@openestate/shared';
 import { TENANT_PRISMA, SYSTEM_PRISMA } from '../database/database.module';
+import { assertOwnedByCompany } from '../common/tenant-ownership';
 import { LedgerService } from './ledger.service';
 import { NumberSequenceService } from './number-sequence.service';
 import { NotificationService } from '../notifications/notification.service';
@@ -145,6 +146,10 @@ export class ReceiptService {
         );
         const receiptNumber = formatReceiptNumber(fyLabel, seq);
 
+        await assertOwnedByCompany(tx, companyId, [
+          ['bank', dto.bankId, 'Bank'],
+          ['receiptType', dto.receiptTypeId, 'Receipt type'],
+        ]);
         const isCheque = CHEQUE_LIKE.has(dto.mode);
         const receipt = await tx.receipt.create({
           data: {
