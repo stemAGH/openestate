@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { hasNoNul, NO_NUL_MESSAGE } from './pagination.dto';
 
 // ── Clock (injectable "now" for deterministic ageing/escalation) ──
 
@@ -225,7 +226,7 @@ export const inquiryListQuerySchema = z
     sortBy: z.enum(INQUIRY_SORT_COLUMNS).optional(),
     sortOrder: z.enum(['asc', 'desc']).default('asc'),
     /** Applicant name, email, or phone digits. */
-    search: z.string().trim().min(2).max(100).optional(),
+    search: z.string().trim().min(2).max(100).refine(hasNoNul, NO_NUL_MESSAGE).optional(),
     /** One or more statuses, comma-separated: `OPEN,CONTINUED`. */
     status: z
       .string()
