@@ -56,18 +56,18 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@nestjs/cli": "^10.4.9",
-    "@nestjs/schematics": "^10.2.3",
-    "@nestjs/testing": "^10.4.15",
+    "@nestjs/cli": "^12.0.12",
+    "@nestjs/schematics": "^12.0.13",
+    "@nestjs/testing": "^12.4.2",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.0",
-    "@types/node": "^22.10.2",
+    "@types/node": "^26.6.6",
     "@types/passport-jwt": "^4.0.1",
     "@types/pdfmake": "^0.3.3",
     "@types/semver": "^7.5.8",
-    "fast-check": "^4.9.0",
-    "supertest": "^7.0.0",
-    "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "fast-check": "^4.10.2",
+    "supertest": "^7.3.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
   }
 }

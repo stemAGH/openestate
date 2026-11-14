@@ -13,10 +13,10 @@
     "@node-rs/argon2": "^2",
     "@openestate/db": "workspace:*",
     "@openestate/shared": "workspace:*",
-    "@playwright/test": "^1.49.0",
-    "@types/node": "^22.10.2",
+    "@playwright/test": "^1.65.0",
+    "@types/node": "^26.6.6",
     "exceljs": "^4.4.0",
     "otpauth": "^9.5.1",
-    "typescript": "^5.7.2"
+    "typescript": "^7.0.2"
   }
 }
