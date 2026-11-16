@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, type BookingStatus } from '@prisma/client';
 import { PrismaClient, withTenantTx, runWithTenant } from '@openestate/db';
 import {
@@ -186,12 +186,34 @@ export class InterestService {
     return results;
   }
 
-  /** Waive accrued interest — an audited, permissioned credit (never edits accrual). */
+  /**
+   * Waive accrued interest — an audited, permissioned credit (never edits accrual).
+   * At most the interest charged less earlier waivers, checked under the
+   * booking's interest lock; only on a booking that still accrues.
+   */
   async waiveInterest(companyId: string, bookingId: string, dto: InterestWaiverDto, actorId: string | null) {
     return runWithTenant({ companyId }, () =>
       withTenantTx(this.tenantPrisma, companyId, async (tx) => {
+        // Before any read, as accrual does: a concurrent waiver or accrual waits.
+        await lockBookingInterest(tx, bookingId);
         const booking = await tx.booking.findFirst({ where: { id: bookingId, companyId } });
         if (!booking) throw new NotFoundException('Booking not found');
+        if (!ACCRUING_STATUSES.includes(booking.status)) {
+          throw new ConflictException(`Booking is ${booking.status}; interest can be waived only on an active booking`);
+        }
+        const sums = await tx.ledgerEntry.groupBy({
+          by: ['entryType'],
+          where: { companyId, bookingId, entryType: { in: [LEDGER_ENTRY_TYPE.INTEREST, LEDGER_ENTRY_TYPE.INTEREST_WAIVER] } },
+          _sum: { signedAmountPaise: true },
+        });
+        const sumOf = (t: string): bigint => sums.find((s) => s.entryType === t)?._sum.signedAmountPaise ?? 0n;
+        // Waivers are credits (negative): charged + waived is what is still waivable.
+        const waivable = sumOf(LEDGER_ENTRY_TYPE.INTEREST) + sumOf(LEDGER_ENTRY_TYPE.INTEREST_WAIVER);
+        if (dto.amountPaise > waivable) {
+          throw new ConflictException(
+            `Waiver (${dto.amountPaise}) exceeds the interest still waivable on this booking (${waivable > 0n ? waivable : 0n})`,
+          );
+        }
         const [entry] = await this.ledger.post(tx, companyId, [
           {
             bookingId,
