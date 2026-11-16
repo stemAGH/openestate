@@ -10,7 +10,8 @@ type Db = ReturnType<typeof createSystemPrismaClient>;
 type Account = E2eFixture & { userId: string; marker: string; phone: string };
 const duesUrl = '**/api/v1/reports/postsales/installment-dues';
 const draftsUrl = '**/api/v1/booking-drafts';
-const customersUrl = '**/api/v1/applicants?search=98765&limit=10';
+// Receipt Entry's payer lookup (v0.10.1, QA-007; was GET /applicants?search=).
+const customersUrl = '**/api/v1/receipts/payers?search=98765';
 
 async function account(db: Db, label: string, company?: Account): Promise<Account> {
   const fx = company ?? await seedE2eFixture(DATABASE_URL_SYSTEM);
@@ -132,7 +133,7 @@ for (const scenario of ['financial data', 'booking drafts', 'customer details', 
       await signIn(page, a, true);
       await open(page, label);
       if (drafts) await page.getByRole('button', { name: /Resume/ }).click();
-      if (customers) await page.getByPlaceholder('98765xxxxx').fill('98765');
+      if (customers) await page.getByLabel('Payer name, phone or booking number').fill('98765');
       await expect(page.getByText(a.marker, { exact: false }).first()).toBeVisible();
       await signOut(page);
       await watch(page, [a.marker, ...(customers ? [a.phone] : [])]);
@@ -140,7 +141,7 @@ for (const scenario of ['financial data', 'booking drafts', 'customer details', 
       release = pending.release;
       await signIn(page, b, false, secret);
       await open(page, label);
-      if (customers) await page.getByPlaceholder('98765xxxxx').fill('98765');
+      if (customers) await page.getByLabel('Payer name, phone or booking number').fill('98765');
       if (drafts) await expect(page.getByRole('button', { name: /Resume/ })).toHaveCount(0);
       else await expect(page.getByText(a.marker, { exact: false })).toHaveCount(0);
       await expect.poll(pending.captured).toBe(true);
@@ -223,10 +224,10 @@ test('same-session refresh preserves form state and retries the real customer lo
     await open(page, 'Receipt Entry');
     await challengeNextCustomerRequest(page);
     const refreshed = page.waitForResponse(r => r.url().endsWith('/auth/refresh') && r.status() === 200);
-    await page.getByPlaceholder('98765xxxxx').fill('98765');
+    await page.getByLabel('Payer name, phone or booking number').fill('98765');
     await refreshed;
     await expect(page.getByText(a.marker, { exact: false })).toBeVisible();
-    await expect(page.getByPlaceholder('98765xxxxx')).toHaveValue('98765');
+    await expect(page.getByLabel('Payer name, phone or booking number')).toHaveValue('98765');
   } finally { await page.unrouteAll({ behavior: 'wait' }); await db.$disconnect(); }
 });
 
@@ -241,7 +242,7 @@ test('a delayed A refresh cannot replace B authentication or B financial data', 
     await challengeNextCustomerRequest(page);
     const pending = await hold(page, '**/api/v1/auth/refresh');
     release = pending.release;
-    await page.getByPlaceholder('98765xxxxx').fill('98765');
+    await page.getByLabel('Payer name, phone or booking number').fill('98765');
     await expect.poll(pending.captured).toBe(true);
     await signOut(page);
     await watch(page, [a.marker, a.phone]);
