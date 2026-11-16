@@ -16,16 +16,16 @@ for both, and mutation checks. Starts with a Phase 0 plan after v0.10.0 is tagge
 
 ## v0.10.1: found in the v0.10.0 functional sweep (2026-11-12), owner's ruling pending or planned
 
-Each has a written plan (root cause, options, tests, frozen code touched); none is built yet.
+Each has a written plan (root cause, options, tests, frozen code touched).
 
-- **The accounts role can't look up a customer on Receipt Entry** (`GET /applicants` needs
-  `presales.applicant.read`). Planned: a receipt-scoped payer lookup under
-  `postsales.receipt.create`, not a wider role.
-- **Post-sales reports are empty for accounts** (scoped to bookings the caller created unless
-  `admin.team-scope.all`). Planned: a narrow `reports.postsales.company-wide` permission.
+- **Built on `next/v0.10.1`:** Receipt Entry's payer lookup for accounts; the
+  `reports.postsales.company-wide` permission; refunds and interest waivers checked against
+  the booking's ledger under a booking-level lock, with two upgrade reports.
 - **Accounts can't open Brokers** to pay commission (needs `admin.broker.read`).
-- **Interest waivers and refunds:** tighten their validation against the booking's ledger,
-  under a booking-level lock, with concurrency tests.
+- **Accounts' dashboard asks for data the role can't read** (`GET /dashboard` and
+  `GET /inquiries/my-day` answer 403 after an accounts sign-in; found 2026-11-16). Same
+  pattern as the screens fixed in v0.10.0: ask only with the permission, show a dashboard
+  that fits the role.
 - **Transfers:** give the new booking a payment plan (the unpaid installments plus the fee),
   and decide how the transfer approval permission is used.
 - **GST rates outside their effective dates** are offered and accepted; check against the

@@ -5,7 +5,20 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-Nothing yet. Release notes (draft): [next-release-notes.md](docs/releases/next-release-notes.md).
+Release notes (draft): [next-release-notes.md](docs/releases/next-release-notes.md).
+
+### Added
+
+- Delete a lead with a reason, restore it from Deleted leads, purge after a configurable retention period
+  (`presales.lead.delete`, seeded to company_admin).
+- Receipt Entry's payer lookup by name, phone or booking number (`GET /receipts/payers`).
+- `reports.postsales.company-wide`: post-sales reports for the whole company (seeded to accounts and company_admin).
+- Two read-only upgrade reports: refunds and interest waivers above what a booking held or was charged.
+
+### Changed
+
+- Refunds are checked against the booking's ledger at request, approval and payment.
+- Interest waivers are limited to the interest charged less earlier waivers, on active bookings only.
 
 ## [0.10.0] - date of the tag
 
