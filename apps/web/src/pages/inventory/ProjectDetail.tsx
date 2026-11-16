@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AREA_UNITS, displayLabel, formatArea, toAreaScaled, type AreaUnit } from '@openestate/shared';
+import { AREA_UNITS, displayLabel, formatArea, PERMISSIONS, toAreaScaled, type AreaUnit } from '@openestate/shared';
 import { api, downloadFile } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
 import { useApiMutation } from '../../lib/hooks';
 import CustomFieldInputs, {
   CustomFieldDisplay,
@@ -118,6 +119,10 @@ const MEDIA_CATEGORY_LABELS: Record<string, string> = {
 
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
+  // Sections whose data a role may not read are not requested or shown.
+  const { hasPermission } = useAuth();
+  const canRaiseStages = hasPermission(PERMISSIONS.POSTSALES_DEMAND_RAISE);
+  const canManageUpdates = hasPermission(PERMISSIONS.ADMIN_CONSTRUCTION_UPDATE_MANAGE);
   const qc = useQueryClient();
 
   const [showTowerForm, setShowTowerForm] = useState(false);
@@ -283,7 +288,7 @@ export default function ProjectDetailPage() {
   >({
     queryKey: ['stage-raises-pending', id],
     queryFn: () => api(`/projects/${id}/stage-raises/pending`),
-    enabled: !!id,
+    enabled: !!id && canRaiseStages,
   });
   const { data: unitCharges } = useQuery<UnitCharge[]>({
     queryKey: ['unit-charges', id, pricingUnitId],
@@ -300,7 +305,7 @@ export default function ProjectDetailPage() {
   const { data: constructionUpdates } = useQuery<ConstructionUpdateItem[]>({
     queryKey: ['construction-updates', id],
     queryFn: () => api(`/admin/construction-updates?projectId=${id}`),
-    enabled: !!id,
+    enabled: !!id && canManageUpdates,
   });
 
   const { data: projectTypes } = useQuery<{ data: MasterOption[] }>({
@@ -998,7 +1003,7 @@ export default function ProjectDetailPage() {
                 <input type="number" value={carpetAreaSqft} onChange={(e) => setCarpetAreaSqft(e.target.value)} className="mt-1 input" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700">Base Rate (₹)</label>
+                <label className="block text-sm font-medium text-slate-700">Base price per unit (₹)</label>
                 <input type="number" value={baseRateRupees} onChange={(e) => setBaseRateRupees(e.target.value)} className="mt-1 input" />
               </div>
             </div>
@@ -1336,6 +1341,7 @@ export default function ProjectDetailPage() {
         </div>
       </section>
 
+      {canManageUpdates && (
       <section className="mt-6">
         <h2 className="section-title">Construction Updates</h2>
         <div className="mt-3 rounded-lg border border-slate-200 bg-white p-4">
@@ -1425,7 +1431,9 @@ export default function ProjectDetailPage() {
           {updateError && <p className="mt-2 text-sm text-red-600">{updateError}</p>}
         </div>
       </section>
+      )}
 
+      {canRaiseStages && (
       <section>
         <h2 className="section-title">Construction Stages</h2>
         <p className="mt-1 text-sm text-slate-500">
@@ -1495,6 +1503,7 @@ export default function ProjectDetailPage() {
           </div>
         )}
       </section>
+      )}
     </div>
   );
 }

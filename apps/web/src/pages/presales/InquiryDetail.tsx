@@ -87,10 +87,11 @@ export default function InquiryDetailPage() {
   const [dumpRemarks, setDumpRemarks] = useState('');
   const [dumpError, setDumpError] = useState('');
 
-  const { data: inquiry } = useQuery<Inquiry>({
+  const { data: inquiry, isError: inquiryFailed } = useQuery<Inquiry>({
     queryKey: ['inquiry', id],
     queryFn: () => api(`/inquiries/${id}`),
     enabled: !!id,
+    retry: false,
   });
 
   const { data: followUps } = useQuery<FollowUp[]>({
@@ -217,6 +218,18 @@ export default function InquiryDetailPage() {
     }
   };
 
+  // A lead outside the user's team (or one that no longer exists) answers 404.
+  if (inquiryFailed) {
+    return (
+      <div>
+        <PageHeader title="Inquiry not available" />
+        <EmptyState
+          message="This inquiry doesn't exist, or it isn't assigned to you or your team."
+          action={<Link to="/presales/inquiries" className="btn btn-sm btn-secondary">Back to Inquiries</Link>}
+        />
+      </div>
+    );
+  }
   if (!inquiry) return <div className="text-fg-2">Loading…</div>;
 
   const isActive = inquiry.status === 'OPEN' || inquiry.status === 'CONTINUED';

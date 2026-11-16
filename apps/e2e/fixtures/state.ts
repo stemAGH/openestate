@@ -20,6 +20,9 @@ interface AllFixtures {
   interestRule: E2eFixture;
   atomicBooking: E2eFixture;
   visual: E2eFixture;
+  postsalesScreens: E2eFixture;
+  roleScreens: E2eFixture;
+  portalScreens: E2eFixture;
 }
 
 /** Reads the named fixture global-setup.ts wrote before any spec ran. */

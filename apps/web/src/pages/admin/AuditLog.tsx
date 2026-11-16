@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatDateTime } from '@openestate/shared';
 import { usePaginatedQuery } from '../../lib/hooks';
 import DataTable, { type Column } from '../../components/DataTable';
 import Pagination from '../../components/Pagination';
@@ -34,7 +35,7 @@ export default function AuditLogPage() {
     {
       key: 'createdAt',
       header: 'Time',
-      render: (e) => new Date(e.createdAt).toLocaleString('en-IN'),
+      render: (e) => formatDateTime(e.createdAt),
     },
     {
       key: 'action',

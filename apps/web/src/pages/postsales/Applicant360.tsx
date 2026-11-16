@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { formatInr, forcePasswordResetResponseSchema, NO_PORTAL_ACCOUNT_ERROR, PERMISSIONS } from '@openestate/shared';
+import { formatDate, formatInr, forcePasswordResetResponseSchema, NO_PORTAL_ACCOUNT_ERROR, PERMISSIONS } from '@openestate/shared';
 import { api, downloadFile, type ApiError } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import RevealedResetLink, { ResetLinkSupersedeNote } from '../../components/RevealedResetLink';
@@ -116,13 +116,13 @@ export default function Applicant360() {
   const { data: ledger } = useQuery<LedgerReport>({
     queryKey: ['applicant-ledger', bookingId],
     queryFn: () => api(`/reports/postsales/applicant-ledger/${bookingId}`),
-    enabled: !!bookingId,
+    enabled: !!bookingId && hasPermission(PERMISSIONS.REPORTS_APPLICANT_LEDGER_VIEW),
   });
 
   const { data: planVersions } = useQuery<PlanVersion[]>({
     queryKey: ['plan-history', bookingId],
     queryFn: () => api(`/bookings/${bookingId}/plan-history`),
-    enabled: !!bookingId,
+    enabled: !!bookingId && hasPermission(PERMISSIONS.POSTSALES_PLAN_READ),
   });
   // Same allocation-time exclusion as ReceiptEntry.tsx's dueInstallments —
   // an unraised STAGE_LINKED installment (dueDate === null) has nothing
@@ -300,6 +300,15 @@ export default function Applicant360() {
                     {b.unit.floor ? `${b.unit.floor.tower.name}/${b.unit.floor.name}/` : ''}{b.unit.number} · {formatInr(BigInt(b.agreedPricePaise))}
                   </div>
                 </button>
+                {hasPermission(PERMISSIONS.POSTSALES_PLAN_READ) && (
+                <Link
+                  to={`/postsales/bookings/${b.id}/installments`}
+                  className="ml-3 text-xs font-medium text-blue-600 hover:text-blue-800"
+                  aria-label={`Installment schedule for ${b.bookingNumber}`}
+                >
+                  Installment schedule
+                </Link>
+                )}
               </li>
             ))}
           </ul>
@@ -317,7 +326,7 @@ export default function Applicant360() {
                 <tbody className="divide-y divide-slate-100">
                   {ledger.entries.map((e) => (
                     <tr key={e.id}>
-                      <td className="py-1 pr-2 text-slate-500">{e.effectiveDate}</td>
+                      <td className="py-1 pr-2 text-slate-500">{formatDate(e.effectiveDate)}</td>
                       <td className="py-1 pr-2 font-medium text-slate-700">{e.entryType}</td>
                       <td className="py-1 pr-2 text-slate-500">{e.reason ?? ''}</td>
                       <td className={`py-1 text-right ${BigInt(e.signedAmountPaise) < 0n ? 'text-emerald-600' : 'text-slate-700'}`}>
@@ -407,12 +416,12 @@ export default function Applicant360() {
             {inquiries.map((inq) => (
               <li key={inq.id}>
                 <div className="text-xs font-medium text-slate-700">
-                  Inquiry — {inq.status} ({new Date(inq.createdAt).toLocaleDateString('en-IN')})
+                  Inquiry — {inq.status} ({formatDate(inq.createdAt)})
                 </div>
                 <ul className="ml-3 mt-1 space-y-1 border-l border-slate-200 pl-3">
                   {inq.followUps.map((f) => (
                     <li key={f.id} className="text-xs text-slate-500">
-                      {new Date(f.createdAt).toLocaleDateString('en-IN')} — {f.outcome ?? 'pending'} {f.notes && `— ${f.notes}`}
+                      {formatDate(f.createdAt)} — {f.outcome ?? 'pending'} {f.notes && `— ${f.notes}`}
                     </li>
                   ))}
                 </ul>
@@ -428,7 +437,7 @@ export default function Applicant360() {
             {documents.map((d) => (
               <li key={d.id} className="flex items-center justify-between text-xs">
                 <span>
-                  {d.documentType} {d.isDuplicate && <span className="text-red-600">(DUPLICATE)</span>} — {new Date(d.createdAt).toLocaleDateString('en-IN')}
+                  {d.documentType} {d.isDuplicate && <span className="text-red-600">(DUPLICATE)</span>} — {formatDate(d.createdAt)}
                 </span>
                 <button
                   onClick={() => downloadFile(`/documents/${d.id}/download`, d.originalName)}
@@ -444,7 +453,7 @@ export default function Applicant360() {
             {dispatches.length === 0 && <li className="text-xs text-slate-500">No dispatches.</li>}
             {dispatches.map((d) => (
               <li key={d.id} className="text-xs text-slate-500">
-                {d.channel} to {d.recipientAddress} — {d.status} ({new Date(d.createdAt).toLocaleDateString('en-IN')})
+                {d.channel} to {d.recipientAddress} — {d.status} ({formatDate(d.createdAt)})
               </li>
             ))}
           </ul>

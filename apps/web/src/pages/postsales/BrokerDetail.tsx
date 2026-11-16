@@ -67,6 +67,7 @@ type SoldUnitTuple = [string, string, string, string, string, string];
 export default function BrokerDetail() {
   const { brokerId } = useParams<{ brokerId: string }>();
   const { hasPermission } = useAuth();
+  const canReadCommission = hasPermission(PERMISSIONS.ACCOUNTS_COMMISSION_READ);
   const [error, setError] = useState('');
 
   const canCreatePayment = hasPermission('accounts.commission.create');
@@ -94,13 +95,13 @@ export default function BrokerDetail() {
   const { data: balance, refetch: refetchBalance } = useQuery<{ balancePaise: string }>({
     queryKey: ['broker-balance', brokerId],
     queryFn: () => api(`/commission-payments/brokers/${brokerId}/balance`),
-    enabled: !!brokerId,
+    enabled: !!brokerId && canReadCommission,
   });
 
   const { data: payments, refetch: refetchPayments } = useQuery<CommissionPayment[]>({
     queryKey: ['broker-payments', brokerId],
     queryFn: () => api(`/commission-payments/brokers/${brokerId}`),
-    enabled: !!brokerId,
+    enabled: !!brokerId && canReadCommission,
   });
 
   const { data: soldUnits } = useQuery<SoldUnitTuple[]>({
@@ -510,7 +511,8 @@ export default function BrokerDetail() {
         )}
       </section>
 
-      {/* Commission balance + payments */}
+      {/* Commission balance + payments: only for roles that may read commission. */}
+      {canReadCommission && (
       <section className="rounded-lg border border-slate-200 bg-white p-4">
         <h2 className="text-sm font-semibold text-slate-800">Commission</h2>
         <p className="mt-1 text-lg font-semibold text-slate-900">
@@ -567,6 +569,7 @@ export default function BrokerDetail() {
           {payments && payments.length === 0 && <p className="text-sm text-slate-400">No payments yet</p>}
         </div>
       </section>
+      )}
 
       {/* Statement */}
       <section className="rounded-lg border border-slate-200 bg-white p-4">
