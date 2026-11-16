@@ -510,6 +510,43 @@ export async function overRefundedBookings(
 }
 
 /**
+ * Read-only upgrade report (v0.10.1, QA-010): bookings whose interest waivers
+ * exceed the interest charged, as releases before the waiver cap allowed.
+ * Per booking, from its ledger: -sum(INTEREST_WAIVER) against sum(INTEREST),
+ * with the amount over. Nothing is changed.
+ */
+export async function overWaivedBookings(
+  client: PrismaClient = prisma,
+  scope: { companyId?: string } = {},
+): Promise<Array<{ companyId: string; companyName: string; count: number; bookings: Array<{ bookingNumber: string; overPaise: string }> }>> {
+  const companyId = scope.companyId ?? null;
+  const rows = await client.$queryRaw<Array<{ company_id: string; name: string; booking_number: string; over: string }>>`
+    WITH per AS (
+      SELECT l.booking_id,
+             COALESCE(SUM(l.signed_amount_paise) FILTER (WHERE l.entry_type = 'INTEREST'), 0) AS charged,
+             COALESCE(-SUM(l.signed_amount_paise) FILTER (WHERE l.entry_type = 'INTEREST_WAIVER'), 0) AS waived
+        FROM ledger_entries l
+       WHERE l.entry_type IN ('INTEREST', 'INTEREST_WAIVER')
+         AND (${companyId}::uuid IS NULL OR l.company_id = ${companyId}::uuid)
+       GROUP BY l.booking_id
+    )
+    SELECT c.id AS company_id, c.name, b.booking_number, (per.waived - per.charged)::text AS over
+      FROM per
+      JOIN bookings b ON b.id = per.booking_id
+      JOIN companies c ON c.id = b.company_id
+     WHERE per.waived > per.charged
+     ORDER BY c.name, b.booking_number`;
+  const byCompany = new Map<string, { companyId: string; companyName: string; count: number; bookings: Array<{ bookingNumber: string; overPaise: string }> }>();
+  for (const r of rows) {
+    const entry = byCompany.get(r.company_id) ?? { companyId: r.company_id, companyName: r.name, count: 0, bookings: [] };
+    entry.count += 1;
+    entry.bookings.push({ bookingNumber: r.booking_number, overPaise: r.over });
+    byCompany.set(r.company_id, entry);
+  }
+  return [...byCompany.values()];
+}
+
+/**
  * Read-only upgrade report: stored references from one company's rows to
  * another company's rows. Before v0.10.0 some writes accepted the id of a
  * row of another company (row-level security filters reads, not foreign
@@ -691,6 +728,21 @@ if (require.main === module) {
             'check each booking\'s ledger and refunds with your accountant (see the release notes).',
         );
         for (const r of overRefunded) {
+          console.log(`  ${r.companyName} (company ${r.companyId}): ${r.count}`);
+          for (const b of r.bookings) console.log(`    ${b.bookingNumber}: ₹${(Number(BigInt(b.overPaise)) / 100).toFixed(2)} over`);
+        }
+      }
+
+      const overWaived = await overWaivedBookings();
+      const waivedTotal = overWaived.reduce((sum, r) => sum + r.count, 0);
+      if (waivedTotal === 0) {
+        console.log('Interest waivers: no booking has waivers above the interest charged.');
+      } else {
+        console.log(
+          `Interest waivers: ${waivedTotal} booking(s) have waivers above the interest charged. Nothing was changed; ` +
+            "check each booking's ledger with your accountant (see the release notes).",
+        );
+        for (const r of overWaived) {
           console.log(`  ${r.companyName} (company ${r.companyId}): ${r.count}`);
           for (const b of r.bookings) console.log(`    ${b.bookingNumber}: ₹${(Number(BigInt(b.overPaise)) / 100).toFixed(2)} over`);
         }

@@ -236,9 +236,12 @@ describeIf('Ledger property: balance == Σ(ledger) for random sequences', () => 
               remaining.set(a.installmentId, (remaining.get(a.installmentId) ?? 0n) + a.amountPaise);
             }
           } else if (c.t === 'waive') {
+            // No command here charges interest, so since v0.10.1 (QA-010) a
+            // waiver is refused and posts nothing: the balance must not move.
             const amt = BigInt(c.rupees) * 100n;
-            await svc.interest.waiveInterest(fx.companyId, booking.id, { amountPaise: amt, reason: 'goodwill' }, fx.userId);
-            expected -= amt;
+            await expect(
+              svc.interest.waiveInterest(fx.companyId, booking.id, { amountPaise: amt, reason: 'goodwill' }, fx.userId),
+            ).rejects.toThrow(/exceeds the interest still waivable/);
           }
 
           const bal = await svc.ledger.balance(fx.companyId, booking.id);
