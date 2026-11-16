@@ -40,7 +40,7 @@ export interface TwoCompanies {
   cleanup: () => Promise<void>;
 }
 
-async function bootstrapApp(): Promise<INestApplication> {
+export async function bootstrapApp(): Promise<INestApplication> {
   process.env.DATABASE_URL = process.env.DATABASE_URL_TEST;
   process.env.DATABASE_URL_SYSTEM = process.env.DATABASE_URL_TEST_SYSTEM;
   process.env.REDIS_URL = process.env.REDIS_TEST_URL ?? 'redis://localhost:6379';

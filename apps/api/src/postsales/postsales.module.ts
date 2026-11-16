@@ -17,6 +17,7 @@ import { BookingService } from './booking.service';
 import { PaymentPlanService } from './payment-plan.service';
 import { StageRaiseService } from './stage-raise.service';
 import { ReceiptService } from './receipt.service';
+import { ReceiptPayerService } from './receipt-payer.service';
 import { ExtraChargeService } from './extra-charge.service';
 import { InterestService } from './interest.service';
 import { BookingInterestRuleService } from './booking-interest-rule.service';
@@ -38,6 +39,7 @@ import { BookingCostLineVerifier } from './booking-cost-line-verifier.service';
     PaymentPlanService,
     StageRaiseService,
     ReceiptService,
+    ReceiptPayerService,
     ExtraChargeService,
     InterestService,
     BookingInterestRuleService,

@@ -1,21 +1,16 @@
 import { useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { formatInr } from '@openestate/shared';
+import { formatInr, PERMISSIONS } from '@openestate/shared';
 import { api, downloadFile } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
 
-interface ApplicantRow {
+/** A person on an active booking, from the receipt-scoped payer lookup (phone masked). */
+interface PayerRow {
   id: string;
   name: string;
-  primaryPhone: string;
-}
-
-interface BookingRow {
-  id: string;
-  bookingNumber: string;
-  // floor is null for a LAND_BASED unit (Phase A) — every read must check
-  // it, not assume it, per plotted-farmhouse-inventory.md §13.1.
-  unit: { number: string; floor: { tower: { name: string } } | null };
+  phoneMasked: string;
+  bookings: Array<{ id: string; bookingNumber: string; unitLabel: string }>;
 }
 
 interface Installment {
@@ -45,7 +40,8 @@ const MODES = ['CASH', 'CHEQUE', 'DD', 'NEFT', 'RTGS', 'UPI', 'CARD'];
 
 export default function ReceiptEntry() {
   const [phoneSearch, setPhoneSearch] = useState('');
-  const [applicant, setApplicant] = useState<ApplicantRow | null>(null);
+  const { hasPermission } = useAuth();
+  const [applicant, setApplicant] = useState<PayerRow | null>(null);
   const [bookingId, setBookingId] = useState('');
   const [receiptDate, setReceiptDate] = useState(new Date().toISOString().slice(0, 10));
   const [mode, setMode] = useState('NEFT');
@@ -60,17 +56,19 @@ export default function ReceiptEntry() {
   const [submitting, setSubmitting] = useState(false);
   const grossInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: applicantResults } = useQuery<{ data: ApplicantRow[] }>({
-    queryKey: ['receipt-applicant-search', phoneSearch],
-    queryFn: () => api(`/applicants?search=${encodeURIComponent(phoneSearch)}&limit=10`),
-    enabled: phoneSearch.length >= 3 && !applicant,
+  // Receipt-scoped lookup: only people on an active booking, by name, phone or
+  // booking number. Needs no pre-sales permission (the accounts role has none).
+  const search = phoneSearch.trim();
+  const { data: applicantResults } = useQuery<{ data: PayerRow[] }>({
+    queryKey: ['receipt-payers', search],
+    queryFn: () => api(`/receipts/payers?search=${encodeURIComponent(search)}`),
+    enabled: search.length >= 3 && !applicant,
   });
 
-  const { data: threeSixty } = useQuery<{ bookings: BookingRow[] }>({
-    queryKey: ['applicant-360-bookings', applicant?.id],
-    queryFn: () => api(`/applicants/${applicant!.id}/360`),
-    enabled: !!applicant,
-  });
+  function choosePayer(p: PayerRow) {
+    setApplicant(p);
+    setBookingId(p.bookings.length === 1 ? p.bookings[0].id : '');
+  }
 
   const { data: planVersions } = useQuery<PlanVersion[]>({
     queryKey: ['plan-history', bookingId],
@@ -190,14 +188,16 @@ export default function ReceiptEntry() {
 
       <form onSubmit={onSubmit} className="mt-6 space-y-4 rounded-lg border border-slate-200 bg-white p-5">
         <div>
-          <label className="block text-sm font-medium text-slate-700">Applicant phone / name</label>
+          <label htmlFor="payer-search" className="block text-sm font-medium text-slate-700">Payer name, phone or booking number</label>
           {applicant ? (
             <div className="mt-1 flex items-center justify-between rounded-md bg-blue-50 px-3 py-2 text-sm">
-              <span className="font-medium text-blue-900">{applicant.name} — {applicant.primaryPhone}</span>
+              <span className="font-medium text-blue-900">{applicant.name} — {applicant.phoneMasked}</span>
               <div className="flex items-center gap-3">
-                <Link to={`/postsales/applicants/${applicant.id}`} className="text-xs text-blue-600 hover:text-blue-800">
-                  View ledger
-                </Link>
+                {hasPermission(PERMISSIONS.PRESALES_APPLICANT_READ) && (
+                  <Link to={`/postsales/applicants/${applicant.id}`} className="text-xs text-blue-600 hover:text-blue-800">
+                    View ledger
+                  </Link>
+                )}
                 <button type="button" tabIndex={-1} onClick={() => { setApplicant(null); setBookingId(''); }} className="text-xs text-blue-600 hover:text-blue-800">
                   Change
                 </button>
@@ -206,12 +206,13 @@ export default function ReceiptEntry() {
           ) : (
             <>
               <input
+                id="payer-search"
                 tabIndex={1}
                 autoFocus
                 type="text"
                 value={phoneSearch}
                 onChange={(e) => setPhoneSearch(e.target.value)}
-                placeholder="98765xxxxx"
+                placeholder="Name, 98765xxxxx or BKG/…"
                 className="mt-1 input"
               />
               {applicantResults && applicantResults.data.length > 0 && (
@@ -221,13 +222,17 @@ export default function ReceiptEntry() {
                       key={a.id}
                       type="button"
                       tabIndex={-1}
-                      onClick={() => setApplicant(a)}
+                      onClick={() => choosePayer(a)}
                       className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
                     >
-                      {a.name} — {a.primaryPhone}
+                      {a.name} — {a.phoneMasked}
+                      <span className="ml-2 text-xs text-slate-600">{a.bookings.map((b) => b.bookingNumber).join(', ')}</span>
                     </button>
                   ))}
                 </div>
+              )}
+              {applicantResults && applicantResults.data.length === 0 && (
+                <p className="mt-1 text-xs text-slate-600">No one with an active booking matches.</p>
               )}
             </>
           )}
@@ -243,9 +248,9 @@ export default function ReceiptEntry() {
               className="mt-1 input"
             >
               <option value="">Select booking</option>
-              {threeSixty?.bookings?.map((b) => (
+              {applicant.bookings.map((b) => (
                 <option key={b.id} value={b.id}>
-                  {b.bookingNumber} — {b.unit.floor ? `${b.unit.floor.tower.name}/` : ''}{b.unit.number}
+                  {b.bookingNumber} — {b.unitLabel}
                 </option>
               ))}
             </select>

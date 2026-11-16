@@ -10,11 +10,14 @@ import {
   tdsCertificateSchema,
   PERMISSIONS,
   CHEQUE_CLEARANCE_STATUS,
+  hasNoNul,
+  NO_NUL_MESSAGE,
 } from '@openestate/shared';
 import type { JwtPayload } from '@openestate/shared';
 import { RequirePermissions } from '../auth/guards/permissions.guard';
 import { SYSTEM_PRISMA } from '../database/database.module';
 import { ReceiptService } from './receipt.service';
+import { ReceiptPayerService } from './receipt-payer.service';
 import { z } from 'zod';
 
 // An unknown status is a 400 from the validation pipe. Unvalidated, it reached
@@ -25,6 +28,12 @@ export const chequeQueueQuerySchema = z.object({
 });
 
 class ChequeQueueQueryDto extends createZodDto(chequeQueueQuerySchema) {}
+
+// Receipt Entry's payer lookup: a name, phone digits or a booking number.
+export const receiptPayerQuerySchema = z
+  .object({ search: z.string().trim().min(2).max(100).refine(hasNoNul, NO_NUL_MESSAGE) })
+  .strict();
+class ReceiptPayerQueryDto extends createZodDto(receiptPayerQuerySchema) {}
 class CreateReceiptDto extends createZodDto(createReceiptSchema) {}
 class ChequeEventDto extends createZodDto(chequeEventSchema) {}
 class ReverseReceiptDto extends createZodDto(reverseReceiptSchema) {}
@@ -37,7 +46,16 @@ export class ReceiptController {
     private readonly receipts: ReceiptService,
     @Inject(SYSTEM_PRISMA)
     private readonly systemPrisma: PrismaClient,
+    private readonly payers: ReceiptPayerService,
   ) {}
+
+  @Get('payers')
+  @RequirePermissions(PERMISSIONS.POSTSALES_RECEIPT_CREATE)
+  @ApiOperation({ summary: 'Find who is paying: people on an active booking, by name, phone or booking number (masked phone)' })
+  async findPayers(@Query() query: ReceiptPayerQueryDto, @Req() req: Request) {
+    const u = req.user as JwtPayload;
+    return { data: await this.payers.search(u.companyId, query.search) };
+  }
 
   @Get('cheque-queue')
   @RequirePermissions(PERMISSIONS.POSTSALES_CHEQUE_VERIFY)

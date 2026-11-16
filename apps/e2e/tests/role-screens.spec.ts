@@ -106,3 +106,26 @@ test('an inquiry the user can’t see says so, with a way back', async ({ page }
   await page.getByRole('link', { name: 'Back to Inquiries' }).click();
   await expect(page).toHaveURL(/\/presales\/inquiries$/);
 });
+
+// QA-007: accounts holds receipt.create but no pre-sales permission, so the
+// payer search used to be refused and no receipt could be recorded.
+test('accounts: records a receipt from Receipt Entry, finding the payer without pre-sales access', async ({ page }) => {
+  await signInAs(page, 'accounts');
+  await settle(page);
+  const bad = refused(page); // from Receipt Entry on (the landing dashboard is QA-034)
+  await page.goto('/postsales/receipts/new');
+  // The first field on the form (its label changed with the fix; the lookup is what's tested).
+  await page.getByRole('textbox').first().fill('9811166602');
+  const suggestion = page.getByRole('button', { name: /Role Buyer/ });
+  await expect(suggestion).toBeVisible();
+  await expect(suggestion).not.toContainText('9811166602');
+  await suggestion.click();
+  await expect(page.getByRole('combobox').first()).toHaveValue(ids.booking);
+  await expect(page.getByRole('link', { name: 'View ledger' })).toHaveCount(0);
+  await page.locator('input[type="number"]').first().fill('1000');
+  await page.getByRole('button', { name: 'Auto-fill oldest-dues-first' }).click();
+  await page.getByRole('button', { name: 'Save & Print Receipt' }).click();
+  await expect(page.getByText(/Receipt RCP\/\d{4}-\d{2}\/\d{6} saved\./)).toBeVisible();
+  await settle(page);
+  expect(bad).toEqual([]);
+});
