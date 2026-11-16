@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
@@ -16,6 +18,8 @@ import {
   updateInquirySchema,
   assignInquirySchema,
   inquiryListQuerySchema,
+  deleteLeadSchema,
+  paginationQuerySchema,
   PERMISSIONS,
 } from '@openestate/shared';
 import type { JwtPayload } from '@openestate/shared';
@@ -27,6 +31,8 @@ class CreateInquiryDto extends createZodDto(createInquirySchema) {}
 class UpdateInquiryDto extends createZodDto(updateInquirySchema) {}
 class AssignInquiryDto extends createZodDto(assignInquirySchema) {}
 class InquiryListQueryDto extends createZodDto(inquiryListQuerySchema) {}
+class DeleteLeadDto extends createZodDto(deleteLeadSchema) {}
+class DeletedLeadsQueryDto extends createZodDto(paginationQuerySchema.pick({ page: true, limit: true }).strict()) {}
 
 @ApiTags('Inquiries')
 @Controller('inquiries')
@@ -63,6 +69,14 @@ export class InquiryController {
   myDay(@Req() req: Request) {
     const user = req.user as JwtPayload;
     return this.inquiryService.myDay(user.companyId, user.sub);
+  }
+
+  @Get('deleted')
+  @RequirePermissions(PERMISSIONS.PRESALES_LEAD_DELETE)
+  @ApiOperation({ summary: "Deleted leads in the caller's team scope, newest first, with the date each will be purged" })
+  async findDeleted(@Query() query: DeletedLeadsQueryDto, @Req() req: Request) {
+    const user = req.user as JwtPayload;
+    return this.inquiryService.findDeleted(user.companyId, query, await this.scopeFor(user));
   }
 
   @Get(':id')
@@ -102,5 +116,26 @@ export class InquiryController {
       dto.reason,
       await this.scopeFor(user),
     );
+  }
+  @Delete(':id')
+  @HttpCode(200)
+  @RequirePermissions(PERMISSIONS.PRESALES_LEAD_DELETE)
+  @ApiOperation({
+    summary: 'Delete a lead (restorable until purged; never deletes the applicant)',
+    description:
+      "Requires a reason (DUPLICATE, JUNK_OR_TEST, CUSTOMER_REQUEST, OTHER with a note). 404 outside the caller's team scope; 409 for a lead a booking came from or a SUCCESSFUL one.",
+  })
+  async remove(@Param('id') id: string, @Body() dto: DeleteLeadDto, @Req() req: Request) {
+    const user = req.user as JwtPayload;
+    return this.inquiryService.softDelete(user.companyId, id, dto, await this.scopeFor(user), user.sub);
+  }
+
+  @Post(':id/restore')
+  @HttpCode(200)
+  @RequirePermissions(PERMISSIONS.PRESALES_LEAD_DELETE)
+  @ApiOperation({ summary: "Restore a deleted lead (within the caller's team scope, before it is purged)" })
+  async restore(@Param('id') id: string, @Req() req: Request) {
+    const user = req.user as JwtPayload;
+    return this.inquiryService.restore(user.companyId, id, await this.scopeFor(user), user.sub);
   }
 }

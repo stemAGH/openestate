@@ -1,7 +1,15 @@
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { formatDateTime, INQUIRY_STATUS_LABELS, PERMISSIONS, type InquiryStatusValue } from '@openestate/shared';
+import {
+  formatDateTime,
+  INQUIRY_STATUS_LABELS,
+  LEAD_DELETE_REASONS,
+  LEAD_DELETE_REASON_LABELS,
+  PERMISSIONS,
+  type InquiryStatusValue,
+  type LeadDeleteReason,
+} from '@openestate/shared';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { Card, ContactActions, EmptyState, FollowUpDue, InquiryStatusBadge, PageHeader } from '../../ui';
@@ -82,6 +90,13 @@ export default function InquiryDetailPage() {
   const [statusError, setStatusError] = useState('');
   const [stageError, setStageError] = useState('');
 
+  const navigate = useNavigate();
+  const canDeleteLead = hasPermission(PERMISSIONS.PRESALES_LEAD_DELETE);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteReason, setDeleteReason] = useState<LeadDeleteReason | ''>('');
+  const [deleteNote, setDeleteNote] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+
   const [showDumpForm, setShowDumpForm] = useState(false);
   const [dumpReasonId, setDumpReasonId] = useState('');
   const [dumpRemarks, setDumpRemarks] = useState('');
@@ -150,6 +165,20 @@ export default function InquiryDetailPage() {
       setVenue('');
     } catch (err) {
       setFollowUpError((err as Error).message);
+    }
+  };
+
+  const handleDeleteLead = async () => {
+    setDeleteError('');
+    try {
+      await api(`/inquiries/${id}`, {
+        method: 'DELETE',
+        body: JSON.stringify({ reason: deleteReason, ...(deleteNote.trim() ? { note: deleteNote.trim() } : {}) }),
+      });
+      qc.invalidateQueries({ queryKey: ['inquiries'] });
+      navigate('/presales/inquiries', { state: { notice: 'Lead deleted. You can restore it from Deleted leads.' } });
+    } catch (err) {
+      setDeleteError((err as Error).message);
     }
   };
 
@@ -322,6 +351,68 @@ export default function InquiryDetailPage() {
                 Reassign
               </button>
               {assignError && <p className="mt-2 text-sm text-red-600">{assignError}</p>}
+            </Card>
+          )}
+
+          {/* Deleting needs presales.lead.delete; a lead that converted to a booking can't be deleted (the server checks too). */}
+          {canDeleteLead && inquiry.status !== 'SUCCESSFUL' && (
+            <Card className="p-4">
+              <h2 className="section-title">Delete lead</h2>
+              <p className="mt-1 text-xs text-fg-2">
+                For duplicates and junk. The lead can be restored from Deleted leads until it is purged.
+              </p>
+              {!confirmingDelete ? (
+                <button onClick={() => setConfirmingDelete(true)} className="btn btn-md btn-secondary mt-3">
+                  Delete lead…
+                </button>
+              ) : (
+                <div role="alertdialog" aria-labelledby="delete-lead-title" className="mt-3 rounded-lg border border-red-200 bg-red-50 p-4">
+                  <h3 id="delete-lead-title" className="text-sm font-semibold text-red-900">
+                    Delete this lead?
+                  </h3>
+                  <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-red-900">
+                    <li>
+                      The lead and its {history.length} follow-up{history.length === 1 ? '' : 's'} are hidden from every list,
+                      report and reminder.
+                    </li>
+                    <li>It can be restored from Deleted leads until it is purged.</li>
+                    <li>{inquiry.applicant.name}&apos;s contact record is not deleted.</li>
+                  </ul>
+                  <div className="mt-3 grid grid-cols-1 gap-3">
+                    <div>
+                      <label htmlFor="delete-reason" className="block text-sm font-medium text-slate-700">Reason</label>
+                      <select
+                        id="delete-reason"
+                        value={deleteReason}
+                        onChange={(e) => setDeleteReason(e.target.value as LeadDeleteReason)}
+                        className="mt-1 input"
+                      >
+                        <option value="">Select…</option>
+                        {LEAD_DELETE_REASONS.map((r) => <option key={r} value={r}>{LEAD_DELETE_REASON_LABELS[r]}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor="delete-note" className="block text-sm font-medium text-slate-700">
+                        Note{deleteReason === 'OTHER' && <span className="text-red-600"> *</span>}
+                      </label>
+                      <input id="delete-note" type="text" value={deleteNote} onChange={(e) => setDeleteNote(e.target.value)} maxLength={500} className="mt-1 input" />
+                    </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-3">
+                    <button
+                      onClick={handleDeleteLead}
+                      disabled={!deleteReason || (deleteReason === 'OTHER' && deleteNote.trim().length < 3)}
+                      className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                    >
+                      Yes, delete lead
+                    </button>
+                    <button onClick={() => { setConfirmingDelete(false); setDeleteError(''); }} className="btn btn-secondary px-3 py-1.5 text-sm">
+                      Keep lead
+                    </button>
+                  </div>
+                  {deleteError && <p className="mt-2 text-sm text-red-700">{deleteError}</p>}
+                </div>
+              )}
             </Card>
           )}
         </div>

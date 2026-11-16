@@ -23,6 +23,7 @@ interface CompanyConfigData {
   gstStateCode: string | null;
   projectMediaMaxFiles: number | null;
   projectMediaMaxBytes: number | null;
+  leadPurgeAfterDays: number | null;
 }
 
 const MODULES = ['presales', 'postsales', 'accounts'];
@@ -49,6 +50,7 @@ export default function CompanyConfigPage() {
   const [gstStateCode, setGstStateCode] = useState('');
   const [projectMediaMaxFiles, setProjectMediaMaxFiles] = useState('');
   const [projectMediaMaxBytes, setProjectMediaMaxBytes] = useState('');
+  const [leadPurgeAfterDays, setLeadPurgeAfterDays] = useState('');
 
   const { data: company, isLoading: companyLoading } = useQuery<CompanyData>({
     queryKey: ['company'],
@@ -80,6 +82,7 @@ export default function CompanyConfigPage() {
       setGstStateCode(config.gstStateCode ?? '');
       setProjectMediaMaxFiles(config.projectMediaMaxFiles != null ? String(config.projectMediaMaxFiles) : '');
       setProjectMediaMaxBytes(config.projectMediaMaxBytes != null ? String(config.projectMediaMaxBytes) : '');
+      setLeadPurgeAfterDays(config.leadPurgeAfterDays != null ? String(config.leadPurgeAfterDays) : '');
     }
   }, [config]);
 
@@ -89,6 +92,7 @@ export default function CompanyConfigPage() {
 
   const nameError = name.trim() === '';
   const maxFilesError = projectMediaMaxFiles.trim() !== '' && (!Number.isInteger(Number(projectMediaMaxFiles)) || Number(projectMediaMaxFiles) < 1 || Number(projectMediaMaxFiles) > 10000);
+  const purgeDaysError = leadPurgeAfterDays.trim() !== '' && (!Number.isInteger(Number(leadPurgeAfterDays)) || Number(leadPurgeAfterDays) < 1 || Number(leadPurgeAfterDays) > 3650);
   const maxBytesError = projectMediaMaxBytes.trim() !== '' && (!Number.isInteger(Number(projectMediaMaxBytes)) || Number(projectMediaMaxBytes) < 1024 * 1024 || Number(projectMediaMaxBytes) > 2147483647);
 
   const handleSave = async () => {
@@ -118,6 +122,7 @@ export default function CompanyConfigPage() {
           // cleared field 400s instead of falling back to the DB default.
           ...(projectMediaMaxFiles.trim() !== '' ? { projectMediaMaxFiles: Number(projectMediaMaxFiles) } : {}),
           ...(projectMediaMaxBytes.trim() !== '' ? { projectMediaMaxBytes: Number(projectMediaMaxBytes) } : {}),
+          ...(leadPurgeAfterDays.trim() !== '' ? { leadPurgeAfterDays: Number(leadPurgeAfterDays) } : {}),
         }),
       });
       qc.invalidateQueries({ queryKey: ['company-config'] });
@@ -361,9 +366,30 @@ export default function CompanyConfigPage() {
           </div>
         </section>
 
+        <section>
+          <h2 className="section-title">Deleted Leads</h2>
+          <p className="text-sm text-slate-500">How long a deleted lead can be restored before it is removed for good.</p>
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="lead-purge-days" className="block text-sm font-medium text-slate-700">Keep deleted leads for (days)</label>
+              <input
+                id="lead-purge-days"
+                type="number"
+                min={1}
+                max={3650}
+                placeholder="30"
+                value={leadPurgeAfterDays}
+                onChange={(e) => setLeadPurgeAfterDays(e.target.value)}
+                className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm ${purgeDaysError ? 'border-red-400' : 'border-slate-300'}`}
+              />
+              {purgeDaysError && <p className="mt-1 text-xs text-red-600">Must be a whole number between 1 and 3,650</p>}
+            </div>
+          </div>
+        </section>
+
         <button
           onClick={handleSave}
-          disabled={saving || nameError || colorError || gstinError || stateCodeError || maxFilesError || maxBytesError}
+          disabled={saving || nameError || colorError || gstinError || stateCodeError || maxFilesError || maxBytesError || purgeDaysError}
           className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
         >
           {saving ? 'Saving…' : 'Save Configuration'}

@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaClient, withTenantTx, runWithTenant } from '@openestate/db';
+import { PrismaClient, withTenantTx, runWithTenant, getCurrentIpAddress } from '@openestate/db';
 import { assertOwnedByCompany } from '../common/tenant-ownership';
 import { TENANT_PRISMA, SYSTEM_PRISMA } from '../database/database.module';
 import {
@@ -17,9 +17,11 @@ import {
   istDayBounds,
   ACTIVE_INQUIRY_STATUSES,
   redactAadhaarLike,
+  maskPhonesInText,
   type Clock,
 } from '@openestate/shared';
 import type {
+  DeleteLeadDto,
   CreateInquiryDto,
   UpdateInquiryDto,
   InquiryListQuery,
@@ -185,6 +187,149 @@ export class InquiryService {
     if (scope.visibleUserIds) where.assignedToId = { in: scope.visibleUserIds };
     const exists = await this.systemPrisma.inquiry.findFirst({ where, select: { id: true } });
     if (!exists) throw new NotFoundException('Inquiry not found');
+  }
+
+  /**
+   * Delete a lead (soft): hidden from every read (packages/db soft-delete
+   * extension) until restored, purged after the company's retention period.
+   * Within the caller's team scope (404 outside it, as for reading). Refused
+   * for a lead a booking came from (any booking status) or a SUCCESSFUL one.
+   * The lead's row is locked first; attachBooking takes the same lock, so a
+   * booking can't be linked to it at the same moment. The applicant is
+   * never deleted. Audited as LEAD_DELETED, with no phone number.
+   */
+  async softDelete(companyId: string, id: string, dto: DeleteLeadDto, scope: InquiryScope, actorId: string) {
+    return runWithTenant({ companyId }, () =>
+      withTenantTx(this.tenantPrisma, companyId, async (tx) => {
+        // Raw SQL: a row lock has no Prisma API; both ids are bound parameters.
+        await tx.$queryRaw`SELECT id FROM inquiries WHERE id = ${id}::uuid AND company_id = ${companyId}::uuid FOR UPDATE`;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const where: any = { id, companyId };
+        if (scope.visibleUserIds) where.assignedToId = { in: scope.visibleUserIds };
+        const inquiry = await tx.inquiry.findFirst({ where, select: { id: true, status: true, applicantId: true } });
+        if (!inquiry) throw new NotFoundException('Inquiry not found');
+
+        const booking = await tx.booking.findFirst({ where: { companyId, sourceInquiryId: id }, select: { bookingNumber: true } });
+        if (booking || inquiry.status === 'SUCCESSFUL') {
+          throw new ConflictException(
+            `This lead converted to a booking${booking ? ` (${booking.bookingNumber})` : ''} and can't be deleted`,
+          );
+        }
+
+        const followUps = await tx.followUp.count({ where: { companyId, inquiryId: id } });
+        const note = dto.note ? maskPhonesInText(dto.note) : null;
+        const deletedAt = this.clock.now();
+        await tx.inquiry.update({
+          where: { id },
+          data: { deletedAt, deletedById: actorId, deleteReason: dto.reason, deleteNote: note },
+        });
+        await tx.auditLog.create({
+          data: {
+            companyId,
+            userId: actorId,
+            entityType: 'Inquiry',
+            entityId: id,
+            action: 'LEAD_DELETED',
+            after: { reason: dto.reason, note, applicantId: inquiry.applicantId, followUps },
+            ipAddress: getCurrentIpAddress() ?? null,
+          },
+        });
+        return { id, deletedAt };
+      }),
+    );
+  }
+
+  /** Bring a deleted lead back (within the caller's team scope), before it is purged. */
+  async restore(companyId: string, id: string, scope: InquiryScope, actorId: string) {
+    return runWithTenant({ companyId }, () =>
+      withTenantTx(this.tenantPrisma, companyId, async (tx) => {
+        await tx.$queryRaw`SELECT id FROM inquiries WHERE id = ${id}::uuid AND company_id = ${companyId}::uuid FOR UPDATE`;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const where: any = { id, companyId, deletedAt: { not: null } };
+        if (scope.visibleUserIds) where.assignedToId = { in: scope.visibleUserIds };
+        const inquiry = await tx.inquiry.findFirst({ where, select: { id: true, applicantId: true, deleteReason: true } });
+        if (!inquiry) throw new NotFoundException('Deleted lead not found');
+        await tx.inquiry.update({
+          where: { id, deletedAt: { not: null } },
+          data: { deletedAt: null, deletedById: null, deleteReason: null, deleteNote: null },
+        });
+        await tx.auditLog.create({
+          data: {
+            companyId,
+            userId: actorId,
+            entityType: 'Inquiry',
+            entityId: id,
+            action: 'LEAD_RESTORED',
+            after: { previousReason: inquiry.deleteReason, applicantId: inquiry.applicantId },
+            ipAddress: getCurrentIpAddress() ?? null,
+          },
+        });
+        return { id, restored: true };
+      }),
+    );
+  }
+
+  /** Deleted leads in the caller's team scope, newest first, with the date each will be purged. */
+  async findDeleted(companyId: string, query: { page: number; limit: number }, scope: InquiryScope) {
+    const { page, limit } = query;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const where: any = { companyId, deletedAt: { not: null } };
+    if (scope.visibleUserIds) where.assignedToId = { in: scope.visibleUserIds };
+    const [rows, total, config] = await Promise.all([
+      this.systemPrisma.inquiry.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { deletedAt: 'desc' },
+        select: {
+          id: true,
+          status: true,
+          deletedAt: true,
+          deleteReason: true,
+          deleteNote: true,
+          applicant: { select: { id: true, name: true, primaryPhone: true } },
+          project: { select: { id: true, name: true } },
+          deletedBy: { select: { id: true, name: true } },
+        },
+      }),
+      this.systemPrisma.inquiry.count({ where }),
+      this.systemPrisma.companyConfig.findUnique({ where: { companyId }, select: { leadPurgeAfterDays: true } }),
+    ]);
+    const days = config?.leadPurgeAfterDays ?? 30;
+    const data = rows.map((r) => ({ ...r, purgeAfter: new Date(r.deletedAt!.getTime() + days * 86_400_000) }));
+    return { data: maskPhoneFields(data), meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+  }
+
+  /**
+   * The daily purge: removes this company's leads deleted longer ago than its
+   * leadPurgeAfterDays, with their follow-ups, assignments and history
+   * (ON DELETE CASCADE). Applicants and communication logs stay (the log's
+   * inquiry link becomes null). One LEADS_PURGED audit row per run that
+   * removes anything (ids and a count only).
+   */
+  async purgeDeleted(companyId: string): Promise<{ purged: number }> {
+    return runWithTenant({ companyId }, () =>
+      withTenantTx(this.tenantPrisma, companyId, async (tx) => {
+        const config = await tx.companyConfig.findFirst({ where: { companyId }, select: { leadPurgeAfterDays: true } });
+        const days = config?.leadPurgeAfterDays ?? 30;
+        const cutoff = new Date(this.clock.now().getTime() - days * 86_400_000);
+        const due = await tx.inquiry.findMany({ where: { companyId, deletedAt: { not: null, lt: cutoff } }, select: { id: true } });
+        if (due.length === 0) return { purged: 0 };
+        const ids = due.map((r: { id: string }) => r.id);
+        const res = await tx.inquiry.deleteMany({ where: { companyId, id: { in: ids }, deletedAt: { not: null, lt: cutoff } } });
+        await tx.auditLog.create({
+          data: {
+            companyId,
+            userId: null,
+            entityType: 'Inquiry',
+            entityId: 'purge',
+            action: 'LEADS_PURGED',
+            after: { purged: res.count, inquiryIds: ids, retentionDays: days },
+          },
+        });
+        return { purged: res.count };
+      }),
+    );
   }
 
   /** Assigned to me, still open, and today's-or-overdue next follow-up. */
@@ -563,6 +708,10 @@ export class InquiryService {
     try {
       return await runWithTenant({ companyId }, () =>
         withTenantTx(this.tenantPrisma, companyId, async (tx) => {
+          // The lead's row lock, as softDelete takes it: a lead being deleted
+          // can't get a booking linked at the same moment (it is then "not found").
+          // Raw SQL: a row lock has no Prisma API; both ids are bound parameters.
+          await tx.$queryRaw`SELECT id FROM inquiries WHERE id = ${inquiryId}::uuid AND company_id = ${companyId}::uuid FOR UPDATE`;
           const inquiry = await tx.inquiry.findFirst({ where: { id: inquiryId, companyId } });
           if (!inquiry) throw new NotFoundException('Inquiry not found');
           const booking = await tx.booking.findFirst({ where: { id: bookingId, companyId } });

@@ -23,6 +23,7 @@ interface AllFixtures {
   postsalesScreens: E2eFixture;
   roleScreens: E2eFixture;
   portalScreens: E2eFixture;
+  leadDelete: E2eFixture;
 }
 
 /** Reads the named fixture global-setup.ts wrote before any spec ran. */

@@ -41,7 +41,8 @@ export const ROLE_PERMISSIONS: Record<SystemRoleSlug, readonly string[]> = {
     // Mirrors inventory.tower.* above — the LAND_BASED analog of tower
     // management. plotted-farmhouse-inventory.md §8.
     P.INVENTORY_INVENTORY_GROUP_MANAGE,
-    ...Object.values(P).filter((p) => p.startsWith('presales.')),
+    // Every pre-sales key except deleting leads (admins only by default).
+    ...Object.values(P).filter((p) => p.startsWith('presales.') && p !== P.PRESALES_LEAD_DELETE),
     P.POSTSALES_BOOKING_READ,
     P.POSTSALES_BOOKING_CREATE,
     P.POSTSALES_BOOKING_UPDATE,

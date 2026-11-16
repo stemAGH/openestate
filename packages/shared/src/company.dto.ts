@@ -55,6 +55,8 @@ export const updateCompanyConfigSchema = z
     // unaffected either way — a human always sees the warning and
     // decides. See CompanyConfig.presalesPhoneDedupAutoLink.
     presalesPhoneDedupAutoLink: z.boolean().optional(),
+    // v0.10.1: days a deleted lead can be restored before the daily purge.
+    leadPurgeAfterDays: z.number().int().min(1).max(3650).optional(),
   })
   .strict();
 

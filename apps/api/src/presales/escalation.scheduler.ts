@@ -21,5 +21,7 @@ export class EscalationScheduler implements OnModuleInit {
         jobId: 'escalation-tick',
       },
     );
+    // v0.10.1: once a day, purge deleted leads past each company's retention period.
+    await this.escalationQueue.add('lead-purge-tick', {}, { repeat: { every: 24 * 60 * 60 * 1000 }, jobId: 'lead-purge-tick' });
   }
 }

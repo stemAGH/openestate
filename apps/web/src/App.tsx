@@ -35,6 +35,7 @@ import ProjectsPage from './pages/inventory/Projects';
 import ProjectDetailPage from './pages/inventory/ProjectDetail';
 import InquiriesPage from './pages/presales/Inquiries';
 import InquiryDetailPage from './pages/presales/InquiryDetail';
+import DeletedLeadsPage from './pages/presales/DeletedLeads';
 import PresalesReportsPage from './pages/presales/Reports';
 import TicketsPage from './pages/support/Tickets';
 import TicketDetailPage from './pages/support/TicketDetail';
@@ -80,6 +81,7 @@ export default function App() {
             <Route path="inventory/projects/:id" element={<RequirePermission perm={PERMISSIONS.INVENTORY_PROJECT_READ}><ProjectDetailPage /></RequirePermission>} />
 
             <Route path="presales/inquiries" element={<RequirePermission perm={PERMISSIONS.PRESALES_INQUIRY_READ}><InquiriesPage /></RequirePermission>} />
+            <Route path="presales/inquiries/deleted" element={<RequirePermission perm={PERMISSIONS.PRESALES_LEAD_DELETE}><DeletedLeadsPage /></RequirePermission>} />
             <Route path="presales/inquiries/:id" element={<RequirePermission perm={PERMISSIONS.PRESALES_INQUIRY_READ}><InquiryDetailPage /></RequirePermission>} />
             <Route path="presales/reports" element={<RequirePermission perm={PERMISSIONS.PRESALES_REPORT_VIEW}><PresalesReportsPage /></RequirePermission>} />
 

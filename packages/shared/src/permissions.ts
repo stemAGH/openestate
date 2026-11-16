@@ -96,7 +96,12 @@ export const PERMISSIONS = {
   PRESALES_INQUIRY_READ: 'presales.inquiry.read',
   PRESALES_INQUIRY_CREATE: 'presales.inquiry.create',
   PRESALES_INQUIRY_UPDATE: 'presales.inquiry.update',
+  // Unused (no route checks it); kept so existing role grants stay valid.
+  // Deleting a lead is presales.lead.delete. docs/todo.md tracks removing it.
   PRESALES_INQUIRY_DELETE: 'presales.inquiry.delete',
+  // Delete (soft) and restore a lead. Seeded to company_admin and
+  // super_admin only; grantable to other roles in Roles.
+  PRESALES_LEAD_DELETE: 'presales.lead.delete',
   PRESALES_INQUIRY_ASSIGN: 'presales.inquiry.assign',
   PRESALES_INQUIRY_IMPORT: 'presales.inquiry.import',
   PRESALES_FOLLOW_UP_READ: 'presales.follow-up.read',

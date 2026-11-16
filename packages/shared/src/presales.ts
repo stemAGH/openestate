@@ -106,6 +106,29 @@ export type InquiryStatusValue = (typeof INQUIRY_STATUS)[keyof typeof INQUIRY_ST
  *  and never overdue regardless of nextFollowupAt. */
 export const ACTIVE_INQUIRY_STATUSES = [INQUIRY_STATUS.OPEN, INQUIRY_STATUS.CONTINUED] as const;
 
+/** Why a lead was deleted (v0.10.1). OTHER requires a note. */
+export const LEAD_DELETE_REASONS = ['DUPLICATE', 'JUNK_OR_TEST', 'CUSTOMER_REQUEST', 'OTHER'] as const;
+export type LeadDeleteReason = (typeof LEAD_DELETE_REASONS)[number];
+export const LEAD_DELETE_REASON_LABELS: Record<LeadDeleteReason, string> = {
+  DUPLICATE: 'Duplicate',
+  JUNK_OR_TEST: 'Junk or test',
+  CUSTOMER_REQUEST: 'Customer asked',
+  OTHER: 'Other',
+};
+
+/** DELETE /inquiries/:id body. */
+export const deleteLeadSchema = z
+  .object({
+    reason: z.enum(LEAD_DELETE_REASONS),
+    note: z.string().trim().max(500).refine(hasNoNul, NO_NUL_MESSAGE).optional(),
+  })
+  .strict()
+  .refine((d) => d.reason !== 'OTHER' || (d.note ?? '').length >= 3, {
+    message: 'Say why in a note (at least 3 characters) when the reason is Other',
+    path: ['note'],
+  });
+export type DeleteLeadDto = z.infer<typeof deleteLeadSchema>;
+
 /** What staff see for each status; the enum value never reaches the screen. */
 export const INQUIRY_STATUS_LABELS: Record<InquiryStatusValue, string> = {
   OPEN: 'Open',

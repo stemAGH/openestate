@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { INQUIRY_STATUS_LABELS, PERMISSIONS, SYSTEM_ROLES } from '@openestate/shared';
 import { usePaginatedQuery } from '../../lib/hooks';
 import { useAuth } from '../../lib/auth';
@@ -157,6 +157,8 @@ export default function InquiriesPage() {
 
   const qc = useQueryClient();
   const { user, hasPermission } = useAuth();
+  // Set by Inquiry Detail after a lead is deleted.
+  const notice = (useLocation().state as { notice?: string } | null)?.notice;
   const listParams: Record<string, string | number> = { page, limit: 20 };
   for (const k of FILTER_KEYS) if (filter(k)) listParams[k] = filter(k);
   if (filter('q').length >= 2) listParams.search = filter('q');
@@ -341,6 +343,11 @@ export default function InquiriesPage() {
         description={countLine}
         actions={
           <>
+            {hasPermission(PERMISSIONS.PRESALES_LEAD_DELETE) && (
+              <Link to="/presales/inquiries/deleted" className="btn btn-sm btn-secondary">
+                Deleted leads
+              </Link>
+            )}
             <button
               onClick={() => downloadFile('/reports/presales/inquiries-export?format=csv', 'inquiries-export.csv')}
               className="btn btn-sm btn-secondary"
@@ -356,6 +363,12 @@ export default function InquiriesPage() {
           </>
         }
       />
+
+      {notice && (
+        <div role="status" className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          {notice}
+        </div>
+      )}
 
       <div className="mt-4 flex flex-wrap items-center gap-2" role="search">
         <input

@@ -173,6 +173,7 @@
     {"table":"inquiries","name":"inquiries_assigned_to_id_fkey","type":"foreign key","definition":"FOREIGN KEY (assigned_to_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE SET NULL"},
     {"table":"inquiries","name":"inquiries_company_id_fkey","type":"foreign key","definition":"FOREIGN KEY (company_id) REFERENCES companies(id) ON UPDATE CASCADE ON DELETE RESTRICT"},
     {"table":"inquiries","name":"inquiries_created_by_id_fkey","type":"foreign key","definition":"FOREIGN KEY (created_by_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE SET NULL"},
+    {"table":"inquiries","name":"inquiries_deleted_by_id_fkey","type":"foreign key","definition":"FOREIGN KEY (deleted_by_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE SET NULL"},
     {"table":"inquiries","name":"inquiries_inquiry_type_id_fkey","type":"foreign key","definition":"FOREIGN KEY (inquiry_type_id) REFERENCES inquiry_types(id) ON UPDATE CASCADE ON DELETE SET NULL"},
     {"table":"inquiries","name":"inquiries_pkey","type":"primary key","definition":"PRIMARY KEY (id)"},
     {"table":"inquiries","name":"inquiries_preferred_unit_type_id_fkey","type":"foreign key","definition":"FOREIGN KEY (preferred_unit_type_id) REFERENCES unit_types(id) ON UPDATE CASCADE ON DELETE SET NULL"},

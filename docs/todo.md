@@ -41,6 +41,15 @@ Each has a written plan (root cause, options, tests, frozen code touched); none 
   without warning; the project-rollup CSV uses raw field names as headers; list endpoints
   other than those made strict in v0.10.0 still ignore unknown query parameters.
 
+## v0.10.1: `presales.inquiry.delete` is unused
+
+Deleting a lead (v0.10.1) checks the new `presales.lead.delete` (seeded to company_admin and
+super_admin only). The older `presales.inquiry.delete` has existed since phase 1, no route
+checks it, and the seed gives it to sales_manager too, so existing roles hold it. It stays in
+the catalogue so those grants remain valid. Remove it in a later release: drop it from the
+seed and permission list, and remove its role grants on upgrade with an audit row (the sync
+has no removal path for staff roles yet; the portal clean-up is the model).
+
 ## v0.10.1: found in the v0.10.0 upgrade rehearsal (2026-11-09)
 
 - **nginx logs full request lines: apply a path-only log format automatically.** The API's

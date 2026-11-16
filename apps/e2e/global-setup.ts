@@ -78,6 +78,8 @@ export default async function globalSetup() {
     roleScreens: await seedVisualFixture(DATABASE_URL_SYSTEM),
     // Its own company and portal customer: portal-screens.spec.ts also adds a broker.
     portalScreens: await seedE2eFixture(DATABASE_URL_SYSTEM, { withPortalTicketSetup: true }),
+    // Its own company with one user per staff role: lead-delete.spec.ts.
+    leadDelete: await seedVisualFixture(DATABASE_URL_SYSTEM),
   };
   writeFileSync(path.join(__dirname, '.fixture-state.json'), JSON.stringify(fixtures, null, 2));
 }
