@@ -19,6 +19,17 @@ import BrokerStatement from './pages/BrokerStatement';
 /** A broker portal session never carries applicantId and vice versa (see
  * AppShell's doc comment) — this just sends each session to its own
  * first tab, same branch AppShell uses for the tab bar itself. */
+/** Sends a session to its own home when it opens the other portal role's page (a stale
+ * bookmark, a typed address): those pages' data is refused for it anyway. */
+function CustomerOnly({ children }: { children: JSX.Element }) {
+  const { user } = useAuth();
+  return user?.brokerId ? <Navigate to="/broker/dashboard" replace /> : children;
+}
+function BrokerOnly({ children }: { children: JSX.Element }) {
+  const { user } = useAuth();
+  return user?.brokerId ? children : <Navigate to="/profile" replace />;
+}
+
 function PortalHome() {
   const { user } = useAuth();
   return <Navigate to={user?.brokerId ? '/broker/dashboard' : '/profile'} replace />;
@@ -36,15 +47,15 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
           <Route element={<AppShell />}>
             <Route index element={<PortalHome />} />
-            <Route path="profile" element={<Profile />} />
-            <Route path="property" element={<Property />} />
-            <Route path="account" element={<Account />} />
+            <Route path="profile" element={<CustomerOnly><Profile /></CustomerOnly>} />
+            <Route path="property" element={<CustomerOnly><Property /></CustomerOnly>} />
+            <Route path="account" element={<CustomerOnly><Account /></CustomerOnly>} />
             <Route path="security" element={<Security />} />
             <Route path="tickets" element={<Tickets />} />
             <Route path="tickets/:id" element={<TicketDetail />} />
-            <Route path="broker/dashboard" element={<BrokerDashboard />} />
-            <Route path="broker/nocs" element={<BrokerNocs />} />
-            <Route path="broker/statement" element={<BrokerStatement />} />
+            <Route path="broker/dashboard" element={<BrokerOnly><BrokerDashboard /></BrokerOnly>} />
+            <Route path="broker/nocs" element={<BrokerOnly><BrokerNocs /></BrokerOnly>} />
+            <Route path="broker/statement" element={<BrokerOnly><BrokerStatement /></BrokerOnly>} />
           </Route>
         </Route>
       </Routes>

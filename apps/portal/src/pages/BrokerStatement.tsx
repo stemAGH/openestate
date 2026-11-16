@@ -1,3 +1,4 @@
+import { formatDate } from '@openestate/shared';
 import { useQuery } from '@tanstack/react-query';
 import { api, downloadFile } from '../lib/api';
 
@@ -18,9 +19,9 @@ export default function BrokerStatement() {
     <div className="space-y-4">
       <h1 className="text-lg font-semibold text-slate-900">Commission Statements</h1>
 
-      {isLoading && <div className="text-slate-500 text-sm">Loading…</div>}
+      {isLoading && <div className="text-slate-600 text-sm">Loading…</div>}
       {data && data.length === 0 && (
-        <div className="text-slate-500 text-sm">No statements have been generated yet.</div>
+        <div className="text-slate-600 text-sm">No statements have been generated yet.</div>
       )}
 
       {data && data.length > 0 && (
@@ -29,7 +30,7 @@ export default function BrokerStatement() {
             {data.map((d) => (
               <li key={d.id} className="flex items-center justify-between py-2 text-sm">
                 <span className="text-slate-700">
-                  {new Date(d.createdAt).toLocaleDateString('en-IN')}
+                  {formatDate(d.createdAt)}
                 </span>
                 <button
                   onClick={() => void downloadFile(`/portal/broker/documents/${d.id}/download`, d.originalName)}

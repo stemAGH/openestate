@@ -64,8 +64,10 @@ function ChangePasswordCard() {
 
       <form onSubmit={onSubmit} className="mt-3 space-y-3">
         <div>
-          <label className="block text-sm font-medium text-slate-700">Current password</label>
+          <label htmlFor="current-password" className="block text-sm font-medium text-slate-700">Current password</label>
           <input
+            id="current-password"
+            autoComplete="current-password"
             type="password"
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
@@ -73,8 +75,10 @@ function ChangePasswordCard() {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700">New password</label>
+          <label htmlFor="new-password" className="block text-sm font-medium text-slate-700">New password</label>
           <input
+            id="new-password"
+            autoComplete="new-password"
             type="password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
@@ -215,8 +219,9 @@ function TwoFactorCard() {
             {setup.secret}
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700">6-digit code</label>
+            <label htmlFor="totp-code" className="block text-sm font-medium text-slate-700">6-digit code</label>
             <input
+              id="totp-code"
               type="text"
               inputMode="numeric"
               value={code}

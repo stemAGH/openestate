@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { formatArea, toAreaScaled, convertFromSqftScaled, type AreaUnit } from '@openestate/shared';
+import { formatDate, formatArea, toAreaScaled, convertFromSqftScaled, type AreaUnit } from '@openestate/shared';
 import { api, downloadFile, fetchAsObjectUrl } from '../lib/api';
 
 interface ConstructionMedia {
@@ -140,7 +140,7 @@ export default function Property() {
             {p.project.address && <p className="text-xs text-slate-500 mt-0.5">{p.project.address}</p>}
             {p.project.expectedEndDate && (
               <p className="text-xs text-slate-500 mt-0.5">
-                Tentative possession: {new Date(p.project.expectedEndDate).toLocaleDateString('en-IN')}
+                Tentative possession: {formatDate(p.project.expectedEndDate)}
               </p>
             )}
 
@@ -188,7 +188,7 @@ export default function Property() {
                       <div className="flex items-baseline justify-between">
                         <span className="text-sm text-slate-800">{u.title}</span>
                         <span className="text-xs text-slate-400">
-                          {new Date(u.publishedAt).toLocaleDateString('en-IN')}
+                          {formatDate(u.publishedAt)}
                         </span>
                       </div>
                       {u.description && <p className="text-xs text-slate-500">{u.description}</p>}
