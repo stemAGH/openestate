@@ -27,6 +27,14 @@ also need `presales.report.export`. Release notes:
 - **Two bookings of one unit at the same moment could both succeed**, as could
   a booking racing a manual block, or a transfer into a unit racing a booking
   of it. Unit status changes now lock the unit row first.
+- **Writes that name another record now check it belongs to the caller's
+  company** (projects, users, master values, banks, applicants and so on), and
+  answer 404 otherwise. Earlier releases could store such a reference.
+- **Malformed input answers 400, not 500:** an id that isn't a valid id (path or
+  `...Id` query parameter), an unknown sort column, a search containing a NUL
+  character.
+- **Applicant search matches a phone however it's typed** (spaces, `+91`, a
+  leading 0), as the inquiry search does.
 
 ### Added
 
@@ -35,8 +43,9 @@ also need `presales.report.export`. Release notes:
   in one transaction; same permissions as the separate calls).
 - A "Create payment plan" panel on the installment schedule of an active
   booking that has none.
-- Upgrade output: read-only counts of active bookings with no payment plan and
-  of units with more than one active booking.
+- Upgrade output: read-only counts of active bookings with no payment plan, of
+  units with more than one active booking, and of stored references from one
+  company's records to another company's records.
 - `GET /api/v1/inquiries`: `search`, `status`, `temperatureId`, `projectId`,
   `assignedToId` and `followUp=today|overdue` (same permission; filters never
   widen the caller's team scope).
@@ -54,6 +63,9 @@ also need `presales.report.export`. Release notes:
   server, not the server's own time zone (no change on a server set to IST).
 - `GET /api/v1/inquiries` refuses unknown query parameters (400), and `sortBy`
   accepts only `createdAt` and `nextFollowupAt` (an unknown column was a 500).
+- The same for the users, applicants, brokers, projects, towers, inventory
+  groups, units and master lists: unknown parameters are refused, and `sortBy`
+  accepts only the columns each list shows. An API change for integrations.
 - **Phone numbers are masked in list responses** (last 4 digits): inquiries,
   My Day, applicants, duplicates, brokers, users, the audit log,
   communications and dispatch history (SMS), change requests, and the JSON
@@ -80,6 +92,22 @@ also need `presales.report.export`. Release notes:
   definitions and the user list were requested without the permission).
 - On the inquiry page, the "Log follow-up" card no longer slides over the
   Reassign card when the page scrolls on a wide screen.
+- Pages no longer request data the role can't read (project, broker, user,
+  Applicant 360, installment schedule, Reports, Dues); the section is left out
+  instead. Reports shows an error when a report fails to load.
+- An inquiry the user can't open says so instead of loading for ever.
+- "Cancel Booking" asks for confirmation and says what will be posted; it is
+  offered only with the cancel permission and not on a registered booking.
+- Applicant 360 links each booking to its installment schedule.
+- DD-MM-YYYY dates on the Dues Dashboard, Applicant 360 and the Audit Log.
+- Bulk unit generation labels its price field "Base price per unit".
+
+### Fixed (customer portal)
+
+- A broker opening a customer page, or a customer a broker page, goes to their
+  own home page instead of a page that never loads.
+- DD-MM-YYYY dates; labelled password and code fields on Security; darker text
+  where the contrast was too low.
 
 ### Deprecated
 

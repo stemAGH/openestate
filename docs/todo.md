@@ -14,6 +14,33 @@ name the exception. Needs: per-caller masking in each list service, seed-baselin
 (granted to none), supertest per list endpoint with and without the permission, Playwright
 for both, and mutation checks. Starts with a Phase 0 plan after v0.10.0 is tagged.
 
+## v0.10.1: found in the v0.10.0 functional sweep (2026-11-12), owner's ruling pending or planned
+
+Each has a written plan (root cause, options, tests, frozen code touched); none is built yet.
+
+- **The accounts role can't look up a customer on Receipt Entry** (`GET /applicants` needs
+  `presales.applicant.read`). Planned: a receipt-scoped payer lookup under
+  `postsales.receipt.create`, not a wider role.
+- **Post-sales reports are empty for accounts** (scoped to bookings the caller created unless
+  `admin.team-scope.all`). Planned: a narrow `reports.postsales.company-wide` permission.
+- **Accounts can't open Brokers** to pay commission (needs `admin.broker.read`).
+- **Interest waivers and refunds:** tighten their validation against the booking's ledger,
+  under a booking-level lock, with concurrency tests.
+- **Transfers:** give the new booking a payment plan (the unpaid installments plus the fee),
+  and decide how the transfer approval permission is used.
+- **GST rates outside their effective dates** are offered and accepted; check against the
+  booking date.
+- **Reassign offers users the server refuses** (and admins can assign to a role that can't
+  read leads); an "assignable users" endpoint.
+- **No screens yet** for allot, register, transfer, refunds, interest waivers, or a bookings
+  list.
+- **UTC "today"** in four more places: the cheque queue's event date, Receipt Entry's date,
+  the commission pay date and a stage's completion date (with the wizard and interest-rule
+  items below).
+- Smaller: `seed:demo` is a stub; the wizard adds a second applicant with an existing phone
+  without warning; the project-rollup CSV uses raw field names as headers; list endpoints
+  other than those made strict in v0.10.0 still ignore unknown query parameters.
+
 ## v0.10.1: found in the v0.10.0 upgrade rehearsal (2026-11-09)
 
 - **nginx logs full request lines: apply a path-only log format automatically.** The API's
