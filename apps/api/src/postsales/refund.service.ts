@@ -28,6 +28,9 @@ import { LedgerService } from './ledger.service';
  *  - A refund cheque that bounces re-opens the obligation with a
  *    REFUND_BOUNCE_REVERSAL credit + a BOUNCE_CHARGE debit — exactly like a
  *    receipt cheque bounce.
+ *  - The refundable cap (QA-015) holds at request, approval and payment, under a
+ *    per-booking advisory lock taken before the check, so two refunds for the
+ *    same money can't both pass.
  */
 @Injectable()
 export class RefundService {
@@ -43,12 +46,20 @@ export class RefundService {
       withTenantTx(this.tenantPrisma, companyId, async (tx) => {
         const booking = await tx.booking.findFirst({ where: { id: bookingId, companyId } });
         if (!booking) throw new NotFoundException('Booking not found');
+        await lockBookingRefunds(tx, bookingId);
 
         const balance = await this.ledger.balanceInTx(tx, companyId, bookingId);
         const owedToCustomer = balance < 0n ? -balance : 0n;
-        if (dto.amountPaise > owedToCustomer) {
+        // Approved refunds are already in the ledger; requested ones are not.
+        const open = await tx.refund.aggregate({
+          where: { companyId, bookingId, status: REFUND_STATUS.REQUESTED },
+          _sum: { amountPaise: true },
+        });
+        const requested: bigint = open._sum.amountPaise ?? 0n;
+        const available = owedToCustomer > requested ? owedToCustomer - requested : 0n;
+        if (dto.amountPaise > available) {
           throw new BadRequestException(
-            `Refund (${dto.amountPaise}) exceeds the amount owed to the customer (${owedToCustomer})`,
+            `Refund (${dto.amountPaise}) exceeds the amount still refundable (${available}): owed to the customer ${owedToCustomer}, already requested ${requested}`,
           );
         }
 
@@ -69,10 +80,21 @@ export class RefundService {
   async approve(companyId: string, refundId: string, actorId: string | null) {
     return runWithTenant({ companyId }, () =>
       withTenantTx(this.tenantPrisma, companyId, async (tx) => {
+        const found = await tx.refund.findFirst({ where: { id: refundId, companyId } });
+        if (!found) throw new NotFoundException('Refund not found');
+        await lockBookingRefunds(tx, found.bookingId);
+        // Read again under the lock: a concurrent decision may have just committed.
         const refund = await tx.refund.findFirst({ where: { id: refundId, companyId } });
         if (!refund) throw new NotFoundException('Refund not found');
         if (refund.status !== REFUND_STATUS.REQUESTED) {
           throw new ConflictException(`Refund is ${refund.status}; only REQUESTED can be approved`);
+        }
+        const balance = await this.ledger.balanceInTx(tx, companyId, refund.bookingId);
+        const owedToCustomer = balance < 0n ? -balance : 0n;
+        if (refund.amountPaise > owedToCustomer) {
+          throw new BadRequestException(
+            `Refund (${refund.amountPaise}) exceeds the amount owed to the customer now (${owedToCustomer})`,
+          );
         }
 
         await this.ledger.post(tx, companyId, [
@@ -98,6 +120,9 @@ export class RefundService {
   async pay(companyId: string, refundId: string, dto: PayRefundDto, actorId: string | null) {
     return runWithTenant({ companyId }, () =>
       withTenantTx(this.tenantPrisma, companyId, async (tx) => {
+        const found = await tx.refund.findFirst({ where: { id: refundId, companyId } });
+        if (!found) throw new NotFoundException('Refund not found');
+        await lockBookingRefunds(tx, found.bookingId);
         const refund = await tx.refund.findFirst({ where: { id: refundId, companyId } });
         if (!refund) throw new NotFoundException('Refund not found');
         if (refund.status !== REFUND_STATUS.APPROVED) {
@@ -105,6 +130,14 @@ export class RefundService {
         }
 
         await assertOwnedByCompany(tx, companyId, [['bank', dto.bankId, 'Bank']]);
+        // Its approval already debited the ledger. A positive balance means the
+        // approved refunds now exceed the money held (e.g. a receipt reversed).
+        const balance = await this.ledger.balanceInTx(tx, companyId, refund.bookingId);
+        if (balance > 0n) {
+          throw new BadRequestException(
+            `Refund (${refund.amountPaise}) exceeds what the booking's ledger covers: approved refunds are ${balance} more than the money held`,
+          );
+        }
         const voucher = await tx.paymentVoucher.create({
           data: {
             companyId,
@@ -170,4 +203,11 @@ export class RefundService {
       }),
     );
   }
+}
+
+/** One refund decision at a time per booking (request, approve, pay). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function lockBookingRefunds(tx: any, bookingId: string): Promise<void> {
+  // Raw SQL: advisory locks have no Prisma API; the booking id is a bound parameter.
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended('refund:' || ${bookingId}::text, 0))`;
 }
