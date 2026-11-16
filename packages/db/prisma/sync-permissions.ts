@@ -472,6 +472,44 @@ export async function unitsWithMultipleActiveBookings(
 }
 
 /**
+ * Read-only upgrade report (v0.10.1, QA-015): bookings whose approved refunds
+ * exceed what the booking held, as releases before the refund cap allowed (two
+ * refunds approved for the same money). Per booking, from its ledger: the
+ * refunds (REFUND_APPROVED net of REFUND_BOUNCE_REVERSAL) against what was
+ * owed to the customer without them. Nothing is changed.
+ */
+export async function overRefundedBookings(
+  client: PrismaClient = prisma,
+  scope: { companyId?: string } = {},
+): Promise<Array<{ companyId: string; companyName: string; count: number; bookings: Array<{ bookingNumber: string; overPaise: string }> }>> {
+  const companyId = scope.companyId ?? null;
+  const rows = await client.$queryRaw<Array<{ company_id: string; name: string; booking_number: string; over: string }>>`
+    WITH per AS (
+      SELECT l.booking_id,
+             SUM(l.signed_amount_paise) AS balance,
+             SUM(CASE WHEN l.entry_type IN ('REFUND_APPROVED', 'REFUND_BOUNCE_REVERSAL') THEN l.signed_amount_paise ELSE 0 END) AS refunds
+        FROM ledger_entries l
+       WHERE (${companyId}::uuid IS NULL OR l.company_id = ${companyId}::uuid)
+       GROUP BY l.booking_id
+    )
+    SELECT c.id AS company_id, c.name, b.booking_number,
+           (per.refunds - GREATEST(0, per.refunds - per.balance))::text AS over
+      FROM per
+      JOIN bookings b ON b.id = per.booking_id
+      JOIN companies c ON c.id = b.company_id
+     WHERE per.refunds > GREATEST(0, per.refunds - per.balance)
+     ORDER BY c.name, b.booking_number`;
+  const byCompany = new Map<string, { companyId: string; companyName: string; count: number; bookings: Array<{ bookingNumber: string; overPaise: string }> }>();
+  for (const r of rows) {
+    const entry = byCompany.get(r.company_id) ?? { companyId: r.company_id, companyName: r.name, count: 0, bookings: [] };
+    entry.count += 1;
+    entry.bookings.push({ bookingNumber: r.booking_number, overPaise: r.over });
+    byCompany.set(r.company_id, entry);
+  }
+  return [...byCompany.values()];
+}
+
+/**
  * Read-only upgrade report: stored references from one company's rows to
  * another company's rows. Before v0.10.0 some writes accepted the id of a
  * row of another company (row-level security filters reads, not foreign
@@ -640,6 +678,21 @@ if (require.main === module) {
         for (const r of crossRefs) {
           console.log(`  ${r.companyName} (company ${r.companyId}): ${r.count}`);
           for (const c of r.columns) console.log(`    ${c.column}: ${c.count}`);
+        }
+      }
+
+      const overRefunded = await overRefundedBookings();
+      const overTotal = overRefunded.reduce((sum, r) => sum + r.count, 0);
+      if (overTotal === 0) {
+        console.log('Refunds: no booking has approved refunds above what it held.');
+      } else {
+        console.log(
+          `Refunds: ${overTotal} booking(s) have approved refunds above what they held. Nothing was changed; ` +
+            'check each booking\'s ledger and refunds with your accountant (see the release notes).',
+        );
+        for (const r of overRefunded) {
+          console.log(`  ${r.companyName} (company ${r.companyId}): ${r.count}`);
+          for (const b of r.bookings) console.log(`    ${b.bookingNumber}: ₹${(Number(BigInt(b.overPaise)) / 100).toFixed(2)} over`);
         }
       }
 

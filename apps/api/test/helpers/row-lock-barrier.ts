@@ -67,3 +67,42 @@ export async function waitBlockedBehind(systemPrisma: Client, pid: number, count
     await new Promise((r) => setTimeout(r, 50));
   }
 }
+
+/**
+ * Hold a transaction-scoped advisory lock (the `hashtextextended(key, 0)` form
+ * the services use) on its own connection until released.
+ */
+export async function holdAdvisoryLock(systemPrisma: Client, key: string): Promise<Barrier> {
+  let release!: () => void;
+  const gate = new Promise<void>((r) => (release = r));
+  let pidReady!: (pid: number) => void;
+  const pid = new Promise<number>((r) => (pidReady = r));
+  const done = systemPrisma.$transaction(
+    async (tx: Client) => {
+      const [row] = await tx.$queryRaw`SELECT pg_backend_pid() AS pid`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))`;
+      pidReady(Number(row.pid));
+      await gate;
+    },
+    { timeout: 120_000, maxWait: 10_000 },
+  );
+  return {
+    pid: await pid,
+    release: async () => {
+      release();
+      await done;
+    },
+  };
+}
+
+/** How many sessions are blocked, directly or transitively, behind `pid` after waiting up to `timeoutMs` for `count`. */
+export async function countBlockedBehind(systemPrisma: Client, pid: number, count: number, timeoutMs = 5_000): Promise<number> {
+  try {
+    await waitBlockedBehind(systemPrisma, pid, count, timeoutMs);
+    return count;
+  } catch (e) {
+    const m = /only (\d+) of/.exec(String((e as Error).message));
+    if (!m) throw e;
+    return Number(m[1]);
+  }
+}
