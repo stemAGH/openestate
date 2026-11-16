@@ -355,8 +355,11 @@ export class ApplicantService {
         // Reassign Inquiry.applicantId (and therefore, transitively, all
         // FollowUp rows keyed by inquiryId) to the survivor. FollowUp rows
         // are never touched directly — nothing can be lost or duplicated.
+        // Deleted leads move too (`deletedAt: undefined` names the field, which
+        // turns off the soft-delete filter, and matches every row): a deleted
+        // lead restored later must point at the survivor, not the merged record.
         await tx.inquiry.updateMany({
-          where: { applicantId: mergedId, companyId },
+          where: { applicantId: mergedId, companyId, deletedAt: undefined },
           data: { applicantId: survivorId },
         });
 
