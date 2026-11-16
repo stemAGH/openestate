@@ -42,13 +42,15 @@ class CreateUnitPlcDto extends createZodDto(createUnitPlcSchema) {}
 class CreateUnitChargeDto extends createZodDto(createUnitChargeSchema) {}
 class CreateLandBasedUnitDto extends createZodDto(createLandBasedUnitSchema) {}
 class PaginationQueryDto extends createZodDto(paginationQuerySchema) {}
+const emptyAsAbsent = <T extends z.ZodTypeAny>(schema: T) => z.preprocess((v) => (v === '' ? undefined : v), schema.optional());
 // The unit list: sortable by unit number only; its filters are declared so the schema can be strict.
 class UnitListQueryDto extends createZodDto(
   sortableListQuerySchema(['number'] as const, {
-    towerId: z.string().uuid().optional(),
-    floorId: z.string().uuid().optional(),
-    inventoryGroupId: z.string().uuid().optional(),
-    status: z.string().max(40).optional(),
+    // An empty value ("?towerId=") means no filter, as before.
+    towerId: emptyAsAbsent(z.string().uuid()),
+    floorId: emptyAsAbsent(z.string().uuid()),
+    inventoryGroupId: emptyAsAbsent(z.string().uuid()),
+    status: emptyAsAbsent(z.string().max(40)),
   }),
 ) {}
 
