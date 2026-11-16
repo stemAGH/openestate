@@ -129,3 +129,12 @@ test('accounts: records a receipt from Receipt Entry, finding the payer without 
   await settle(page);
   expect(bad).toEqual([]);
 });
+
+// QA-009: post-sales reports were limited to bookings the caller's team
+// created, so accounts (which creates none) saw "No outstanding dues".
+test('accounts: the Dues Dashboard lists a booking another user created', async ({ page }) => {
+  await signInAs(page, 'accounts');
+  await page.goto('/postsales/dues');
+  await expect(page.getByRole('row', { name: /Role Buyer/ }).first()).toBeVisible();
+  await expect(page.getByText('No outstanding dues.')).toHaveCount(0);
+});

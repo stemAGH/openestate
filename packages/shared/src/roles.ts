@@ -140,6 +140,7 @@ export const ROLE_PERMISSIONS: Record<SystemRoleSlug, readonly string[]> = {
     P.REPORTS_OUTSTANDING_VIEW,
     P.REPORTS_GST_VIEW,
     P.REPORTS_APPLICANT_LEDGER_VIEW,
+    P.REPORTS_POSTSALES_COMPANY_WIDE,
   ],
 
   customer: [

@@ -31,6 +31,8 @@ export class PostsalesReportsController {
   ) {}
 
   private async scopeFor(user: JwtPayload): Promise<ReportScope> {
+    // Finance roles report on the whole company; sales roles keep their team view.
+    if (user.permissions.includes(PERMISSIONS.REPORTS_POSTSALES_COMPANY_WIDE)) return { visibleUserIds: null };
     const visibleUserIds = await this.teamScope.getVisibleUserIds(
       user.companyId,
       user.sub,

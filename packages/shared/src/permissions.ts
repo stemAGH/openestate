@@ -188,6 +188,10 @@ export const PERMISSIONS = {
   REPORTS_CUSTOM_CREATE: 'reports.custom.create',
   REPORTS_APPLICANT_LEDGER_VIEW: 'reports.applicant-ledger.view',
   REPORTS_BIRTHDAY_VIEW: 'reports.birthday.view',
+  // Post-sales reports (dues, ageing, collections, applicant ledger) cover
+  // the whole company instead of the bookings the caller's team created.
+  // For finance roles, which create no bookings.
+  REPORTS_POSTSALES_COMPANY_WIDE: 'reports.postsales.company-wide',
 
   // ── Portal ─────────────────────────────────────────
   PORTAL_BOOKING_READ: 'portal.booking.read',
