@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { AGEING_BUCKETS } from '@openestate/shared';
+import { AGEING_BUCKETS, formatDate, PERMISSIONS } from '@openestate/shared';
 import { api, downloadFile } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
 
 interface AgeingRow {
   bucket: string;
@@ -29,9 +30,13 @@ export default function DuesDashboard() {
   const [projectId, setProjectId] = useState('');
   const [withInterest, setWithInterest] = useState(false);
 
+  // The project filter needs the project list, which not every role may read (accounts can't).
+  const { hasPermission } = useAuth();
+  const canFilterByProject = hasPermission(PERMISSIONS.INVENTORY_PROJECT_READ);
   const { data: projects } = useQuery<{ data: ProjectRow[] }>({
     queryKey: ['projects-all'],
     queryFn: () => api('/projects?limit=100'),
+    enabled: canFilterByProject,
   });
 
   const { data: ageing } = useQuery<AgeingRow[]>({
@@ -65,7 +70,9 @@ export default function DuesDashboard() {
       </div>
 
       <div className="mt-4 flex items-center gap-4">
+        {canFilterByProject && (
         <select
+          aria-label="Project"
           value={projectId}
           onChange={(e) => setProjectId(e.target.value)}
           className="rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -75,6 +82,7 @@ export default function DuesDashboard() {
             <option key={p.id} value={p.id}>{p.name}</option>
           ))}
         </select>
+        )}
         <label className="flex items-center gap-1.5 text-sm text-slate-700">
           <input type="checkbox" checked={withInterest} onChange={(e) => setWithInterest(e.target.checked)} />
           Show accrued interest
@@ -113,7 +121,7 @@ export default function DuesDashboard() {
                   <td className="px-4 py-3 text-sm text-slate-700">{d[0]}</td>
                   <td className="px-4 py-3 text-sm text-slate-700">{d[1]}</td>
                   <td className="px-4 py-3 text-sm text-slate-700">{d[2]}</td>
-                  <td className="px-4 py-3 text-sm text-slate-700">{d[3]}</td>
+                  <td className="px-4 py-3 text-sm text-slate-700">{d[3] ? formatDate(d[3]) : '—'}</td>
                   <td className="px-4 py-3 text-sm text-slate-700 text-right">{d[4]}</td>
                   <td className="px-4 py-3 text-sm text-slate-700 text-right">{d[5]}</td>
                   {withInterest && <td className="px-4 py-3 text-sm text-slate-700 text-right">{d[6]}</td>}

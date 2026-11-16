@@ -22,15 +22,17 @@ import { z } from 'zod';
 import {
   createMasterSchema,
   updateMasterSchema,
-  paginationQuerySchema,
+  sortableListQuerySchema,
   PERMISSIONS,
 } from '@openestate/shared';
 import type { JwtPayload, PaginationQuery } from '@openestate/shared';
 import { PrismaClient, withTenantTx, runWithTenant } from '@openestate/db';
 import { TENANT_PRISMA, SYSTEM_PRISMA } from '../database/database.module';
+import { assertOwnedByCompany } from '../common/tenant-ownership';
 import { RequirePermissions } from '../auth/guards/permissions.guard';
 
-class PaginationQueryDto extends createZodDto(paginationQuerySchema) {}
+// Sortable only by the columns the list shows.
+class PaginationQueryDto extends createZodDto(sortableListQuerySchema(['sortOrder', 'name'] as const)) {}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function stripDescription(data: any) {
@@ -85,6 +87,8 @@ export interface MasterModuleConfig {
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   beforeUpdate?: (tx: any, companyId: string, id: string, data: Record<string, unknown>) => Promise<void>;
+  /** Fields that name another row: [field, Prisma model, label]. The row must be the caller's company's own. */
+  refs?: ReadonlyArray<readonly [field: string, model: string, label: string]>;
 }
 
 export function createMasterService(config: MasterModuleConfig) {
@@ -154,12 +158,13 @@ export function createMasterService(config: MasterModuleConfig) {
       const payload = config.supportsDescription ? data : stripDescription(data);
       try {
         return await runWithTenant({ companyId }, () =>
-          withTenantTx(this.tenantPrisma, companyId, (tx) =>
+          withTenantTx(this.tenantPrisma, companyId, async (tx) => {
+            await assertOwnedByCompany(tx, companyId, (config.refs ?? []).map(([f, m, l]) => [m, payload[f], l]));
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (tx as any)[key].create({
+            return (tx as any)[key].create({
               data: { ...payload, companyId },
-            }),
-          ),
+            });
+          }),
         );
       } catch (err) {
         throw mapDuplicateNameError(err, config.apiTag);
@@ -174,6 +179,7 @@ export function createMasterService(config: MasterModuleConfig) {
       try {
         return await runWithTenant({ companyId }, () =>
           withTenantTx(this.tenantPrisma, companyId, async (tx) => {
+            await assertOwnedByCompany(tx, companyId, (config.refs ?? []).map(([f, m, l]) => [m, payload[f], l]));
             await config.beforeUpdate?.(tx, companyId, id, payload);
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             return (tx as any)[key].update({ where: { id }, data: payload });

@@ -31,6 +31,7 @@ interface PlanVersion {
 }
 
 interface BookingRow {
+  bookingNumber: string;
   brokerId: string | null;
   agreedPricePaise: string;
   bookingDate: string;
@@ -41,7 +42,10 @@ interface BookingRow {
 }
 
 // Mirrors CANCELLABLE_FROM in apps/api/src/postsales/cancellation.service.ts.
-const CANCELABLE_STATUSES = new Set(['BOOKED', 'ALLOTTED', 'REGISTERED']);
+const ACTIVE_STATUSES = new Set(['BOOKED', 'ALLOTTED', 'REGISTERED']);
+// Only the states the server can cancel from: a REGISTERED unit has no way
+// back (UNIT_TRANSITIONS.REGISTERED is empty), so the server refuses it.
+const CANCELABLE_STATUSES = new Set(['BOOKED', 'ALLOTTED']);
 
 const STATUS_STYLE: Record<string, string> = {
   PAID: 'bg-emerald-50 text-emerald-700',
@@ -57,10 +61,11 @@ export default function InstallmentSchedule() {
   const qc = useQueryClient();
   const { user, hasPermission } = useAuth();
 
+  const canReadPlan = hasPermission(PERMISSIONS.POSTSALES_PLAN_READ);
   const { data: versions, isLoading } = useQuery<PlanVersion[]>({
     queryKey: ['plan-history', bookingId],
     queryFn: () => api(`/bookings/${bookingId}/plan-history`),
-    enabled: !!bookingId,
+    enabled: !!bookingId && canReadPlan,
   });
 
   const { data: booking } = useQuery<BookingRow>({
@@ -86,10 +91,12 @@ export default function InstallmentSchedule() {
   }
 
   const [cancelReason, setCancelReason] = useState('');
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelMessage, setCancelMessage] = useState('');
 
   async function cancelBooking() {
+    setConfirmingCancel(false);
     setCancelling(true);
     setCancelMessage('');
     try {
@@ -112,6 +119,7 @@ export default function InstallmentSchedule() {
     (sum, i) => sum + (BigInt(i.amountPaise) - BigInt(i.allocatedPaise)),
     0n,
   );
+  const received = (active?.installments ?? []).reduce((sum, i) => sum + BigInt(i.allocatedPaise), 0n);
 
   const columns: Column<Installment>[] = [
     { key: 'seq', header: '#', render: (i) => i.seq },
@@ -190,7 +198,7 @@ export default function InstallmentSchedule() {
         bookingId &&
         versions &&
         !versions.some((v) => v.isActive) &&
-        CANCELABLE_STATUSES.has(booking.status) &&
+        ACTIVE_STATUSES.has(booking.status) &&
         hasPermission(PERMISSIONS.POSTSALES_PLAN_EDIT) && (
           <CreatePlanPanel bookingId={bookingId} agreedPricePaise={booking.agreedPricePaise} bookingDate={booking.bookingDate} />
         )}
@@ -208,8 +216,8 @@ export default function InstallmentSchedule() {
         </div>
       )}
 
-      {booking && CANCELABLE_STATUSES.has(booking.status) && (
-        <div className="mt-4 flex items-center gap-3">
+      {booking && CANCELABLE_STATUSES.has(booking.status) && hasPermission(PERMISSIONS.POSTSALES_BOOKING_CANCEL) && (
+        <div className="mt-4 flex flex-wrap items-center gap-3">
           <input
             type="text"
             value={cancelReason}
@@ -218,13 +226,40 @@ export default function InstallmentSchedule() {
             className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
           />
           <button
-            onClick={cancelBooking}
-            disabled={cancelling}
+            onClick={() => setConfirmingCancel(true)}
+            disabled={cancelling || confirmingCancel}
             className="rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
           >
             {cancelling ? 'Cancelling…' : 'Cancel Booking'}
           </button>
           {cancelMessage && <span className="text-sm text-slate-600">{cancelMessage}</span>}
+          {confirmingCancel && (
+            <div
+              role="alertdialog"
+              aria-labelledby="cancel-confirm-title"
+              className="w-full rounded-lg border border-red-200 bg-red-50 p-4"
+            >
+              <h2 id="cancel-confirm-title" className="text-sm font-semibold text-red-900">
+                Cancel booking {booking.bookingNumber}?
+              </h2>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-red-900">
+                <li>The booking is cancelled and the unit returns to available.</li>
+                <li>A cancellation settlement is posted to the booking&apos;s ledger; it can&apos;t be undone.</li>
+                <li>
+                  Received so far: {formatInr(received)}. No cancellation charge is deducted here, so{' '}
+                  {formatInr(received)} becomes refundable to the customer.
+                </li>
+              </ul>
+              <div className="mt-3 flex gap-3">
+                <button onClick={cancelBooking} className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700">
+                  Yes, cancel booking
+                </button>
+                <button onClick={() => setConfirmingCancel(false)} className="btn btn-secondary px-3 py-1.5 text-sm">
+                  Keep booking
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -238,8 +273,8 @@ export default function InstallmentSchedule() {
         <DataTable
           columns={columns}
           data={active?.installments ?? []}
-          isLoading={isLoading}
-          emptyText="No payment plan created yet for this booking."
+          isLoading={canReadPlan && isLoading}
+          emptyText={canReadPlan ? 'No payment plan created yet for this booking.' : "Your role can't see this booking's payment plan."}
         />
       </div>
 

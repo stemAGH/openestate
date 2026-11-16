@@ -1,3 +1,4 @@
+import { formatDate } from '@openestate/shared';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
@@ -35,13 +36,13 @@ export default function BrokerNocs() {
     },
   });
 
-  if (isLoading) return <div className="text-slate-500 text-sm">Loading…</div>;
+  if (isLoading) return <div className="text-slate-600 text-sm">Loading…</div>;
 
   return (
     <div className="space-y-4">
       <h1 className="text-lg font-semibold text-slate-900">NOCs</h1>
 
-      {data && data.length === 0 && <div className="text-slate-500 text-sm">No NOC requests yet.</div>}
+      {data && data.length === 0 && <div className="text-slate-600 text-sm">No NOC requests yet.</div>}
 
       <div className="space-y-2">
         {data?.map((n) => (
@@ -61,7 +62,7 @@ export default function BrokerNocs() {
               </span>
             </div>
             <span className="block text-xs text-slate-400">
-              {new Date(n.createdAt).toLocaleDateString('en-IN')}
+              {formatDate(n.createdAt)}
             </span>
             {n.reason && <p className="text-sm text-slate-600">{n.reason}</p>}
 

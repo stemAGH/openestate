@@ -97,6 +97,29 @@ describeIf('e2e request logs mask phone numbers in the URL and query', () => {
     }
   });
 
+  // The staff app keeps its search in its own address (?q=…), and a browser
+  // sends that address as the Referer of every API call it makes.
+  it.each([
+    `http://192.0.2.10/presales/inquiries?q=%2B91+98765+43210`,
+    `http://192.0.2.10/presales/inquiries?q=${PHONE}&status=OPEN`,
+  ])('a Referer of %s is logged with the number masked', async (referer) => {
+    const marker = `mk${Math.random().toString(36).slice(2, 8)}`;
+    await fetch(`${base}/inquiries?projectId=${marker}`, { headers: { Referer: referer } });
+    let lines: string[] = [];
+    for (let i = 0; i < 40 && lines.length === 0; i++) {
+      lines = out.split('\n').filter((l) => l.includes(marker));
+      if (lines.length === 0) await new Promise((r) => setTimeout(r, 100));
+    }
+    expect(lines.length, 'a log line for the request').toBeGreaterThan(0);
+    for (const line of lines) {
+      const parsed = JSON.parse(line) as { req?: { headers?: { referer?: string } } };
+      expect(parsed.req?.headers?.referer, 'the referer is still logged').toBeTruthy();
+      const squashed = line.replace(/%20|%2B|[\s+-]/gi, '');
+      expect(squashed, line).not.toContain('98765');
+      expect(parsed.req!.headers!.referer).toContain('••••••3210');
+    }
+  });
+
   it('leaves UUIDs in the path alone', async () => {
     const id = '550e8400-e29b-41d4-a716-446655440000';
     await fetch(`${base}/inquiries/${id}`);

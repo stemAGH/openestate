@@ -5,12 +5,21 @@ import {
 } from '@nestjs/common';
 import { PrismaClient, withTenantTx, runWithTenant } from '@openestate/db';
 import { TENANT_PRISMA, SYSTEM_PRISMA } from '../database/database.module';
+import { assertOwnedByCompany } from '../common/tenant-ownership';
 import { CustomFieldsService } from '../custom-fields/custom-fields.service';
 import type {
   CreateProjectDto,
   UpdateProjectDto,
   PaginationQuery,
 } from '@openestate/shared';
+
+/** The ids a project write may name; each must be the caller's company's own. */
+function projectRefs(dto: { projectTypeId?: string | null; areaLocationId?: string | null }) {
+  return [
+    ['projectType', dto.projectTypeId, 'Project type'],
+    ['areaLocation', dto.areaLocationId, 'Area/location'],
+  ] as Array<[string, string | null | undefined, string]>;
+}
 
 @Injectable()
 export class ProjectService {
@@ -74,12 +83,13 @@ export class ProjectService {
       incoming,
     );
     return runWithTenant({ companyId }, () =>
-      withTenantTx(this.tenantPrisma, companyId, (tx) =>
-        tx.project.create({
+      withTenantTx(this.tenantPrisma, companyId, async (tx) => {
+        await assertOwnedByCompany(tx, companyId, projectRefs(rest));
+        return tx.project.create({
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           data: { ...rest, companyId, customFields: customFields as any },
-        }),
-      ),
+        });
+      }),
     );
   }
 
@@ -97,9 +107,10 @@ export class ProjectService {
       );
     }
     return runWithTenant({ companyId }, () =>
-      withTenantTx(this.tenantPrisma, companyId, (tx) =>
-        tx.project.update({ where: { id }, data }),
-      ),
+      withTenantTx(this.tenantPrisma, companyId, async (tx) => {
+        await assertOwnedByCompany(tx, companyId, projectRefs(rest));
+        return tx.project.update({ where: { id }, data });
+      }),
     );
   }
 

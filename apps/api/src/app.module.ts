@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
 import { HealthModule } from './health/health.module';
 import { ForeignKeyRefusalFilter } from './common/filters/foreign-key-refusal.filter';
+import { UuidParamPipe } from './common/pipes/uuid-param.pipe';
 import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
@@ -210,6 +211,8 @@ import { LOG_REDACTION_PATHS, serializeRequestForLog } from './common/logger/red
     // (installment with interest charged, interest rule in use). Every
     // other error is passed to Nest's default handling unchanged.
     { provide: APP_FILTER, useClass: ForeignKeyRefusalFilter },
+    // Malformed ids are refused with 400 before they reach the database.
+    { provide: APP_PIPE, useClass: UuidParamPipe },
   ],
 })
 export class AppModule {}

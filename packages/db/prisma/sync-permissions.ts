@@ -471,6 +471,53 @@ export async function unitsWithMultipleActiveBookings(
   return [...byCompany.values()];
 }
 
+/**
+ * Read-only upgrade report: stored references from one company's rows to
+ * another company's rows. Before v0.10.0 some writes accepted the id of a
+ * row of another company (row-level security filters reads, not foreign
+ * keys); this counts what any such write left behind, per company and per
+ * column. Nothing is changed.
+ */
+export async function crossCompanyReferences(
+  client: PrismaClient = prisma,
+  scope: { companyId?: string } = {},
+): Promise<Array<{ companyId: string; companyName: string; count: number; columns: Array<{ column: string; count: number }> }>> {
+  // Every single-column foreign key between two tables that both carry company_id.
+  const fks = await client.$queryRaw<Array<{ child: string; col: string; parent: string }>>`
+    SELECT cl.relname AS child, a.attname AS col, pcl.relname AS parent
+      FROM pg_constraint c
+      JOIN pg_class cl ON cl.oid = c.conrelid
+      JOIN pg_class pcl ON pcl.oid = c.confrelid
+      JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = c.conkey[1]
+     WHERE c.contype = 'f' AND array_length(c.conkey, 1) = 1 AND a.attname <> 'company_id'
+       AND EXISTS (SELECT 1 FROM information_schema.columns k WHERE k.table_schema = current_schema() AND k.table_name = cl.relname AND k.column_name = 'company_id')
+       AND EXISTS (SELECT 1 FROM information_schema.columns k WHERE k.table_schema = current_schema() AND k.table_name = pcl.relname AND k.column_name = 'company_id')
+     ORDER BY 1, 2`;
+  const companyId = scope.companyId ?? null;
+  const byCompany = new Map<string, { companyId: string; companyName: string; count: number; columns: Array<{ column: string; count: number }> }>();
+  for (const fk of fks) {
+    // Raw SQL: table and column names come from the catalogue query above (quoted as identifiers), never from input;
+    // the only value, the optional company id, is a bound parameter.
+    const q = (s: string) => `"${s.replace(/"/g, '""')}"`;
+    const rows = await client.$queryRawUnsafe<Array<{ company_id: string; name: string; n: number }>>(
+      `SELECT ch.company_id, co.name, count(*)::int AS n
+         FROM ${q(fk.child)} ch
+         JOIN ${q(fk.parent)} p ON p.id = ch.${q(fk.col)}
+         JOIN companies co ON co.id = ch.company_id
+        WHERE ch.company_id <> p.company_id AND ($1::uuid IS NULL OR ch.company_id = $1::uuid)
+        GROUP BY ch.company_id, co.name`,
+      companyId,
+    );
+    for (const r of rows) {
+      const entry = byCompany.get(r.company_id) ?? { companyId: r.company_id, companyName: r.name, count: 0, columns: [] };
+      entry.count += r.n;
+      entry.columns.push({ column: `${fk.child}.${fk.col}`, count: r.n });
+      byCompany.set(r.company_id, entry);
+    }
+  }
+  return [...byCompany.values()].sort((a, b) => a.companyName.localeCompare(b.companyName));
+}
+
 // Exit codes this CLI entrypoint uses, inspected by
 // deploy/native/upgrade-native.sh (see its own comment at the call site):
 //   0 — clean, nothing skipped.
@@ -578,6 +625,21 @@ if (require.main === module) {
         for (const r of doubled) {
           console.log(`  ${r.companyName} (company ${r.companyId}): ${r.count}`);
           for (const u of r.units) console.log(`    unit ${u.unitNumber}: ${u.bookingNumbers.join(', ')}`);
+        }
+      }
+
+      const crossRefs = await crossCompanyReferences();
+      const crossTotal = crossRefs.reduce((sum, r) => sum + r.count, 0);
+      if (crossTotal === 0) {
+        console.log("Company references: no stored record points at another company's records.");
+      } else {
+        console.log(
+          `Company references: ${crossTotal} stored reference(s) point at another company's records. Nothing was changed; ` +
+            'review each with the company concerned (see the release notes).',
+        );
+        for (const r of crossRefs) {
+          console.log(`  ${r.companyName} (company ${r.companyId}): ${r.count}`);
+          for (const c of r.columns) console.log(`    ${c.column}: ${c.count}`);
         }
       }
 

@@ -15,7 +15,7 @@ import { createZodDto } from 'nestjs-zod';
 import {
   createGstRateSchema,
   updateGstRateSchema,
-  paginationQuerySchema,
+  sortableListQuerySchema,
   PERMISSIONS,
 } from '@openestate/shared';
 import type { JwtPayload } from '@openestate/shared';
@@ -24,7 +24,8 @@ import { GstRateService } from './gst-rate.service';
 
 class CreateGstRateDto extends createZodDto(createGstRateSchema) {}
 class UpdateGstRateDto extends createZodDto(updateGstRateSchema) {}
-class PaginationQueryDto extends createZodDto(paginationQuerySchema) {}
+// Sortable only by the columns the list shows.
+class PaginationQueryDto extends createZodDto(sortableListQuerySchema(['sortOrder', 'rate', 'effectiveFrom'] as const)) {}
 
 @ApiTags('GST Rates')
 @Controller('masters/gst-rates')

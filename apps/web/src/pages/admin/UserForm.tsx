@@ -40,9 +40,12 @@ export default function UserForm() {
 
   // GET /roles returns a plain array, not {data, meta} — see Roles.tsx's
   // own fix for this same shape mismatch.
-  const { data: roles } = useQuery<Role[]>({
+  // A role that can open users but not roles (sales_manager) sees the user's current role only.
+  const canReadRoles = hasPermission(PERMISSIONS.ADMIN_ROLE_READ);
+  const { data: fetchedRoles } = useQuery<Role[]>({
     queryKey: ['roles-all'],
     queryFn: () => api('/roles'),
+    enabled: canReadRoles,
   });
 
   // GET /users IS paginated ({data, meta}) — 100 is paginationQuerySchema's
@@ -59,6 +62,11 @@ export default function UserForm() {
     queryFn: () => api<Record<string, unknown>>(`/users/${id}`),
     enabled: !!isEdit,
   });
+  const roles: Role[] | undefined = canReadRoles
+    ? fetchedRoles
+    : existingUser?.role
+      ? [existingUser.role as Role]
+      : isEdit ? undefined : [];
   const applicantId = existingUser?.applicantId as string | null | undefined;
   const brokerId = existingUser?.brokerId as string | null | undefined;
   const isPortalUser = !!applicantId || !!brokerId;

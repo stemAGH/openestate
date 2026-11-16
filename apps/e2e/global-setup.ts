@@ -71,6 +71,13 @@ export default async function globalSetup() {
     atomicBooking: await seedE2eFixture(DATABASE_URL_SYSTEM),
     // Its own company with one user per staff role: visual-baseline.spec.ts.
     visual: await seedVisualFixture(DATABASE_URL_SYSTEM),
+    // Its own company with one user per staff role: postsales-screens.spec.ts
+    // books a unit and generates a statement.
+    postsalesScreens: await seedVisualFixture(DATABASE_URL_SYSTEM),
+    // Its own company with one user per staff role: role-screens.spec.ts.
+    roleScreens: await seedVisualFixture(DATABASE_URL_SYSTEM),
+    // Its own company and portal customer: portal-screens.spec.ts also adds a broker.
+    portalScreens: await seedE2eFixture(DATABASE_URL_SYSTEM, { withPortalTicketSetup: true }),
   };
   writeFileSync(path.join(__dirname, '.fixture-state.json'), JSON.stringify(fixtures, null, 2));
 }

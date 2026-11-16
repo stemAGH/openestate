@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import {
   Body,
   Controller,
@@ -22,6 +23,7 @@ import {
   createUnitChargeSchema,
   createLandBasedUnitSchema,
   paginationQuerySchema,
+  sortableListQuerySchema,
   PERMISSIONS,
 } from '@openestate/shared';
 import type { JwtPayload } from '@openestate/shared';
@@ -40,6 +42,17 @@ class CreateUnitPlcDto extends createZodDto(createUnitPlcSchema) {}
 class CreateUnitChargeDto extends createZodDto(createUnitChargeSchema) {}
 class CreateLandBasedUnitDto extends createZodDto(createLandBasedUnitSchema) {}
 class PaginationQueryDto extends createZodDto(paginationQuerySchema) {}
+const emptyAsAbsent = <T extends z.ZodTypeAny>(schema: T) => z.preprocess((v) => (v === '' ? undefined : v), schema.optional());
+// The unit list: sortable by unit number only; its filters are declared so the schema can be strict.
+class UnitListQueryDto extends createZodDto(
+  sortableListQuerySchema(['number'] as const, {
+    // An empty value ("?towerId=") means no filter, as before.
+    towerId: emptyAsAbsent(z.string().uuid()),
+    floorId: emptyAsAbsent(z.string().uuid()),
+    inventoryGroupId: emptyAsAbsent(z.string().uuid()),
+    status: emptyAsAbsent(z.string().max(40)),
+  }),
+) {}
 
 @ApiTags('Units')
 @Controller('projects/:projectId/units')
@@ -56,7 +69,7 @@ export class UnitController {
   @ApiOperation({ summary: 'List units in a project' })
   findAll(
     @Param('projectId') projectId: string,
-    @Query() query: PaginationQueryDto,
+    @Query() query: UnitListQueryDto,
     @Query('towerId') towerId: string | undefined,
     @Query('floorId') floorId: string | undefined,
     @Query('status') status: string | undefined,

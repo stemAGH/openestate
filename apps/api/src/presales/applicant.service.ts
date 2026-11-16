@@ -35,10 +35,13 @@ export class ApplicantService {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = { companyId, mergedIntoId: null };
     if (search) {
+      // Phone digits, as in the inquiry search: "+91 98765 43210" finds the stored 9876543210.
+      const digits = normalizePhone(search).replace(/\D/g, '');
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
         { primaryPhone: { contains: search } },
         { email: { contains: search, mode: 'insensitive' } },
+        ...(digits.length >= 4 ? [{ primaryPhoneNormalized: { contains: digits } }] : []),
       ];
     }
 

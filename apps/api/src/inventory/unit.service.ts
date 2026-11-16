@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaClient, withTenantTx, runWithTenant } from '@openestate/db';
 import { TENANT_PRISMA, SYSTEM_PRISMA } from '../database/database.module';
+import { assertOwnedByCompany } from '../common/tenant-ownership';
 import { CustomFieldsService } from '../custom-fields/custom-fields.service';
 import { toAreaScaled, convertToSqftScaled, fromAreaScaled } from '@openestate/shared';
 import type {
@@ -104,6 +105,7 @@ export class UnitService {
     );
     return runWithTenant({ companyId }, () =>
       withTenantTx(this.tenantPrisma, companyId, async (tx) => {
+        await assertOwnedByCompany(tx, companyId, [['unitType', rest.unitTypeId, 'Unit type']]);
         const floor = await tx.floor.findFirst({
           where: { id: floorId, companyId },
           include: { tower: { include: { project: { select: { shape: true } } } } },
@@ -151,6 +153,7 @@ export class UnitService {
       withTenantTx(this.tenantPrisma, companyId, async (tx) => {
         const project = await tx.project.findFirst({ where: { id: projectId, companyId } });
         if (!project) throw new NotFoundException('Project not found');
+        await assertOwnedByCompany(tx, companyId, [['unitType', rest.unitTypeId, 'Unit type']]);
         if (project.shape !== 'LAND_BASED') {
           throw new BadRequestException(
             'This project is HIGH_RISE. Use POST /projects/:id/units/floors/:floorId instead.',
@@ -207,9 +210,10 @@ export class UnitService {
       );
     }
     return runWithTenant({ companyId }, () =>
-      withTenantTx(this.tenantPrisma, companyId, (tx) =>
-        tx.unit.update({ where: { id }, data }),
-      ),
+      withTenantTx(this.tenantPrisma, companyId, async (tx) => {
+        await assertOwnedByCompany(tx, companyId, [['unitType', (rest as { unitTypeId?: string | null }).unitTypeId, 'Unit type']]);
+        return tx.unit.update({ where: { id }, data });
+      }),
     );
   }
 
@@ -220,6 +224,7 @@ export class UnitService {
           where: { id: dto.towerId, companyId, projectId },
         });
         if (!tower) throw new NotFoundException('Tower not found in project');
+        await assertOwnedByCompany(tx, companyId, [['unitType', dto.unitTypeId, 'Unit type']]);
 
         const unitNumbers: string[] = [];
         const floorData: Array<{ floorNumber: number; name: string }> = [];

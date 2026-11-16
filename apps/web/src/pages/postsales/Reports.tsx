@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { PERMISSIONS } from '@openestate/shared';
 import { api, downloadFile } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
 
 interface StatusCount {
   status: string;
@@ -29,17 +31,18 @@ interface CollectionSummary {
 
 type TupleRows = string[][];
 
+// perm: the permission the report's endpoint requires; a role is offered only the reports it may open.
 const REPORT_TYPES = [
-  { key: 'collection-summary', label: 'Collection summary', csv: false },
-  { key: 'collection-daily', label: 'Collection — daily', csv: true },
-  { key: 'collection-monthly', label: 'Collection — monthly', csv: true },
-  { key: 'collection-detail', label: 'Collection — detail (per receipt)', csv: true },
-  { key: 'unit-status', label: 'Units: sold vs available', csv: false },
-  { key: 'booking-status', label: 'Bookings: registered vs allotted', csv: false },
-  { key: 'project-rollup', label: 'Project-wise rollup', csv: true },
-  { key: 'company-rollup', label: 'Company-wide rollup', csv: false },
-  { key: 'birthday-list', label: 'Birthday list (next 30 days)', csv: true },
-  { key: 'zero-gst-bookings', label: 'Zero-GST bookings (no rate on base line)', csv: true },
+  { key: 'collection-summary', label: 'Collection summary', csv: false, perm: PERMISSIONS.REPORTS_COLLECTION_VIEW },
+  { key: 'collection-daily', label: 'Collection — daily', csv: true, perm: PERMISSIONS.REPORTS_COLLECTION_VIEW },
+  { key: 'collection-monthly', label: 'Collection — monthly', csv: true, perm: PERMISSIONS.REPORTS_COLLECTION_VIEW },
+  { key: 'collection-detail', label: 'Collection — detail (per receipt)', csv: true, perm: PERMISSIONS.REPORTS_COLLECTION_VIEW },
+  { key: 'unit-status', label: 'Units: sold vs available', csv: false, perm: PERMISSIONS.REPORTS_SALES_VIEW },
+  { key: 'booking-status', label: 'Bookings: registered vs allotted', csv: false, perm: PERMISSIONS.REPORTS_SALES_VIEW },
+  { key: 'project-rollup', label: 'Project-wise rollup', csv: true, perm: PERMISSIONS.REPORTS_SALES_VIEW },
+  { key: 'company-rollup', label: 'Company-wide rollup', csv: false, perm: PERMISSIONS.REPORTS_SALES_VIEW },
+  { key: 'birthday-list', label: 'Birthday list (next 30 days)', csv: true, perm: PERMISSIONS.REPORTS_BIRTHDAY_VIEW },
+  { key: 'zero-gst-bookings', label: 'Zero-GST bookings (no rate on base line)', csv: true, perm: PERMISSIONS.REPORTS_SALES_VIEW },
 ] as const;
 
 type ReportKey = (typeof REPORT_TYPES)[number]['key'];
@@ -71,16 +74,22 @@ const CSV_FILENAME: Record<ReportKey, string> = {
 };
 
 export default function ReportsPage() {
-  const [reportKey, setReportKey] = useState<ReportKey>('collection-summary');
-  const meta = REPORT_TYPES.find((r) => r.key === reportKey)!;
+  const { hasPermission } = useAuth();
+  const offered = REPORT_TYPES.filter((r) => hasPermission(r.perm));
+  const [chosen, setReportKey] = useState<ReportKey | null>(null);
+  const reportKey: ReportKey | undefined = chosen ?? offered[0]?.key;
+  const meta = REPORT_TYPES.find((r) => r.key === reportKey);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['report', reportKey],
-    queryFn: () => api(ENDPOINTS[reportKey]),
+    queryFn: () => api(ENDPOINTS[reportKey!]),
+    enabled: !!reportKey,
+    retry: false,
   });
 
   async function exportCsv() {
     const format = reportKey === 'project-rollup' ? 'csv' : 'csv';
+    if (!reportKey) return;
     await downloadFile(`${ENDPOINTS[reportKey]}?format=${format}`, CSV_FILENAME[reportKey]);
   }
 
@@ -88,7 +97,7 @@ export default function ReportsPage() {
     <div>
       <div className="flex items-center justify-between">
         <h1 className="page-title">Reports</h1>
-        {meta.csv && (
+        {meta?.csv && (
           <button onClick={exportCsv} className="btn btn-sm btn-secondary">
             Export CSV
           </button>
@@ -96,17 +105,22 @@ export default function ReportsPage() {
       </div>
 
       <select
-        value={reportKey}
+        aria-label="Report"
+        value={reportKey ?? ''}
         onChange={(e) => setReportKey(e.target.value as ReportKey)}
         className="mt-4 block w-full max-w-sm rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
       >
-        {REPORT_TYPES.map((r) => (
+        {offered.map((r) => (
           <option key={r.key} value={r.key}>{r.label}</option>
         ))}
       </select>
 
       <div className="mt-6">
-        {isLoading ? (
+        {!reportKey ? (
+          <p className="text-sm text-slate-500">Your role has no reports here.</p>
+        ) : isError ? (
+          <p role="alert" className="text-sm text-red-700">This report couldn&apos;t load. Try again, or ask an administrator.</p>
+        ) : isLoading ? (
           <p className="text-sm text-slate-500">Loading…</p>
         ) : (
           <ReportBody reportKey={reportKey} data={data} />

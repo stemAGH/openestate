@@ -7,6 +7,7 @@ import {
   type UpdateCommissionRuleDto,
 } from '@openestate/shared';
 import { TENANT_PRISMA, SYSTEM_PRISMA } from '../database/database.module';
+import { assertOwnedByCompany } from '../common/tenant-ownership';
 
 @Injectable()
 export class BrokerCommissionRuleService {
@@ -63,6 +64,10 @@ export class BrokerCommissionRuleService {
 
     return runWithTenant({ companyId }, () =>
       withTenantTx(this.tenantPrisma, companyId, async (tx) => {
+        await assertOwnedByCompany(tx, companyId, [
+          ['broker', dto.brokerId, 'Broker'],
+          ['project', dto.projectId, 'Project'],
+        ]);
         const rule = await tx.brokerCommissionRule.create({
           data: {
             companyId,

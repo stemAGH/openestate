@@ -11,6 +11,7 @@ import {
   type PayCommissionPaymentDto,
 } from '@openestate/shared';
 import { TENANT_PRISMA, SYSTEM_PRISMA } from '../database/database.module';
+import { assertOwnedByCompany } from '../common/tenant-ownership';
 import { CommissionService } from './commission.service';
 import { NotificationService } from '../notifications/notification.service';
 
@@ -136,6 +137,7 @@ export class CommissionPaymentService {
         if (payment.status !== COMMISSION_PAYMENT_STATUS.APPROVED) {
           throw new ConflictException(`Commission payment is ${payment.status}; only APPROVED can be paid`);
         }
+        await assertOwnedByCompany(tx, companyId, [['bank', dto.bankId, 'Bank']]);
 
         // Per-booking outstanding for this broker, oldest-first-seen.
         const allEntries: { bookingId: string; signedAmountPaise: bigint; createdAt: Date }[] =

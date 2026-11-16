@@ -1,3 +1,4 @@
+import { formatDate } from '@openestate/shared';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -98,9 +99,9 @@ export default function Tickets() {
         </form>
       )}
 
-      {isLoading && <div className="text-slate-500 text-sm">Loading…</div>}
+      {isLoading && <div className="text-slate-600 text-sm">Loading…</div>}
       {data && data.length === 0 && !showForm && (
-        <div className="text-slate-500 text-sm">No queries raised yet.</div>
+        <div className="text-slate-600 text-sm">No queries raised yet.</div>
       )}
 
       <div className="space-y-2">
@@ -114,7 +115,7 @@ export default function Tickets() {
               <span className="text-sm font-medium text-slate-900 truncate min-w-0">{t.subject}</span>
               <span className="text-xs rounded-full bg-slate-100 text-slate-600 px-2 py-0.5 shrink-0">{t.status}</span>
             </div>
-            <span className="text-xs text-slate-400">{new Date(t.createdAt).toLocaleDateString('en-IN')}</span>
+            <span className="text-xs text-slate-400">{formatDate(t.createdAt)}</span>
           </Link>
         ))}
       </div>

@@ -14,6 +14,7 @@ import {
   type PayRefundDto,
 } from '@openestate/shared';
 import { TENANT_PRISMA } from '../database/database.module';
+import { assertOwnedByCompany } from '../common/tenant-ownership';
 import { LedgerService } from './ledger.service';
 
 /**
@@ -103,6 +104,7 @@ export class RefundService {
           throw new ConflictException(`Refund is ${refund.status}; only APPROVED can be paid`);
         }
 
+        await assertOwnedByCompany(tx, companyId, [['bank', dto.bankId, 'Bank']]);
         const voucher = await tx.paymentVoucher.create({
           data: {
             companyId,

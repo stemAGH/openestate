@@ -19,7 +19,7 @@ import {
   updateApplicantSchema,
   recordConsentSchema,
   confirmDistinctSchema,
-  paginationQuerySchema,
+  sortableListQuerySchema,
   PERMISSIONS,
 } from '@openestate/shared';
 import type { JwtPayload } from '@openestate/shared';
@@ -31,7 +31,8 @@ class CreateApplicantDto extends createZodDto(createApplicantSchema) {}
 class UpdateApplicantDto extends createZodDto(updateApplicantSchema) {}
 class RecordConsentDto extends createZodDto(recordConsentSchema) {}
 class ConfirmDistinctDto extends createZodDto(confirmDistinctSchema) {}
-class PaginationQueryDto extends createZodDto(paginationQuerySchema) {}
+// Sortable only by the columns the list shows.
+class PaginationQueryDto extends createZodDto(sortableListQuerySchema(['name'] as const)) {}
 
 @ApiTags('Applicants')
 @Controller('applicants')

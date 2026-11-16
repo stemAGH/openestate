@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { formatInr } from '@openestate/shared';
+import { formatDate, formatInr } from '@openestate/shared';
 import { api, downloadFile } from '../lib/api';
 
 interface CostLine {
@@ -77,7 +77,7 @@ export default function Account() {
               <span className="font-medium text-amber-800">Next due: {b.nextDue.label}</span>
               <div className="text-amber-700 mt-0.5">
                 {formatInr(BigInt(b.nextDue.amountPaise))} on{' '}
-                {new Date(b.nextDue.dueDate).toLocaleDateString('en-IN')}
+                {formatDate(b.nextDue.dueDate)}
               </div>
             </div>
           )}
@@ -109,7 +109,7 @@ export default function Account() {
                         JS rather than throwing — this branch is the fix,
                         not decoration. See
                         internal plan construction-linked-demand-fix.md §2. */}
-                    {i.dueDate ? new Date(i.dueDate).toLocaleDateString('en-IN') : 'not yet due'}
+                    {i.dueDate ? formatDate(i.dueDate) : 'not yet due'}
                   </span>
                   <span className={i.status === 'PAID' ? 'text-green-600' : ''}>
                     {formatInr(BigInt(i.amountPaise))} ({i.status})
@@ -127,7 +127,7 @@ export default function Account() {
               {b.paymentHistory.map((r) => (
                 <li key={r.id} className="flex justify-between gap-2 flex-wrap">
                   <span>
-                    {r.receiptNumber} · {new Date(r.receiptDate).toLocaleDateString('en-IN')} ({r.mode})
+                    {r.receiptNumber} · {formatDate(r.receiptDate)} ({r.mode})
                   </span>
                   <span>{formatInr(BigInt(r.grossAmountPaise))}</span>
                 </li>
@@ -144,7 +144,7 @@ export default function Account() {
             {documents.map((d) => (
               <li key={d.id} className="flex items-center justify-between py-2 text-sm">
                 <span className="text-slate-700">
-                  {d.documentType.replace('_', ' ')} · {new Date(d.createdAt).toLocaleDateString('en-IN')}
+                  {d.documentType.replace('_', ' ')} · {formatDate(d.createdAt)}
                 </span>
                 <button
                   onClick={() => void downloadFile(`/portal/account/documents/${d.id}/download`, d.originalName)}

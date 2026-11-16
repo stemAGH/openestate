@@ -1,3 +1,4 @@
+import { formatDateTime } from '@openestate/shared';
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -60,7 +61,7 @@ export default function TicketDetail() {
           >
             <p className="text-slate-800 whitespace-pre-wrap">{m.body}</p>
             <p className="text-xs text-slate-400 mt-1">
-              {m.authorIsStaff ? 'Support team' : 'You'} · {new Date(m.createdAt).toLocaleString('en-IN')}
+              {m.authorIsStaff ? 'Support team' : 'You'} · {formatDateTime(m.createdAt)}
             </p>
           </div>
         ))}

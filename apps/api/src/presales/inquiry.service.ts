@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaClient, withTenantTx, runWithTenant } from '@openestate/db';
+import { assertOwnedByCompany } from '../common/tenant-ownership';
 import { TENANT_PRISMA, SYSTEM_PRISMA } from '../database/database.module';
 import {
   normalizePhone,
@@ -54,6 +55,17 @@ export interface LeadCreateResult {
   inquiryId: string;
   applicantId: string;
   duplicateApplicantIds: string[];
+}
+
+/** The ids an inquiry write may name; each must be the caller's company's own. */
+function inquiryRefs(dto: { projectId?: string | null; sourceId?: string | null; inquiryTypeId?: string | null; temperatureId?: string | null; preferredUnitTypeId?: string | null }) {
+  return [
+    ['project', dto.projectId, 'Project'],
+    ['inquirySource', dto.sourceId, 'Source'],
+    ['inquiryType', dto.inquiryTypeId, 'Inquiry type'],
+    ['inquiryTemperature', dto.temperatureId, 'Temperature'],
+    ['unitType', dto.preferredUnitTypeId, 'Preferred unit type'],
+  ] as Array<[string, string | null | undefined, string]>;
 }
 
 @Injectable()
@@ -220,6 +232,7 @@ export class InquiryService {
 
     return runWithTenant({ companyId }, () =>
       withTenantTx(this.tenantPrisma, companyId, async (tx) => {
+        await assertOwnedByCompany(tx, companyId, inquiryRefs(dto));
         let applicantId = dto.applicantId;
         let possibleDuplicateApplicantIds: string[] = [];
         // Item 7: enriched alongside the existing id-only array (kept
@@ -372,6 +385,7 @@ export class InquiryService {
   async createFromLead(companyId: string, lead: LeadInput): Promise<LeadCreateResult> {
     return runWithTenant({ companyId }, () =>
       withTenantTx(this.tenantPrisma, companyId, async (tx) => {
+        await assertOwnedByCompany(tx, companyId, [['project', lead.projectId, 'Project']]);
         const primaryPhoneNormalized = normalizePhone(lead.phone);
         const emailNormalized = lead.email ? normalizeEmail(lead.email) : null;
 
@@ -494,6 +508,7 @@ export class InquiryService {
         if (stageChanged) {
           await this.leadStageTransition.assertStageBelongsToCompany(tx, companyId, dto.stageId!);
         }
+        await assertOwnedByCompany(tx, companyId, inquiryRefs(dto));
         if (statusChanged && dto.status === 'DUMPED') {
           await this.dispositionTransition.assertReasonBelongsToCompany(tx, companyId, dto.dumpReasonId!);
         }

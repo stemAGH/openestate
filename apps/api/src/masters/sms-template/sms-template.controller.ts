@@ -5,7 +5,7 @@ import { createZodDto } from 'nestjs-zod';
 import {
   createSmsTemplateSchema,
   updateSmsTemplateSchema,
-  paginationQuerySchema,
+  sortableListQuerySchema,
   PERMISSIONS,
 } from '@openestate/shared';
 import type { JwtPayload } from '@openestate/shared';
@@ -14,7 +14,8 @@ import { SmsTemplateService } from './sms-template.service';
 
 class CreateSmsTemplateDto extends createZodDto(createSmsTemplateSchema) {}
 class UpdateSmsTemplateDto extends createZodDto(updateSmsTemplateSchema) {}
-class PaginationQueryDto extends createZodDto(paginationQuerySchema) {}
+// Sortable only by the columns the list shows.
+class PaginationQueryDto extends createZodDto(sortableListQuerySchema(['sortOrder', 'name'] as const)) {}
 
 @ApiTags('SMS Templates')
 @Controller('masters/sms-templates')
