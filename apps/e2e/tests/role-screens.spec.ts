@@ -138,3 +138,27 @@ test('accounts: the Dues Dashboard lists a booking another user created', async 
   await expect(page.getByRole('row', { name: /Role Buyer/ }).first()).toBeVisible();
   await expect(page.getByText('No outstanding dues.')).toHaveCount(0);
 });
+
+// Plan C (v0.10.1): the bookings list. Accounts sees the whole company (another user's
+// booking, with its balance); a sales executive sees only their team's.
+test('Bookings: accounts sees a booking another user created, with its balance; the executive does not', async ({ page }) => {
+  await signInAs(page, 'accounts');
+  await settle(page);
+  const bad = refused(page);
+  await page.goto('/postsales/bookings');
+  const row = page.getByRole('row', { name: /Role Buyer/ });
+  await expect(row).toBeVisible();
+  await expect(row).toContainText(/due|owed back|Settled/);
+  await expect(row).not.toContainText('9811166602');
+  await row.getByRole('link').first().click();
+  await expect(page).toHaveURL(new RegExp(`/postsales/bookings/${ids.booking}/installments$`));
+  await settle(page);
+  expect(bad).toEqual([]);
+});
+
+test('Bookings: a sales executive does not see a booking outside their team', async ({ page }) => {
+  await signInAs(page, 'sales_executive');
+  await page.goto('/postsales/bookings');
+  await expect(page.getByRole('heading', { name: 'Bookings' })).toBeVisible();
+  await expect(page.getByRole('row', { name: /Role Buyer/ })).toHaveCount(0);
+});

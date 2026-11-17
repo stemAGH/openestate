@@ -17,6 +17,9 @@ import { BookingService } from './booking.service';
 import { PaymentPlanService } from './payment-plan.service';
 import { StageRaiseService } from './stage-raise.service';
 import { ReceiptService } from './receipt.service';
+import { BookingListService } from './booking-list.service';
+import { BookingListController } from './booking-list.controller';
+import { TeamScopeModule } from '../team-scope/team-scope.module';
 import { ReceiptPayerService } from './receipt-payer.service';
 import { ExtraChargeService } from './extra-charge.service';
 import { InterestService } from './interest.service';
@@ -29,8 +32,8 @@ import { RefundService } from './refund.service';
 import { BookingCostLineVerifier } from './booking-cost-line-verifier.service';
 
 @Module({
-  imports: [InventoryModule, BrokersModule, CommissionModule, PresalesModule],
-  controllers: [BookingController, ReceiptController, RefundController, BookingDraftController, PlanHistoryController, StageRaiseController],
+  imports: [InventoryModule, BrokersModule, CommissionModule, PresalesModule, TeamScopeModule],
+  controllers: [BookingListController, BookingController, ReceiptController, RefundController, BookingDraftController, PlanHistoryController, StageRaiseController],
   providers: [
     ClockProvider,
     NumberSequenceService,
@@ -39,6 +42,7 @@ import { BookingCostLineVerifier } from './booking-cost-line-verifier.service';
     PaymentPlanService,
     StageRaiseService,
     ReceiptService,
+    BookingListService,
     ReceiptPayerService,
     ExtraChargeService,
     InterestService,

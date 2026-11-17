@@ -43,6 +43,7 @@ const SECTIONS: NavSection[] = [
   {
     label: 'Post-Sales',
     items: [
+      { label: 'Bookings', to: '/postsales/bookings', perm: PERMISSIONS.POSTSALES_BOOKING_READ },
       { label: 'New Booking', to: '/postsales/bookings/new', perm: PERMISSIONS.POSTSALES_BOOKING_CREATE },
       { label: 'Receipt Entry', to: '/postsales/receipts/new', perm: PERMISSIONS.POSTSALES_RECEIPT_CREATE },
       { label: 'Cheque Queue', to: '/postsales/cheques', perm: PERMISSIONS.POSTSALES_CHEQUE_VERIFY },

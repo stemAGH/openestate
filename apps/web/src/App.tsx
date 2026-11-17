@@ -21,6 +21,7 @@ import AuditLogPage from './pages/admin/AuditLog';
 import BookingWizard from './pages/postsales/BookingWizard';
 import InstallmentSchedule from './pages/postsales/InstallmentSchedule';
 import ReceiptEntry from './pages/postsales/ReceiptEntry';
+import BookingsPage from './pages/postsales/Bookings';
 import ChequeQueue from './pages/postsales/ChequeQueue';
 import DuesDashboard from './pages/postsales/DuesDashboard';
 import Applicant360 from './pages/postsales/Applicant360';
@@ -67,6 +68,7 @@ export default function App() {
             <Route path="admin/webhooks" element={<RequirePermission perm={PERMISSIONS.ADMIN_WEBHOOK_READ}><WebhooksPage /></RequirePermission>} />
             <Route path="admin/lead-api-keys" element={<RequirePermission perm={PERMISSIONS.ADMIN_LEAD_API_KEY_READ}><LeadApiKeysPage /></RequirePermission>} />
 
+            <Route path="postsales/bookings" element={<RequirePermission perm={PERMISSIONS.POSTSALES_BOOKING_READ}><BookingsPage /></RequirePermission>} />
             <Route path="postsales/bookings/new" element={<RequirePermission perm={PERMISSIONS.POSTSALES_BOOKING_CREATE}><BookingWizard /></RequirePermission>} />
             <Route path="postsales/bookings/:bookingId/installments" element={<RequirePermission perm={PERMISSIONS.POSTSALES_BOOKING_READ}><InstallmentSchedule /></RequirePermission>} />
             <Route path="postsales/receipts/new" element={<RequirePermission perm={PERMISSIONS.POSTSALES_RECEIPT_CREATE}><ReceiptEntry /></RequirePermission>} />
