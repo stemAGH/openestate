@@ -251,6 +251,25 @@ async function auditOrThrow(
 }
 
 /**
+ * The row's current values for exactly the scalar fields an update writes,
+ * read through the transaction in context (so RLS and the tenant filters
+ * apply). Null when there is no transaction or no matching row; a relation
+ * write (connect/disconnect) has no scalar to compare and is left out.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function readPrevious(model: string, args: any): Promise<Record<string, unknown> | null> {
+  const store = tenantTxContext.getStore();
+  if (!store?.tx || !args?.where || !args?.data || typeof args.data !== 'object') return null;
+  const delegate = model.charAt(0).toLowerCase() + model.slice(1);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const row = await (store.tx as any)[delegate].findFirst({ where: args.where });
+  if (!row) return null;
+  const out: Record<string, unknown> = {};
+  for (const key of Object.keys(args.data)) if (Object.prototype.hasOwnProperty.call(row, key)) out[key] = row[key];
+  return out;
+}
+
+/**
  * Prisma extension that writes an immutable audit row for every
  * create/update/delete on audited domain models.
  *
@@ -273,9 +292,12 @@ export function auditExtension() {
         },
 
         async update({ model, args, query }) {
+          // v0.10.1: the previous values of the fields being written, read in the
+          // same transaction before the write (redacted like the new values).
+          const previous = model && AUDITED_MODELS.has(model) ? await readPrevious(model, args) : null;
           const result = await query(args);
           if (model && AUDITED_MODELS.has(model)) {
-            await auditOrThrow(model, 'UPDATE', result, () => [null, sanitize(args.data)]);
+            await auditOrThrow(model, 'UPDATE', result, () => [previous ? sanitize(previous) : null, sanitize(args.data)]);
           }
           return result;
         },

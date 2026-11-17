@@ -259,4 +259,32 @@ describeIf('audit extension', () => {
     expect(JSON.stringify(update?.after)).not.toContain('must-not-appear');
     expect(JSON.stringify(update?.after)).toContain('"keep":"ok"');
   });
+
+  // v0.10.1: UPDATE rows record the previous values of the fields written.
+  it('an UPDATE row records the previous values of exactly the fields written', async () => {
+    const created = await runWithTenant({ companyId }, () =>
+      withTenantTx(tenantPrisma, companyId, async (tx) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const d = await (tx as any).customFieldDefinition.create({ data: { ...fieldData(companyId), label: 'Old label' } });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (tx as any).customFieldDefinition.update({ where: { id: d.id }, data: { label: 'New label', isRequired: true } });
+        return d;
+      }),
+    );
+    const update = (await rowsFor(created.id)).find((r) => r.action === 'UPDATE');
+    expect(update?.before).toEqual({ label: 'Old label', isRequired: false });
+    expect(update?.after).toMatchObject({ label: 'New label', isRequired: true });
+  });
+
+  it('a secret in the previous values is redacted, as in the new values', async () => {
+    await runWithTenant({ companyId }, () =>
+      withTenantTx(tenantPrisma, companyId, async (tx) =>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (tx as any).user.update({ where: { id: userId }, data: { passwordHash: 'new-hash-must-not-appear' } }),
+      ),
+    );
+    const update = (await rowsFor(userId)).filter((r) => r.action === 'UPDATE').pop();
+    expect(update?.before).toEqual({ passwordHash: '[REDACTED]' });
+    expect(JSON.stringify(update)).not.toContain('new-hash-must-not-appear');
+  });
 });
