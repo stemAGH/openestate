@@ -128,12 +128,44 @@ function greeting(now: Date): string {
   return istHour < 12 ? 'Good morning' : istHour < 17 ? 'Good afternoon' : 'Good evening';
 }
 
+/** For roles that don't work with leads: links to the areas the role can open. */
+function RoleShortcuts() {
+  const { hasPermission } = useAuth();
+  const links = [
+    { to: '/postsales/receipts/new', label: 'Receipt Entry', perm: PERMISSIONS.POSTSALES_RECEIPT_CREATE },
+    { to: '/postsales/bookings', label: 'Bookings', perm: PERMISSIONS.POSTSALES_BOOKING_READ },
+    { to: '/postsales/dues', label: 'Dues Dashboard', perm: PERMISSIONS.REPORTS_OUTSTANDING_VIEW },
+    { to: '/postsales/cheques', label: 'Cheque Queue', perm: PERMISSIONS.POSTSALES_CHEQUE_VERIFY },
+    { to: '/postsales/reports', label: 'Post-Sales Reports', perm: PERMISSIONS.REPORTS_COLLECTION_VIEW },
+  ].filter((l) => hasPermission(l.perm));
+  return (
+    <section className="mt-6" aria-labelledby="shortcuts-title">
+      <h2 id="shortcuts-title" className="section-title">Your areas</h2>
+      {links.length === 0 ? (
+        <p className="mt-2 text-sm text-slate-600">Use the sidebar to reach the areas your role can open.</p>
+      ) : (
+        <ul className="mt-2 flex flex-wrap gap-2">
+          {links.map((l) => (
+            <li key={l.to}>
+              <Link to={l.to} className="btn btn-sm btn-secondary">{l.label}</Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 export default function Dashboard() {
   const { user, hasPermission } = useAuth();
+  // The lead summary and My Day need presales.inquiry.read; a role without it
+  // (accounts) asks for neither and gets links to its own areas instead.
+  const worksLeads = hasPermission(PERMISSIONS.PRESALES_INQUIRY_READ);
   const { data, isLoading, isError } = useQuery<DashboardData>({
     queryKey: ['dashboard'],
     queryFn: () => api('/dashboard'),
     retry: false,
+    enabled: worksLeads,
   });
   // The greeting uses the person's name (the token only carries the email).
   // Its own cache key, never Settings' ['auth', 'me']: sharing that entry let
@@ -153,6 +185,7 @@ export default function Dashboard() {
     queryKey: ['my-day'],
     queryFn: () => api('/inquiries/my-day'),
     retry: false,
+    enabled: worksLeads,
   });
 
   const perReportRows: ReportRowWithId[] = (data?.team?.perReport ?? []).map((r) => ({
@@ -197,10 +230,11 @@ export default function Dashboard() {
         description={`${greeting(new Date())}, ${me?.name ?? user?.email ?? ''} · ${formatDate(new Date())}`}
       />
 
-      {isError && (
+      {!worksLeads && <RoleShortcuts />}
+
+      {worksLeads && isError && (
         <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600">
-          Your role doesn't have access to pre-sales data, so there's no work summary to show here.
-          Use the sidebar to reach the areas you do have access to.
+          The work summary couldn't be loaded. Use the sidebar to reach your areas.
         </div>
       )}
 

@@ -103,6 +103,14 @@ export class InquiryController {
     return this.inquiryService.update(user.companyId, id, dto, await this.scopeFor(user), user.sub);
   }
 
+  @Get(':id/assignable-users')
+  @RequirePermissions(PERMISSIONS.PRESALES_INQUIRY_ASSIGN)
+  @ApiOperation({ summary: "Users this caller may assign the lead to: active, in the caller's team, with a role that can open leads" })
+  async assignableUsers(@Param('id') id: string, @Req() req: Request) {
+    const user = req.user as JwtPayload;
+    return this.inquiryService.assignableUsers(user.companyId, id, await this.scopeFor(user));
+  }
+
   @Patch(':id/assign')
   @RequirePermissions(PERMISSIONS.PRESALES_INQUIRY_ASSIGN)
   @ApiOperation({ summary: 'Manually reassign an inquiry (both the inquiry and the target user must be in the caller\'s visible set)' })

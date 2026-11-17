@@ -65,7 +65,8 @@ async function signOut(page: Page) {
 async function open(page: Page, name: string) {
   const section = page.getByRole('button', { name: 'Post-Sales', exact: true });
   if (await section.getAttribute('aria-expanded') !== 'true') await section.click();
-  await page.getByRole('link', { name, exact: true }).click();
+  // The sidebar's link: a dashboard can also show a shortcut with the same name (QA-034).
+  await page.getByRole('navigation').getByRole('link', { name, exact: true }).click();
 }
 async function watch(page: Page, forbidden: string[]) {
   await page.evaluate((values) => {

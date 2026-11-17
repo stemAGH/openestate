@@ -45,6 +45,10 @@ test.beforeAll(async ({ playwright }) => {
   ids.inquiry = (await call('post', '/inquiries', { applicant: { name: 'Admin Lead', primaryPhone: '9811166603' } })).id;
   const users = await call('get', '/users?limit=100');
   ids.execUser = users.data.find((u: { email: string }) => u.email === fixture.roleUsers!.sales_executive).id;
+  // A lead in the executive's hands (the manager's team), for Reassign.
+  ids.teamLead = (await call('post', '/inquiries', { applicant: { name: 'Team Lead', primaryPhone: '9811166605' } })).id;
+  const assigned = await api.patch(`/api/v1/inquiries/${ids.teamLead}/assign`, { headers, data: { toUserId: ids.execUser, reason: 'setup' } });
+  expect(assigned.ok(), await assigned.text()).toBe(true);
   await api.dispose();
 });
 
@@ -184,4 +188,29 @@ test('company_admin: saves a remark and adds a co-applicant only after the porta
   await expect(card.getByRole('button', { name: 'Remove Role CoBuyer' })).toHaveCount(0);
   await page.reload();
   await expect(page.getByRole('region', { name: 'Booking details' }).getByLabel('Remark')).toHaveValue('Prefers calls after 6 pm');
+});
+
+// QA-034: accounts' dashboard asked for the lead summary and My Day (both 403).
+test('accounts: the dashboard asks for nothing the role can’t read and links to its areas', async ({ page }) => {
+  const bad = refused(page);
+  await signInAs(page, 'accounts');
+  await expect(page.getByRole('heading', { name: 'Your areas' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Receipt Entry' }).last()).toBeVisible();
+  await settle(page);
+  expect(bad.filter((r) => !r.includes('/auth/refresh'))).toEqual([]);
+});
+
+// QA-003: Reassign offered every user the manager could read, then the server refused most.
+test('sales_manager: Reassign offers only users who can take the lead, and reassigning works', async ({ page }) => {
+  await signInAs(page, 'sales_manager');
+  await page.goto(`/presales/inquiries/${ids.teamLead}`);
+  const select = page.getByLabel('Assign To');
+  await expect(select.locator('option', { hasText: 'Vikram Executive' })).toHaveCount(1);
+  const names = await select.locator('option').allTextContents();
+  expect(names).toContain('Meera Manager');
+  expect(names).not.toContain('Kavita Accounts');
+  expect(names).not.toContain('Rohit Admin');
+  await select.selectOption({ label: 'Meera Manager' });
+  await page.getByRole('button', { name: 'Reassign' }).click();
+  await expect(page.getByText('Owner: Meera Manager')).toBeVisible();
 });

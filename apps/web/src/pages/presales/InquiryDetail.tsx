@@ -121,16 +121,17 @@ export default function InquiryDetailPage() {
     queryFn: () => api('/masters/follow-up-types?limit=100'),
   });
 
-  // Reassigning needs presales.inquiry.assign, and its user list needs
-  // admin.user.read: without both, neither the form nor the request
-  // (previously a silent 403 for sales executives) is shown.
-  const canReassign =
-    hasPermission(PERMISSIONS.PRESALES_INQUIRY_ASSIGN) && hasPermission(PERMISSIONS.ADMIN_USER_READ);
-  const { data: users } = useQuery<{ data: UserOption[] }>({
-    queryKey: ['users', 'all'],
-    queryFn: () => api('/users?page=1&limit=100'),
-    enabled: canReassign,
+  // Reassigning needs presales.inquiry.assign (without it, neither the form
+  // nor the request is shown).
+  const canReassign = hasPermission(PERMISSIONS.PRESALES_INQUIRY_ASSIGN);
+  // QA-003: only the users the server accepts for this lead (active, in the
+  // caller's team, able to open leads), not every user the caller can read.
+  const { data: assignable } = useQuery<UserOption[]>({
+    queryKey: ['assignable-users', id],
+    queryFn: () => api(`/inquiries/${id}/assignable-users`),
+    enabled: canReassign && !!id,
   });
+  const users = assignable ? { data: assignable } : undefined;
 
   const { data: leadStages } = useQuery<{ data: MasterOption[] }>({
     queryKey: ['masters', 'lead-stages', 'all'],

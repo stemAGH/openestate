@@ -16,6 +16,7 @@ import {
   isFollowUpOverdue,
   istDayBounds,
   ACTIVE_INQUIRY_STATUSES,
+  PERMISSIONS,
   redactAadhaarLike,
   maskPhonesInText,
   formatInr,
@@ -188,6 +189,25 @@ export class InquiryService {
     if (scope.visibleUserIds) where.assignedToId = { in: scope.visibleUserIds };
     const exists = await this.systemPrisma.inquiry.findFirst({ where, select: { id: true } });
     if (!exists) throw new NotFoundException('Inquiry not found');
+  }
+
+  /**
+   * QA-003: who this caller may assign the lead to: active users in the
+   * caller's team scope whose role can open leads (presales.inquiry.read).
+   * assign() refuses anyone else. 404 for a lead outside the caller's scope.
+   */
+  async assignableUsers(companyId: string, inquiryId: string, scope: InquiryScope) {
+    await this.assertInScope(companyId, inquiryId, scope);
+    return this.systemPrisma.user.findMany({
+      where: {
+        companyId,
+        isActive: true,
+        ...(scope.visibleUserIds ? { id: { in: scope.visibleUserIds } } : {}),
+        role: { isPortal: false, permissions: { some: { permission: { key: PERMISSIONS.PRESALES_INQUIRY_READ } } } },
+      },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    });
   }
 
   /**
@@ -806,6 +826,16 @@ export class InquiryService {
         }
         const targetUser = await tx.user.findFirst({ where: { id: toUserId, companyId } });
         if (!targetUser) throw new NotFoundException('Target user not found');
+        // QA-003: the same rule as assignableUsers(): active, and a role that can open leads.
+        if (!targetUser.isActive) {
+          throw new BadRequestException(`${targetUser.name} is deactivated, so the lead can't be assigned to them`);
+        }
+        const canOpenLeads = await tx.rolePermission.count({
+          where: { roleId: targetUser.roleId, permission: { key: PERMISSIONS.PRESALES_INQUIRY_READ } },
+        });
+        if (!canOpenLeads) {
+          throw new BadRequestException(`${targetUser.name} can't open leads (their role has no lead access), so the lead can't be assigned to them`);
+        }
 
         const fromUserId = inquiry.assignedToId;
         await tx.inquiry.update({
