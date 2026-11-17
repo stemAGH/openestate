@@ -7,6 +7,8 @@ import { TeamScopeModule } from '../team-scope/team-scope.module';
 import { CommunicationProcessor } from '../queues/communication.processor';
 import { ApplicantController } from './applicant.controller';
 import { ApplicantService } from './applicant.service';
+import { ApplicantContactService } from './applicant-contact.service';
+import { AuthModule } from '../auth/auth.module';
 import { InquiryController } from './inquiry.controller';
 import { InquiryService } from './inquiry.service';
 import { AssignmentPoolController } from './assignment-pool.controller';
@@ -26,7 +28,7 @@ import { LeadStageTransitionService } from './lead-stage-transition.service';
 import { InquiryDispositionTransitionService } from './inquiry-disposition-transition.service';
 
 @Module({
-  imports: [QueuesModule, CustomFieldsModule, TeamScopeModule],
+  imports: [QueuesModule, CustomFieldsModule, TeamScopeModule, AuthModule],
   controllers: [
     ApplicantController,
     // Must be registered BEFORE InquiryController: both mount under
@@ -47,6 +49,7 @@ import { InquiryDispositionTransitionService } from './inquiry-disposition-trans
     ClockProvider,
     PanEncryptionService,
     ApplicantService,
+    ApplicantContactService,
     InquiryService,
     AssignmentService,
     InquiryImportService,

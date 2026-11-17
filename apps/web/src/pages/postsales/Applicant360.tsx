@@ -3,17 +3,12 @@ import { Link, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatDate, formatInr, forcePasswordResetResponseSchema, NO_PORTAL_ACCOUNT_ERROR, PERMISSIONS } from '@openestate/shared';
 import { api, downloadFile, type ApiError } from '../../lib/api';
+import ApplicantContactCard, { type ApplicantContact } from './ApplicantContactCard';
 import { useAuth } from '../../lib/auth';
 import RevealedResetLink, { ResetLinkSupersedeNote } from '../../components/RevealedResetLink';
 import PortalTwoFactorReset from '../../components/PortalTwoFactorReset';
 
-interface Applicant {
-  id: string;
-  name: string;
-  primaryPhone: string;
-  email: string | null;
-  city: string | null;
-}
+type Applicant = ApplicantContact;
 
 interface Booking {
   id: string;
@@ -238,6 +233,11 @@ export default function Applicant360() {
         {applicant.email && <span>{applicant.email}</span>}
         {applicant.city && <span>{applicant.city}</span>}
       </div>
+      {hasPermission(PERMISSIONS.PRESALES_APPLICANT_UPDATE) && (
+        <div className="mt-3">
+          <ApplicantContactCard applicant={applicant} onSaved={() => qc.invalidateQueries({ queryKey: ['applicant-360', applicantId] })} />
+        </div>
+      )}
 
       {hasPermission(PERMISSIONS.ADMIN_PORTAL_INVITE_SEND) && (
         <div className="mt-3">

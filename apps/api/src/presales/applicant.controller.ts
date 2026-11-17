@@ -26,9 +26,12 @@ import type { JwtPayload } from '@openestate/shared';
 import { RequirePermissions } from '../auth/guards/permissions.guard';
 import { SYSTEM_PRISMA } from '../database/database.module';
 import { ApplicantService } from './applicant.service';
+import { ApplicantContactService } from './applicant-contact.service';
+import { z } from 'zod';
 
 class CreateApplicantDto extends createZodDto(createApplicantSchema) {}
-class UpdateApplicantDto extends createZodDto(updateApplicantSchema) {}
+// confirmDistinct: the caller checked a matching phone/email belongs to a different person.
+class UpdateApplicantDto extends createZodDto(updateApplicantSchema.extend({ confirmDistinct: z.boolean().optional() })) {}
 class RecordConsentDto extends createZodDto(recordConsentSchema) {}
 class ConfirmDistinctDto extends createZodDto(confirmDistinctSchema) {}
 // Sortable only by the columns the list shows.
@@ -39,6 +42,7 @@ class PaginationQueryDto extends createZodDto(sortableListQuerySchema(['name'] a
 export class ApplicantController {
   constructor(
     private readonly applicantService: ApplicantService,
+    private readonly applicantContact: ApplicantContactService,
     @Inject(SYSTEM_PRISMA)
     private readonly systemPrisma: PrismaClient,
   ) {}
@@ -69,10 +73,14 @@ export class ApplicantController {
 
   @Patch(':id')
   @RequirePermissions(PERMISSIONS.PRESALES_APPLICANT_UPDATE)
-  @ApiOperation({ summary: 'Update applicant' })
+  @ApiOperation({
+    summary: 'Update applicant',
+    description:
+      'A phone or email another person has is refused (409, matches listed) unless confirmDistinct is true. Changing the phone or email a portal customer signs in with needs admin.user.update, moves the login and ends its sessions.',
+  })
   update(@Param('id') id: string, @Body() dto: UpdateApplicantDto, @Req() req: Request) {
     const user = req.user as JwtPayload;
-    return this.applicantService.update(user.companyId, id, dto);
+    return this.applicantContact.update(user, id, dto);
   }
 
   @Get(':id/consent')
