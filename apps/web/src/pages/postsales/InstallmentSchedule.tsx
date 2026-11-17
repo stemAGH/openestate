@@ -3,6 +3,7 @@ import { useLocation, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatInr, PERMISSIONS } from '@openestate/shared';
 import { api } from '../../lib/api';
+import BookingDetailsCard, { type BookingDetailsData } from './BookingDetailsCard';
 import { useAuth } from '../../lib/auth';
 import DataTable, { type Column } from '../../components/DataTable';
 import InterestRulePanel from './InterestRulePanel';
@@ -30,7 +31,7 @@ interface PlanVersion {
   installments: Installment[];
 }
 
-interface BookingRow {
+interface BookingRow extends BookingDetailsData {
   bookingNumber: string;
   brokerId: string | null;
   agreedPricePaise: string;
@@ -261,6 +262,10 @@ export default function InstallmentSchedule() {
             </div>
           )}
         </div>
+      )}
+
+      {booking && ACTIVE_STATUSES.has(booking.status) && hasPermission(PERMISSIONS.POSTSALES_BOOKING_UPDATE) && (
+        <BookingDetailsCard booking={booking} onSaved={() => qc.invalidateQueries({ queryKey: ['booking', bookingId] })} />
       )}
 
       {booking?.status === 'CANCELLED' && (

@@ -39,6 +39,8 @@ test.beforeAll(async ({ playwright }) => {
     plan: { mode: 'custom', name: 'Custom Plan', installments: [{ label: 'All', dueDate: '2027-03-31', amountPaise: quote.agreedPricePaise }] },
   });
   ids.booking = booked.booking.id;
+  const co = await call('post', '/applicants', { name: 'Role CoBuyer', primaryPhone: '9811166604' });
+  ids.coApplicant = co.applicant?.id ?? co.id;
   // A lead owned by the admin: not in the executive's team.
   ids.inquiry = (await call('post', '/inquiries', { applicant: { name: 'Admin Lead', primaryPhone: '9811166603' } })).id;
   const users = await call('get', '/users?limit=100');
@@ -161,4 +163,25 @@ test('Bookings: a sales executive does not see a booking outside their team', as
   await page.goto('/postsales/bookings');
   await expect(page.getByRole('heading', { name: 'Bookings' })).toBeVisible();
   await expect(page.getByRole('row', { name: /Role Buyer/ })).toHaveCount(0);
+});
+
+// Plan D (v0.10.1): non-financial booking edits on the schedule page.
+test('company_admin: saves a remark and adds a co-applicant only after the portal-access confirmation, then removes them', async ({ page }) => {
+  await signInAs(page, 'company_admin');
+  await page.goto(`/postsales/bookings/${ids.booking}/installments`);
+  const card = page.getByRole('region', { name: 'Booking details' });
+  await card.getByLabel('Remark').fill('Prefers calls after 6 pm');
+  await card.getByRole('button', { name: 'Save remark' }).click();
+  await expect(card.getByRole('status')).toHaveText('Remark saved.');
+
+  await card.getByLabel('Add a co-applicant').fill('Role CoBuyer');
+  await card.getByRole('button', { name: /Role CoBuyer/ }).click();
+  const confirm = card.getByRole('alertdialog', { name: /Add Role CoBuyer as a co-applicant/ });
+  await expect(confirm).toContainText('customer portal');
+  await confirm.getByRole('button', { name: 'Yes, add co-applicant' }).click();
+  await expect(card.getByRole('button', { name: 'Remove Role CoBuyer' })).toBeVisible();
+  await card.getByRole('button', { name: 'Remove Role CoBuyer' }).click();
+  await expect(card.getByRole('button', { name: 'Remove Role CoBuyer' })).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole('region', { name: 'Booking details' }).getByLabel('Remark')).toHaveValue('Prefers calls after 6 pm');
 });

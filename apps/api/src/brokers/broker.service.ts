@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaClient, withTenantTx, runWithTenant } from '@openestate/db';
 import type { CreateBrokerDto, UpdateBrokerDto, BrokerBankDetailDto, PaginationQuery } from '@openestate/shared';
 import { maskPhoneFields } from '@openestate/shared';
@@ -156,7 +156,23 @@ export class BrokerService {
     if (!booking) throw new NotFoundException('Booking not found');
 
     return runWithTenant({ companyId }, () =>
-      withTenantTx(this.tenantPrisma, companyId, (tx) => tx.booking.update({ where: { id: bookingId }, data: { brokerId } })),
+      withTenantTx(this.tenantPrisma, companyId, async (tx) => {
+        // v0.10.1: once commission has accrued for the booking's broker, changing
+        // the broker would leave that commission with the wrong person. Checked
+        // under the booking's row lock. (Raw SQL: a row lock has no Prisma API;
+        // both ids are bound parameters.)
+        await tx.$queryRaw`SELECT id FROM bookings WHERE id = ${bookingId}::uuid AND company_id = ${companyId}::uuid FOR UPDATE`;
+        const accrued =
+          (await tx.brokerBookingCommission.count({ where: { companyId, bookingId } })) +
+          (await tx.commissionLedgerEntry.count({ where: { companyId, bookingId } }));
+        const current = await tx.booking.findFirst({ where: { id: bookingId, companyId }, select: { brokerId: true } });
+        if (accrued > 0 && brokerId !== current?.brokerId) {
+          throw new ConflictException(
+            'Commission has already accrued on this booking for its broker; the broker can no longer be changed here (a clawback is needed).',
+          );
+        }
+        return tx.booking.update({ where: { id: bookingId }, data: { brokerId } });
+      }),
     );
   }
 }
