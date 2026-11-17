@@ -5,8 +5,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { withTenantTx, runWithTenant } from '@openestate/db';
+import { withTenantTx, runWithTenant, getCurrentIpAddress } from '@openestate/db';
 import {
+  formatInr,
   LEDGER_ENTRY_TYPE,
   REFUND_STATUS,
   VOUCHER_STATUS_ISSUED,
@@ -93,7 +94,8 @@ export class RefundService {
         const owedToCustomer = balance < 0n ? -balance : 0n;
         if (refund.amountPaise > owedToCustomer) {
           throw new BadRequestException(
-            `Refund (${refund.amountPaise}) exceeds the amount owed to the customer now (${owedToCustomer})`,
+            `Refund of ${formatInr(refund.amountPaise)} exceeds the amount owed to the customer now, ${formatInr(owedToCustomer)}. ` +
+              'Less may be owed than when it was requested (for example after a bounce charge): reject this refund and request the correct amount.',
           );
         }
 
@@ -112,6 +114,39 @@ export class RefundService {
           where: { id: refundId },
           data: { status: REFUND_STATUS.APPROVED, approvedById: actorId, approvedAt: new Date() },
         });
+      }),
+    );
+  }
+
+  /**
+   * Reject a REQUESTED refund (for example one whose amount is no longer owed
+   * after a bounce charge), so the correct amount can be requested. Posts
+   * nothing: a requested refund has no ledger entry. The reason is audited.
+   */
+  async reject(companyId: string, refundId: string, reason: string, actorId: string | null) {
+    return runWithTenant({ companyId }, () =>
+      withTenantTx(this.tenantPrisma, companyId, async (tx) => {
+        const found = await tx.refund.findFirst({ where: { id: refundId, companyId } });
+        if (!found) throw new NotFoundException('Refund not found');
+        await lockBookingRefunds(tx, found.bookingId);
+        const refund = await tx.refund.findFirst({ where: { id: refundId, companyId } });
+        if (!refund) throw new NotFoundException('Refund not found');
+        if (refund.status !== REFUND_STATUS.REQUESTED) {
+          throw new ConflictException(`Refund is ${refund.status}; only REQUESTED can be rejected`);
+        }
+        const updated = await tx.refund.update({ where: { id: refundId }, data: { status: REFUND_STATUS.REJECTED } });
+        await tx.auditLog.create({
+          data: {
+            companyId,
+            userId: actorId,
+            entityType: 'Refund',
+            entityId: refundId,
+            action: 'REFUND_REJECTED',
+            after: { reason, amountPaise: refund.amountPaise.toString(), bookingId: refund.bookingId },
+            ipAddress: getCurrentIpAddress() ?? null,
+          },
+        });
+        return updated;
       }),
     );
   }
@@ -162,6 +197,9 @@ export class RefundService {
   async voucherBounced(companyId: string, voucherId: string, actorId: string | null) {
     return runWithTenant({ companyId }, () =>
       withTenantTx(this.tenantPrisma, companyId, async (tx) => {
+        const found = await tx.paymentVoucher.findFirst({ where: { id: voucherId, companyId } });
+        if (!found) throw new NotFoundException('Payment voucher not found');
+        await lockBookingRefunds(tx, found.bookingId);
         const voucher = await tx.paymentVoucher.findFirst({ where: { id: voucherId, companyId } });
         if (!voucher) throw new NotFoundException('Payment voucher not found');
         if (voucher.status !== VOUCHER_STATUS_ISSUED) {
@@ -195,9 +233,14 @@ export class RefundService {
         ]);
 
         await tx.paymentVoucher.update({ where: { id: voucherId }, data: { status: 'BOUNCED' } });
-        // Move the refund back to APPROVED so it can be re-paid.
+        // Back to REQUESTED, not APPROVED: the reversal above re-credits the money
+        // as owed, so paying again needs a new approval, which re-checks what is
+        // owed and posts the approval debit again.
         if (voucher.refundId) {
-          await tx.refund.update({ where: { id: voucher.refundId }, data: { status: REFUND_STATUS.APPROVED } });
+          await tx.refund.update({
+            where: { id: voucher.refundId },
+            data: { status: REFUND_STATUS.REQUESTED, approvedById: null, approvedAt: null },
+          });
         }
         return { voucherId, bounced: true };
       }),
