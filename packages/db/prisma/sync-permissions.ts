@@ -472,8 +472,8 @@ export async function unitsWithMultipleActiveBookings(
 }
 
 /**
- * Read-only upgrade report (v0.10.1, QA-015): bookings whose approved refunds
- * exceed what the booking held, as releases before the refund cap allowed (two
+ * Read-only upgrade report (v0.10.1, QA-015): bookings whose approved refunds,
+ * or refund payments that did not bounce, exceed what the booking held, as releases before the refund cap allowed (two
  * refunds approved for the same money). Per booking, from its ledger: the
  * refunds (REFUND_APPROVED net of REFUND_BOUNCE_REVERSAL) against what was
  * owed to the customer without them. Nothing is changed.
@@ -491,13 +491,28 @@ export async function overRefundedBookings(
         FROM ledger_entries l
        WHERE (${companyId}::uuid IS NULL OR l.company_id = ${companyId}::uuid)
        GROUP BY l.booking_id
+    ),
+    paid AS (
+      -- Refund money actually paid out: payment vouchers that did not bounce.
+      SELECT v.booking_id, SUM(v.amount_paise) AS out
+        FROM payment_vouchers v
+       WHERE v.status <> 'BOUNCED'
+         AND (${companyId}::uuid IS NULL OR v.company_id = ${companyId}::uuid)
+       GROUP BY v.booking_id
+    ),
+    over AS (
+      -- What the booking was owed back without its refunds: GREATEST(0, refunds - balance).
+      -- Over by the ledger: refunds approved beyond that. Over by the vouchers: paid out beyond it.
+      SELECT per.booking_id,
+             GREATEST(per.refunds - GREATEST(0, per.refunds - per.balance),
+                      COALESCE(paid.out, 0) - GREATEST(0, per.refunds - per.balance)) AS over
+        FROM per LEFT JOIN paid ON paid.booking_id = per.booking_id
     )
-    SELECT c.id AS company_id, c.name, b.booking_number,
-           (per.refunds - GREATEST(0, per.refunds - per.balance))::text AS over
-      FROM per
-      JOIN bookings b ON b.id = per.booking_id
+    SELECT c.id AS company_id, c.name, b.booking_number, over.over::text AS over
+      FROM over
+      JOIN bookings b ON b.id = over.booking_id
       JOIN companies c ON c.id = b.company_id
-     WHERE per.refunds > GREATEST(0, per.refunds - per.balance)
+     WHERE over.over > 0
      ORDER BY c.name, b.booking_number`;
   const byCompany = new Map<string, { companyId: string; companyName: string; count: number; bookings: Array<{ bookingNumber: string; overPaise: string }> }>();
   for (const r of rows) {
@@ -721,10 +736,10 @@ if (require.main === module) {
       const overRefunded = await overRefundedBookings();
       const overTotal = overRefunded.reduce((sum, r) => sum + r.count, 0);
       if (overTotal === 0) {
-        console.log('Refunds: no booking has approved refunds above what it held.');
+        console.log('Refunds: no booking has approved or paid refunds above what it held.');
       } else {
         console.log(
-          `Refunds: ${overTotal} booking(s) have approved refunds above what they held. Nothing was changed; ` +
+          `Refunds: ${overTotal} booking(s) have approved or paid refunds above what they held. Nothing was changed; ` +
             'check each booking\'s ledger and refunds with your accountant (see the release notes).',
         );
         for (const r of overRefunded) {

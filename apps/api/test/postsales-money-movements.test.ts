@@ -157,7 +157,9 @@ describeIf('Money movements: transfer / cancellation / refund / TDS', () => {
     // −27,00,000 (re-owed) + ₹500 bounce charge.
     expect(await svc.ledger.balance(fx.companyId, booking.id)).toBe(-L(27_00_000) + L(500));
     const reopened = await systemPrisma.refund.findFirst({ where: { id: refund.id } });
-    expect(reopened.status).toBe('APPROVED'); // back to APPROVED so it can be re-paid
+    // v0.10.1 (owner ruling 2026-11-17): back to REQUESTED, so paying again
+    // needs a new approval (was APPROVED, which let the same money be refunded twice).
+    expect(reopened.status).toBe('REQUESTED');
   });
 
   it('TDS receivable stays outstanding until the certificate is recorded, then zero', async () => {
