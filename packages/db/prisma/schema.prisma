@@ -1734,6 +1734,8 @@ model Booking {
   /// unique index (bookings_source_inquiry_id_key, migration SQL) — not
   /// this column alone; see the index's own comment for why.
   sourceInquiryId        String?       @map("source_inquiry_id") @db.Uuid
+  /// v0.10.1: a free-text note on the booking (non-financial; staff-edited).
+  remark                 String?       @db.VarChar(1000)
   bookingDate            DateTime      @map("booking_date") @db.Date
   allotmentDate          DateTime?     @map("allotment_date") @db.Date
   registrationDate       DateTime?     @map("registration_date") @db.Date
