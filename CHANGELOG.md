@@ -14,11 +14,19 @@ Release notes (draft): [next-release-notes.md](docs/releases/next-release-notes.
 - Receipt Entry's payer lookup by name, phone or booking number (`GET /receipts/payers`).
 - `reports.postsales.company-wide`: post-sales reports for the whole company (seeded to accounts and company_admin).
 - Two read-only upgrade reports: refunds and interest waivers above what a booking held or was charged.
+- Edit a lead's details (Inquiry Detail) and a person's contact details (Applicant 360).
+- Bookings list with the outstanding balance (`GET /bookings`).
+- Booking remark and co-applicant changes on the schedule page; refunds can be rejected.
+- `GET /inquiries/:id/assignable-users` for Reassign.
 
 ### Changed
 
 - Refunds are checked against the booking's ledger at request, approval and payment.
 - Interest waivers are limited to the interest charged less earlier waivers, on active bookings only.
+- A bounced refund cheque sends the refund back to requested; paying it again needs a new approval.
+- Audit rows for edits record the previous values of the fields changed.
+- A broker can't be changed once commission has accrued on the booking.
+- Accounts' dashboard no longer asks for the lead summary it can't read.
 
 ## [0.10.0] - date of the tag
 

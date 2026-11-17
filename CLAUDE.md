@@ -121,8 +121,8 @@ docs/           Docusaurus site: install, admin, API, plugin dev
   **Not yet fully true (note added 2026-09-24, v0.7.1):** v0.7.1 fixed
   audit rows being silently dropped on 53 write paths, rows written
   without an actor or IP, and failed audit writes reporting success.
-  Still open, tracked in docs/todo.md: UPDATE rows record after-values
-  only (before = null); audit_logs is not append-only at the database
+  Still open, tracked in docs/todo.md (UPDATE rows record before-values
+  since v0.10.1): audit_logs is not append-only at the database
   level; writes through updateMany/createMany/deleteMany/upsert on
   audited models (role permissions among them) write no audit row.
 - PII: encrypt PAN numbers at rest (AES-256-GCM, key from env);

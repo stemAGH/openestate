@@ -20,20 +20,15 @@ Each has a written plan (root cause, options, tests, frozen code touched).
 
 - **Built on `next/v0.10.1`:** Receipt Entry's payer lookup for accounts; the
   `reports.postsales.company-wide` permission; refunds and interest waivers checked against
-  the booking's ledger under a booking-level lock, with two upgrade reports.
+  the booking's ledger under a booking-level lock, with two upgrade reports; a bounced refund
+  goes back to requested; the accounts dashboard; assignable users for Reassign; the bookings
+  list; lead and applicant editing; booking remark and co-applicants.
 - **Accounts can't open Brokers** to pay commission (needs `admin.broker.read`).
-- **Accounts' dashboard asks for data the role can't read** (`GET /dashboard` and
-  `GET /inquiries/my-day` answer 403 after an accounts sign-in; found 2026-11-16). Same
-  pattern as the screens fixed in v0.10.0: ask only with the permission, show a dashboard
-  that fits the role.
 - **Transfers:** give the new booking a payment plan (the unpaid installments plus the fee),
   and decide how the transfer approval permission is used.
 - **GST rates outside their effective dates** are offered and accepted; check against the
   booking date.
-- **Reassign offers users the server refuses** (and admins can assign to a role that can't
-  read leads); an "assignable users" endpoint.
-- **No screens yet** for allot, register, transfer, refunds, interest waivers, or a bookings
-  list.
+- **No screens yet** for allot, register, transfer, refunds or interest waivers.
 - **UTC "today"** in four more places: the cheque queue's event date, Receipt Entry's date,
   the commission pay date and a stage's completion date (with the wizard and interest-rule
   items below).
@@ -591,7 +586,11 @@ Also: the name check blocks आधार, which is a false positive for the ordi
 Hindi word for "base" (आधार मूल्य). The error suggests मूल instead. Revisit
 only if a real user hits it often.
 
-## HIGH PRIORITY: audit UPDATE rows record after-values only (before = null)
+## Fixed on `next/v0.10.1`: audit UPDATE rows record after-values only (before = null)
+
+Fixed (v0.10.1): an UPDATE row now records the previous values of exactly the fields written,
+read in the same transaction and redacted like the new values. Kept for its history; bulk
+writes and upserts (next entry) are still open.
 
 **What:** the audit extension writes every UPDATE with `before = null` and
 `after = the request's data` (`packages/db/src/audit.extension.ts`,
