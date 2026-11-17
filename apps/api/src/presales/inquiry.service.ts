@@ -18,6 +18,7 @@ import {
   ACTIVE_INQUIRY_STATUSES,
   redactAadhaarLike,
   maskPhonesInText,
+  formatInr,
   type Clock,
 } from '@openestate/shared';
 import type {
@@ -633,6 +634,15 @@ export class InquiryService {
           'Dumping a lead requires both a reason and remarks — select a reason and explain why for future reference.',
         );
       }
+    }
+    // The budget range stays in order: whichever end isn't sent keeps its stored value.
+    const stored = existing as { budgetMinPaise: bigint | null; budgetMaxPaise: bigint | null };
+    const budgetMin = dto.budgetMinPaise ?? stored.budgetMinPaise;
+    const budgetMax = dto.budgetMaxPaise ?? stored.budgetMaxPaise;
+    if (budgetMin != null && budgetMax != null && budgetMax < budgetMin) {
+      throw new BadRequestException(
+        `Budget max (${formatInr(budgetMax)}) is below budget min (${formatInr(budgetMin)})`,
+      );
     }
     if (dto.customFields !== undefined) {
       data.customFields = await this.customFields.resolveValuesForWrite(

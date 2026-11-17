@@ -11,6 +11,7 @@ import {
   type LeadDeleteReason,
 } from '@openestate/shared';
 import { api } from '../../lib/api';
+import LeadDetailsCard, { type LeadDetails } from './LeadDetailsCard';
 import { useAuth } from '../../lib/auth';
 import { Card, ContactActions, EmptyState, FollowUpDue, InquiryStatusBadge, PageHeader } from '../../ui';
 import {
@@ -18,7 +19,7 @@ import {
   useCustomFieldDefinitions,
 } from '../../components/CustomFieldInputs';
 
-interface Inquiry {
+interface Inquiry extends LeadDetails {
   id: string;
   status: string;
   stageId: string | null;
@@ -418,6 +419,11 @@ export default function InquiryDetailPage() {
         </div>
 
         <div className="space-y-6 lg:col-span-2">
+          <LeadDetailsCard
+            inquiry={inquiry}
+            canEdit={hasPermission(PERMISSIONS.PRESALES_INQUIRY_UPDATE)}
+            onSaved={() => qc.invalidateQueries({ queryKey: ['inquiry', id] })}
+          />
           <Card className="p-4">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="section-title">Status</h2>
