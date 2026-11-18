@@ -57,6 +57,8 @@ export const updateCompanyConfigSchema = z
     presalesPhoneDedupAutoLink: z.boolean().optional(),
     // v0.10.1: days a deleted lead can be restored before the daily purge.
     leadPurgeAfterDays: z.number().int().min(1).max(3650).optional(),
+    // v0.10.1: charge (paise) when the company's own refund cheque bounces; default 0.
+    refundChequeBounceChargePaise: z.coerce.bigint().min(0n).max(100_000_000n).optional(),
   })
   .strict();
 

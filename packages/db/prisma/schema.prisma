@@ -355,45 +355,48 @@ model CustomFieldDefinition {
 // ─── Company Config ────────────────────────────────────────────
 
 model CompanyConfig {
-  companyId                  String    @id @map("company_id") @db.Uuid
-  labelOverrides             Json      @default("{}") @map("label_overrides")
-  enabledModules             Json      @default("[\"presales\",\"postsales\",\"accounts\"]") @map("enabled_modules")
-  currency                   String    @default("INR") @db.VarChar(3)
-  timezone                   String    @default("Asia/Kolkata") @db.VarChar(50)
-  fyStartMonth               Int       @default(4) @map("fy_start_month")
-  dateFormat                 String    @default("DD-MM-YYYY") @map("date_format") @db.VarChar(20)
+  companyId                     String    @id @map("company_id") @db.Uuid
+  labelOverrides                Json      @default("{}") @map("label_overrides")
+  enabledModules                Json      @default("[\"presales\",\"postsales\",\"accounts\"]") @map("enabled_modules")
+  currency                      String    @default("INR") @db.VarChar(3)
+  timezone                      String    @default("Asia/Kolkata") @db.VarChar(50)
+  fyStartMonth                  Int       @default(4) @map("fy_start_month")
+  dateFormat                    String    @default("DD-MM-YYYY") @map("date_format") @db.VarChar(20)
   // Supplier-side GST identity — source of truth for the CGST/SGST-vs-IGST
   // split (Phase 4). gstStateCode is the 2-char GST state code (e.g. "09"
   // for UP, "27" for Maharashtra); the first two chars of a GSTIN.
-  companyGstin               String?   @map("company_gstin") @db.VarChar(15)
-  gstStateCode               String?   @map("gst_state_code") @db.VarChar(2)
+  companyGstin                  String?   @map("company_gstin") @db.VarChar(15)
+  gstStateCode                  String?   @map("gst_state_code") @db.VarChar(2)
   // Flat charge (paise) applied when a cheque bounces (Phase 4). A receipt
   // or refund cheque bounce posts a BOUNCE_CHARGE debit of this amount.
-  chequeBounceChargePaise    BigInt    @default(0) @map("cheque_bounce_charge_paise")
+  chequeBounceChargePaise       BigInt    @default(0) @map("cheque_bounce_charge_paise")
+  // v0.10.1: the charge when the company's own REFUND cheque bounces (default 0);
+  // the receipt-cheque charge above no longer applies to refund cheques.
+  refundChequeBounceChargePaise BigInt    @default(0) @map("refund_cheque_bounce_charge_paise")
   // Phase 5: which event triggers broker-commission accrual — ON_BOOKING
   // (full commission at booking confirmation) or ON_COLLECTION_MILESTONE
   // (partitioned across configured collection-percent breakpoints).
-  commissionAccrualTrigger   String    @default("ON_BOOKING") @map("commission_accrual_trigger") @db.VarChar(30)
+  commissionAccrualTrigger      String    @default("ON_BOOKING") @map("commission_accrual_trigger") @db.VarChar(30)
   // Phase 5: what happens to ALREADY-PAID commission when its booking is
   // cancelled — RECOVER (post a CLAWBACK_RECOVERY debit, broker owes it
   // back) or WRITE_OFF (company forgives it; a zero-amount audited entry
   // records the decision, reason required).
-  commissionClawbackPolicy   String    @default("RECOVER") @map("commission_clawback_policy") @db.VarChar(20)
+  commissionClawbackPolicy      String    @default("RECOVER") @map("commission_clawback_policy") @db.VarChar(20)
   // Phase 6: portal branding (logo + accent color shown in apps/portal).
-  logoUrl                    String?   @map("logo_url") @db.VarChar(500)
-  primaryColorHex            String?   @map("primary_color_hex") @db.VarChar(7)
+  logoUrl                       String?   @map("logo_url") @db.VarChar(500)
+  primaryColorHex               String?   @map("primary_color_hex") @db.VarChar(7)
   // v0.2.2: shared cap for ProjectMedia + ConstructionUpdateMedia — both
   // roll up disk usage under one project, an unbounded self-hosted
   // install fills its disk regardless of which table the row lands in.
   // Configurable, sensible defaults (50 files / 500MB per project).
-  projectMediaMaxFiles       Int       @default(50) @map("project_media_max_files")
-  projectMediaMaxBytes       Int       @default(524288000) @map("project_media_max_bytes")
+  projectMediaMaxFiles          Int       @default(50) @map("project_media_max_files")
+  projectMediaMaxBytes          Int       @default(524288000) @map("project_media_max_bytes")
   // A rep's own inquiry must never silently move to someone else via
   // round-robin. When true (default), InquiryService.create() assigns an
   // interactively-created inquiry straight to its creator; round-robin only
   // ever runs for machine-driven intake (inbound lead API, bulk import),
   // which has no human creator to retain ownership for.
-  presalesCreatorRetainsLead Boolean   @default(true) @map("presales_creator_retains_lead")
+  presalesCreatorRetainsLead    Boolean   @default(true) @map("presales_creator_retains_lead")
   // v0.5: automated intake (inbound lead API, bulk import) has no human
   // present to ask "same person or not" — when true (default, unchanged
   // behavior), a phone/email match auto-links to the existing applicant.
@@ -401,7 +404,7 @@ model CompanyConfig {
   // broker's office line) can flip this to always create a NEW applicant
   // and flag the match for a human to resolve later instead, via
   // ApplicantDistinctPair — never silently guessing which is riskier here.
-  presalesPhoneDedupAutoLink Boolean   @default(true) @map("presales_phone_dedup_auto_link")
+  presalesPhoneDedupAutoLink    Boolean   @default(true) @map("presales_phone_dedup_auto_link")
   // One-time marker, not an inferred-from-row-count check: "zero
   // LeadStage rows" is ambiguous between "never seeded" and "admin
   // deleted all six after a real seeding" — inferring from count alone
@@ -411,12 +414,12 @@ model CompanyConfig {
   // 6-row seed (fresh install via seed.ts, or an existing install via
   // sync-permissions.ts's syncLeadStages on upgrade); never touched
   // again afterward, so a company that deletes its stages stays deleted.
-  leadStagesSeededAt         DateTime? @map("lead_stages_seeded_at")
+  leadStagesSeededAt            DateTime? @map("lead_stages_seeded_at")
   // v0.10.1: a deleted lead can be restored for this many days; after that
   // the daily purge removes it for good (with its follow-ups and history).
-  leadPurgeAfterDays         Int       @default(30) @map("lead_purge_after_days")
-  createdAt                  DateTime  @default(now()) @map("created_at")
-  updatedAt                  DateTime  @updatedAt @map("updated_at")
+  leadPurgeAfterDays            Int       @default(30) @map("lead_purge_after_days")
+  createdAt                     DateTime  @default(now()) @map("created_at")
+  updatedAt                     DateTime  @updatedAt @map("updated_at")
 
   company Company @relation(fields: [companyId], references: [id])
 

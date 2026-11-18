@@ -24,6 +24,7 @@ interface CompanyConfigData {
   projectMediaMaxFiles: number | null;
   projectMediaMaxBytes: number | null;
   leadPurgeAfterDays: number | null;
+  refundChequeBounceChargePaise: string | null;
 }
 
 const MODULES = ['presales', 'postsales', 'accounts'];
@@ -51,6 +52,7 @@ export default function CompanyConfigPage() {
   const [projectMediaMaxFiles, setProjectMediaMaxFiles] = useState('');
   const [projectMediaMaxBytes, setProjectMediaMaxBytes] = useState('');
   const [leadPurgeAfterDays, setLeadPurgeAfterDays] = useState('');
+  const [refundBounceRupees, setRefundBounceRupees] = useState('');
 
   const { data: company, isLoading: companyLoading } = useQuery<CompanyData>({
     queryKey: ['company'],
@@ -83,6 +85,7 @@ export default function CompanyConfigPage() {
       setProjectMediaMaxFiles(config.projectMediaMaxFiles != null ? String(config.projectMediaMaxFiles) : '');
       setProjectMediaMaxBytes(config.projectMediaMaxBytes != null ? String(config.projectMediaMaxBytes) : '');
       setLeadPurgeAfterDays(config.leadPurgeAfterDays != null ? String(config.leadPurgeAfterDays) : '');
+      setRefundBounceRupees(config.refundChequeBounceChargePaise != null ? String(Number(config.refundChequeBounceChargePaise) / 100) : '');
     }
   }, [config]);
 
@@ -92,7 +95,8 @@ export default function CompanyConfigPage() {
 
   const nameError = name.trim() === '';
   const maxFilesError = projectMediaMaxFiles.trim() !== '' && (!Number.isInteger(Number(projectMediaMaxFiles)) || Number(projectMediaMaxFiles) < 1 || Number(projectMediaMaxFiles) > 10000);
-  const purgeDaysError = leadPurgeAfterDays.trim() !== '' && (!Number.isInteger(Number(leadPurgeAfterDays)) || Number(leadPurgeAfterDays) < 1 || Number(leadPurgeAfterDays) > 3650);
+  const refundBounceError = refundBounceRupees.trim() !== '' && (!(Number(refundBounceRupees) >= 0) || Number(refundBounceRupees) > 1_000_000);
+  const purgeDaysError =leadPurgeAfterDays.trim() !== '' && (!Number.isInteger(Number(leadPurgeAfterDays)) || Number(leadPurgeAfterDays) < 1 || Number(leadPurgeAfterDays) > 3650);
   const maxBytesError = projectMediaMaxBytes.trim() !== '' && (!Number.isInteger(Number(projectMediaMaxBytes)) || Number(projectMediaMaxBytes) < 1024 * 1024 || Number(projectMediaMaxBytes) > 2147483647);
 
   const handleSave = async () => {
@@ -123,6 +127,7 @@ export default function CompanyConfigPage() {
           ...(projectMediaMaxFiles.trim() !== '' ? { projectMediaMaxFiles: Number(projectMediaMaxFiles) } : {}),
           ...(projectMediaMaxBytes.trim() !== '' ? { projectMediaMaxBytes: Number(projectMediaMaxBytes) } : {}),
           ...(leadPurgeAfterDays.trim() !== '' ? { leadPurgeAfterDays: Number(leadPurgeAfterDays) } : {}),
+          ...(refundBounceRupees.trim() !== '' ? { refundChequeBounceChargePaise: String(Math.round(Number(refundBounceRupees) * 100)) } : {}),
         }),
       });
       qc.invalidateQueries({ queryKey: ['company-config'] });
@@ -387,9 +392,33 @@ export default function CompanyConfigPage() {
           </div>
         </section>
 
+        <section>
+          <h2 className="section-title">Refund Cheques</h2>
+          <p className="text-sm text-slate-500">
+            Charged to the customer&apos;s account when the company&apos;s own refund cheque bounces. Separate from the charge for a
+            customer&apos;s bounced cheque; 0 charges nothing.
+          </p>
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="refund-bounce-charge" className="block text-sm font-medium text-slate-700">Refund-cheque bounce charge (₹)</label>
+              <input
+                id="refund-bounce-charge"
+                type="number"
+                min={0}
+                step="0.01"
+                placeholder="0"
+                value={refundBounceRupees}
+                onChange={(e) => setRefundBounceRupees(e.target.value)}
+                className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm ${refundBounceError ? 'border-red-400' : 'border-slate-300'}`}
+              />
+              {refundBounceError && <p className="mt-1 text-xs text-red-600">Must be between ₹0 and ₹10,00,000</p>}
+            </div>
+          </div>
+        </section>
+
         <button
           onClick={handleSave}
-          disabled={saving || nameError || colorError || gstinError || stateCodeError || maxFilesError || maxBytesError || purgeDaysError}
+          disabled={saving || nameError || colorError || gstinError || stateCodeError || maxFilesError || maxBytesError || purgeDaysError || refundBounceError}
           className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
         >
           {saving ? 'Saving…' : 'Save Configuration'}
