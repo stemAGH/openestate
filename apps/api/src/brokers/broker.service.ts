@@ -161,7 +161,7 @@ export class BrokerService {
         // the broker would leave that commission with the wrong person. Checked
         // under the booking's row lock. (Raw SQL: a row lock has no Prisma API;
         // both ids are bound parameters.)
-        await tx.$queryRaw`SELECT id FROM bookings WHERE id = ${bookingId}::uuid AND company_id = ${companyId}::uuid FOR UPDATE`;
+        await tx.$queryRaw`SELECT id FROM bookings WHERE id = ${bookingId}::uuid AND company_id = ${companyId}::uuid FOR NO KEY UPDATE`;
         const accrued =
           (await tx.brokerBookingCommission.count({ where: { companyId, bookingId } })) +
           (await tx.commissionLedgerEntry.count({ where: { companyId, bookingId } }));
