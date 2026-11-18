@@ -27,6 +27,9 @@ Release notes (draft): [next-release-notes.md](docs/releases/next-release-notes.
 - Audit rows for edits record the previous values of the fields changed.
 - A broker can't be changed once commission has accrued on the booking.
 - Accounts' dashboard no longer asks for the lead summary it can't read.
+- A bounced refund cheque is charged from a new refund-cheque setting (default ₹0, existing installs included), no
+  longer the receipt-cheque charge.
+- Commission accrual and a broker change on the same booking are serialised on the booking row.
 
 ## [0.10.0] - date of the tag
 

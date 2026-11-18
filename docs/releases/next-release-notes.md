@@ -36,6 +36,12 @@ The version number is decided at release. Built so far on `next/v0.10.1`; v0.10.
 - **A bounced refund cheque** sends the refund back to *requested*: paying it again needs a new approval, which checks
   what is owed now. If less is owed (for example after a bounce charge), the approval says so with both amounts;
   reject the refund and request the correct amount. Refunds can now be rejected.
+- **A bounced refund cheque is charged from its own setting**, **Company Config → Refund Cheques**, which starts at
+  **₹0 on every install, existing ones included**. Before, it charged the customer the same amount as one of their own
+  cheques bouncing (₹500 on a default install). If you want a charge for your own bounced refund cheques, set it there.
+  The charge for a customer's bounced cheque is unchanged.
+- **Broker changes and commission accrual** on the same booking now take the same lock: whichever comes first
+  finishes, and the other sees its result.
 - **Interest waivers** are limited to the interest charged on the booking less earlier waivers, and refused on a
   cancelled, surrendered or transferred booking (409).
 - **Audit log:** an edit now records the previous values of the fields changed, not only the new ones.
@@ -55,9 +61,10 @@ Added on upgrade through the seed baseline (an admin who removes them keeps them
 
 ## Upgrading
 
-Three migrations: new columns on `inquiries` (deleted leads) and `company_configs` (retention), an index, and one new
+Four migrations: new columns on `inquiries` (deleted leads) and `company_configs` (retention), an index, and one new
 foreign key (`inquiries.deleted_by_id`), added unvalidated and validated by the second migration; the third adds a
-nullable `remark` column to `bookings`. No existing data changes. The foreign-key count goes from 283 to 284.
+nullable `remark` column to `bookings`; the fourth adds `company_configs.refund_cheque_bounce_charge_paise`, 0 for
+every company. No existing data changes. The foreign-key count goes from 283 to 284.
 
 ### After you upgrade: what to check
 
@@ -74,7 +81,8 @@ The upgrade prints two new read-only reports after the company-references report
   `GET /inquiries/:id/assignable-users`, `GET /bookings`, `PATCH /bookings/:id` (remark),
   `POST /bookings/:id/co-applicants`, `DELETE /bookings/:id/co-applicants/:applicantId`,
   `PUT /bookings/:id/co-applicants/order`, `POST /refunds/:id/reject`.
-- `PATCH /company/config` accepts `leadPurgeAfterDays` (1 to 3650).
+- `PATCH /company/config` accepts `leadPurgeAfterDays` (1 to 3650) and `refundChequeBounceChargePaise` (paise, 0 to
+  ₹10,00,000).
 - `PATCH /applicants/:id` accepts `confirmDistinct`; a phone or email another person has answers 409 with the matches;
   changing a portal customer's sign-in phone or email needs `admin.user.update` (403 otherwise).
 - `PATCH /inquiries/:id` answers 400 when the budget range would be out of order.
@@ -87,5 +95,5 @@ The upgrade prints two new read-only reports after the company-references report
 ## Known limitations
 
 - `presales.inquiry.delete` remains in the permission list, unused (to be removed in a later release).
-- A broker change and a commission accrual on the same booking at the same moment are not serialised by one lock
-  (commission accrual is frozen code); the broker check runs under the booking row lock.
+- After a co-applicant is removed, their portal loses the booking on its next request; a portal page that is already
+  open keeps showing what it had loaded until it refreshes.
