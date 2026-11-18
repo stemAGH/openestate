@@ -132,6 +132,8 @@ describeIf('Money movements: transfer / cancellation / refund / TDS', () => {
   });
 
   it('two-phase refund: approval posts a debit, payment records a voucher (no ledger change), cheque bounce reconciles', async () => {
+    // v0.10.1: a refund cheque bounce is charged from its own setting (default 0); ₹500 here, as the test expects.
+    await systemPrisma.companyConfig.update({ where: { companyId: fx.companyId }, data: { refundChequeBounceChargePaise: L(500) } });
     const { booking, installment } = await bookedWithPlan(L(30_00_000));
     await svc.receipts.createReceipt(
       fx.companyId,

@@ -49,7 +49,7 @@ describeIf('refunds and bounced refund cheques', () => {
     ({ tenantPrisma, systemPrisma } = makeClients());
     svc = buildServices(tenantPrisma, systemPrisma, SYSTEM_CLOCK);
     fx = await seedCompany(systemPrisma);
-    await systemPrisma.companyConfig.update({ where: { companyId: fx.companyId }, data: { chequeBounceChargePaise: L(500) } });
+    await systemPrisma.companyConfig.update({ where: { companyId: fx.companyId }, data: { refundChequeBounceChargePaise: L(500) } });
     ruleId = (await systemPrisma.cancellationRule.create({
       data: { companyId: fx.companyId, name: '10%', deductionType: 'PERCENT', deductionPercent: 10 },
     })).id;
