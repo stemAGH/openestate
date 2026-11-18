@@ -207,7 +207,7 @@ export class RefundService {
         }
 
         const config = await tx.companyConfig.findFirst({ where: { companyId } });
-        const bounceCharge = config?.chequeBounceChargePaise ?? 0n;
+        const bounceCharge = config?.refundChequeBounceChargePaise ?? 0n;
 
         await this.ledger.post(tx, companyId, [
           {
