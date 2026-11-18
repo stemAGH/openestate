@@ -30,6 +30,19 @@ export class CommissionService {
    * sourcing broker, or if there's nothing new to accrue this call.
    */
   async accrueForBooking(companyId: string, bookingId: string, actorId: string | null) {
+    // Never alongside a broker change: the same booking row lock
+    // BrokerService.assignToBooking takes, held for the whole accrual (the
+    // helpers below reuse this transaction), with the booking read after it.
+    return runWithTenant({ companyId }, () =>
+      withTenantTx(this.tenantPrisma, companyId, async (tx) => {
+        // Raw SQL: a row lock has no Prisma API; both ids are bound parameters.
+        await tx.$queryRaw`SELECT id FROM bookings WHERE id = ${bookingId}::uuid AND company_id = ${companyId}::uuid FOR NO KEY UPDATE`;
+        return this.accrueLocked(companyId, bookingId, actorId);
+      }),
+    );
+  }
+
+  private async accrueLocked(companyId: string, bookingId: string, actorId: string | null) {
     const booking = await this.systemPrisma.booking.findFirst({ where: { id: bookingId, companyId } });
     if (!booking) throw new NotFoundException('Booking not found');
     if (!booking.brokerId) return null;
